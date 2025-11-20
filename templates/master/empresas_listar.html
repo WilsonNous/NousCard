@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Empresas</h1>
+
+<div class="nc-section">
+    <a href="{{ url_for('master.empresa_nova') }}" class="nc-btn-primary" style="width:auto;">
+        ➕ Criar nova empresa
+    </a>
+</div>
+
+<div class="nc-section">
+    <table class="nc-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Empresa</th>
+                <th>Criada em</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in empresas %}
+            <tr>
+                <td>{{ emp.id }}</td>
+                <td>{{ emp.nome }}</td>
+                <td>{{ emp.criado_em }}</td>
+                <td>
+                    <a class="nc-btn-table" href="{{ url_for('master.empresa_ver', empresa_id=emp.id) }}">
+                        👁 Ver
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
