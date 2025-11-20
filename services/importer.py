@@ -1,34 +1,40 @@
-from utils.parser_csv import parse_csv_generic
-from utils.parser_ofx import parse_ofx_file
+# services/importer.py
+
+import os
+from utils.parsers import (
+    parse_csv_generic,
+    parse_excel_generic,
+    parse_ofx_generic
+)
+
 
 def process_uploaded_files(files):
     """
-    Processa arquivos enviados.
-    Neste MVP, apenas identifica tipo e conta linhas.
+    Processa todos os arquivos enviados.
+    Retorna lista de resultados por arquivo.
     """
+
     resultados = []
 
-    for f in files:
-        filename = f.filename.lower()
-        if filename.endswith(".csv") or filename.endswith(".txt") or filename.endswith(".xls") or filename.endswith(".xlsx"):
-            rows = parse_csv_generic(f)
-            resultados.append({
-                "arquivo": filename,
-                "tipo": "tabela_cartao_ou_banco",
-                "linhas": len(rows)
-            })
-        elif filename.endswith(".ofx"):
-            lancamentos = parse_ofx_file(f)
-            resultados.append({
-                "arquivo": filename,
-                "tipo": "extrato_banco_ofx",
-                "linhas": len(lancamentos)
-            })
+    for file in files:
+        nome = file.filename.lower()
+
+        if nome.endswith(".csv"):
+            data = parse_csv_generic(file)
+            resultados.append({"arquivo": nome, "linhas": len(data)})
+
+        elif nome.endswith(".xlsx") or nome.endswith(".xls"):
+            data = parse_excel_generic(file)
+            resultados.append({"arquivo": nome, "linhas": len(data)})
+
+        elif nome.endswith(".ofx"):
+            data = parse_ofx_generic(file)
+            resultados.append({"arquivo": nome, "linhas": len(data)})
+
         else:
             resultados.append({
-                "arquivo": filename,
-                "tipo": "desconhecido",
-                "linhas": 0
+                "arquivo": nome,
+                "erro": "Formato não suportado"
             })
 
     return resultados
