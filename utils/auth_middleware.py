@@ -1,36 +1,9 @@
+# utils/auth_middleware.py
 from flask import session, redirect, url_for, g
 from functools import wraps
-from db_conn import get_conn
+from models.usuarios import Usuario
 
 
-def _carregar_usuario(usuario_id: int):
-    """
-    Busca usuário no banco via pymysql.
-    Retorna um dict ou None.
-    """
-    conn = get_conn()
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                id,
-                empresa_id,
-                nome,
-                email,
-                admin,
-                master,
-                criado_em
-            FROM usuarios
-            WHERE id = %s
-            """,
-            (usuario_id,),
-        )
-        return cur.fetchone()
-
-
-# ---------------------------------------------------------
-# Verifica se usuário está logado
-# ---------------------------------------------------------
 def login_required(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
@@ -38,22 +11,16 @@ def login_required(view_func):
         if not usuario_id:
             return redirect(url_for("auth.login_page"))
 
-        usuario = _carregar_usuario(usuario_id)
+        usuario = Usuario.query.get(usuario_id)
         if not usuario:
-            session.clear()
             return redirect(url_for("auth.login_page"))
 
-        # Disponibiliza o usuário globalmente na requisição
         g.user = usuario
-
         return view_func(*args, **kwargs)
 
     return wrapper
 
 
-# ---------------------------------------------------------
-# Apenas para usuários administradores da empresa OU master
-# ---------------------------------------------------------
 def admin_required(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
@@ -61,19 +28,16 @@ def admin_required(view_func):
         if not usuario_id:
             return redirect(url_for("auth.login_page"))
 
-        usuario = _carregar_usuario(usuario_id)
+        usuario = Usuario.query.get(usuario_id)
         if not usuario:
-            session.clear()
             return redirect(url_for("auth.login_page"))
 
         g.user = usuario
 
-        # MASTER sempre pode
-        if usuario.get("master"):
+        if usuario.is_master:
             return view_func(*args, **kwargs)
 
-        # Admin da empresa pode
-        if not usuario.get("admin"):
+        if not usuario.is_admin:
             return "Acesso restrito a administradores.", 403
 
         return view_func(*args, **kwargs)
@@ -81,9 +45,6 @@ def admin_required(view_func):
     return wrapper
 
 
-# ---------------------------------------------------------
-# Apenas o master pode acessar
-# ---------------------------------------------------------
 def master_required(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
@@ -91,14 +52,13 @@ def master_required(view_func):
         if not usuario_id:
             return redirect(url_for("auth.login_page"))
 
-        usuario = _carregar_usuario(usuario_id)
+        usuario = Usuario.query.get(usuario_id)
         if not usuario:
-            session.clear()
             return redirect(url_for("auth.login_page"))
 
         g.user = usuario
 
-        if not usuario.get("master"):
+        if not usuario.is_master:
             return "Acesso permitido apenas ao usuário MASTER.", 403
 
         return view_func(*args, **kwargs)
@@ -106,9 +66,6 @@ def master_required(view_func):
     return wrapper
 
 
-# ---------------------------------------------------------
-# Rotas que exigem vínculo com empresa (menos master)
-# ---------------------------------------------------------
 def empresa_required(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
@@ -116,17 +73,16 @@ def empresa_required(view_func):
         if not usuario_id:
             return redirect(url_for("auth.login_page"))
 
-        usuario = _carregar_usuario(usuario_id)
+        usuario = Usuario.query.get(usuario_id)
         if not usuario:
-            session.clear()
             return redirect(url_for("auth.login_page"))
 
         g.user = usuario
 
-        if usuario.get("master"):
+        if usuario.is_master:
             return view_func(*args, **kwargs)
 
-        if not usuario.get("empresa_id"):
+        if not usuario.empresa_id:
             return "Você precisa estar vinculado a uma empresa para acessar esta área.", 403
 
         return view_func(*args, **kwargs)
