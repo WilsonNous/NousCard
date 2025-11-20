@@ -21,18 +21,10 @@ def login_post():
     email = (request.form.get("email") or "").strip().lower()
     senha = request.form.get("senha") or ""
 
-    print("=== DEBUG LOGIN ===")
-    print("email digitado:", email)
-    print("senha digitada:", senha)
-
     conn = get_conn()
     cur = conn.cursor()
 
-    # MOSTRA TODOS OS USUÁRIOS QUE O RENDER ESTÁ LENDO
-    cur.execute("SELECT id, email, master, admin FROM usuarios")
-    print("usuarios no banco:", cur.fetchall())
-
-    # Agora sim busca o usuário
+    # Busca usuário pelo e-mail
     cur.execute(
         """
         SELECT id, empresa_id, nome, email, senha_hash, admin, master
@@ -44,8 +36,7 @@ def login_post():
     )
     usuario = cur.fetchone()
 
-    print("usuario encontrado:", usuario)
-
+    # Falha de autenticação
     if not usuario or not check_password_hash(usuario["senha_hash"], senha):
         return render_template("login.html", error="Credenciais inválidas.")
 
@@ -68,7 +59,7 @@ def logout():
 
 
 # ---------------------------------------------------------
-# Registro inicial (cliente se auto cadastra)
+# Registro inicial (cliente cria empresa)
 # ---------------------------------------------------------
 @auth_bp.route("/registrar", methods=["GET", "POST"])
 def registrar():
@@ -94,7 +85,7 @@ def registrar():
         )
         empresa_id = cur.lastrowid
 
-        # Cria usuário admin da empresa
+        # Cria usuário admin dessa empresa
         cur.execute(
             """
             INSERT INTO usuarios (empresa_id, nome, email, senha_hash, admin, master)
@@ -104,4 +95,3 @@ def registrar():
         )
 
     return redirect(url_for("auth.login_page"))
-
