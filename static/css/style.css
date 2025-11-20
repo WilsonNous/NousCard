@@ -1,114 +1,139 @@
-/* ============= CORES ============= */
+/* =========================================================
+   CORES PRINCIPAIS • PALETA NOUS
+========================================================= */
 :root {
-    --primary: #1877f2;          /* Azul Facebook */
-    --primary-dark: #0c4180;     /* Azul escuro premium */
-    --primary-mid: #145dbf;      /* Azul intermediário */
-    --bg-light: #f4f6f9;
+    --primary: #1877f2;         /* Azul Facebook premium */
+    --primary-dark: #0d47a1;
+    --primary-light: #3b8bff;
+
+    --bg-light: #f0f2f5;
+    --bg-card: #ffffff;
     --white: #ffffff;
-    --gray: #d9dce1;
-    --text: #333;
-    --success: #27ae60;
+
+    --gray-light: #e4e6eb;
+    --gray: #ccd0d5;
+    --gray-dark: #606770;
+
+    --text: #1c1e21;
+
+    --shadow: rgba(0,0,0,0.10);
+    --shadow-strong: rgba(0,0,0,0.18);
+
+    --success: #2ecc71;
     --danger: #e74c3c;
 }
 
-/* ============= BASE ============= */
-body.nc-body {
-    background: var(--bg-light);
+/* =========================================================
+   RESET / BASE
+========================================================= */
+body {
     margin: 0;
     font-family: "Inter", sans-serif;
-    display: flex;
-    height: 100vh;
+    background: var(--bg-light);
+    color: var(--text);
 }
 
-/* ============= SIDEBAR ============= */
+.nc-layout {
+    display: flex;
+    width: 100%;
+}
+
+/* =========================================================
+   SIDEBAR PREMIUM
+========================================================= */
 .nc-sidebar {
-    width: 250px;
-    background: var(--primary-dark);   /* Mais sofisticado e forte */
+    width: 260px;
+    background: var(--primary);
     color: var(--white);
-    padding: 20px 0;
+    padding: 22px 0;
     display: flex;
     flex-direction: column;
-    transition: 0.3s;
-    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
-}
-
-.nc-sidebar.open {
+    height: 100vh;
+    position: fixed;
     left: 0;
+    top: 0;
+
+    box-shadow: 3px 0 12px var(--shadow);
 }
 
-/* Header da sidebar */
-.nc-sidebar-header {
+.nc-sidebar-logo {
+    font-size: 22px;
+    font-weight: 700;
+    padding: 0 24px;
+    margin-bottom: 15px;
+    letter-spacing: .5px;
+}
+
+/* Menu */
+.nc-nav {
+    margin-top: 10px;
+}
+
+.nc-nav-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 0 18px;
-}
+    gap: 10px;
 
-.nc-logo {
-    font-size: 21px;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-}
-
-/* Botão mobile */
-.nc-menu-toggle {
-    display: none;
-    background: none;
-    border: none;
+    padding: 14px 24px;
+    font-size: 16px;
     color: var(--white);
-    font-size: 24px;
-}
-
-/* ============= MENU ITEMS ============= */
-.nc-menu {
-    margin-top: 20px;
-}
-
-.nc-menu-title {
-    padding: 10px 20px;
-    opacity: 0.75;
-    text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.4px;
-}
-
-.nc-menu-item {
-    display: block;
-    padding: 12px 20px;
     text-decoration: none;
-    color: var(--white);
-    font-size: 15px;
-    transition: 0.15s;
+    transition: all .2s ease;
 }
 
-.nc-menu-item:hover {
-    background: var(--primary-mid);    /* Azul intermediário elegante */
+.nc-nav-item:hover {
+    background: rgba(255,255,255,.14);
+    padding-left: 28px;
 }
 
-/* ============= CONTEÚDO ============= */
+.nc-nav-item.logout {
+    margin-top: auto;
+    background: rgba(0,0,0,0.18);
+    font-weight: 600;
+}
+
+/* =========================================================
+   ÁREA DE CONTEÚDO
+========================================================= */
 .nc-content {
-    padding: 30px;
     flex: 1;
-    overflow-y: auto;
+    margin-left: 260px;
+    padding: 40px;
 }
 
-/* ============= CARDS E GRIDS ============= */
+/* =========================================================
+   SEÇÕES / TITULOS / GRID
+========================================================= */
 .nc-section {
-    margin-bottom: 30px;
+    margin-bottom: 45px;
 }
 
+.nc-section h2 {
+    margin-bottom: 18px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+/* KPI GRID */
 .nc-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 22px;
 }
 
 .nc-kpi-card {
-    background: var(--white);
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid var(--gray);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background: var(--bg-card);
+    padding: 24px;
+    border-radius: 14px;
+
+    border: 1px solid var(--gray-light);
+    box-shadow: 0 4px 10px var(--shadow);
+    transition: .2s;
+}
+
+.nc-kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px var(--shadow-strong);
 }
 
 .nc-kpi-label {
@@ -117,16 +142,18 @@ body.nc-body {
 }
 
 .nc-kpi-value {
-    font-size: 24px;
-    font-weight: bold;
-    margin-top: 5px;
+    font-size: 26px;
+    margin-top: 4px;
+    font-weight: 700;
 }
 
 .highlight {
     color: var(--danger);
 }
 
-/* ============= LOGIN PAGE ============= */
+/* =========================================================
+   LOGIN PAGE PREMIUM
+========================================================= */
 .nc-login-body {
     background: var(--primary);
     display: flex;
@@ -137,105 +164,85 @@ body.nc-body {
 
 .nc-login-box {
     background: var(--white);
-    padding: 35px;
-    border-radius: 12px;
+    padding: 40px 32px;
+    border-radius: 14px;
     width: 360px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+
+    box-shadow: 0 6px 18px var(--shadow);
+}
+
+.nc-login-box h2 {
+    text-align: center;
+    margin-bottom: 20px;
 }
 
 .nc-login-box input {
     width: 100%;
     padding: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     border-radius: 8px;
     border: 1px solid var(--gray);
+    font-size: 15px;
 }
 
 .nc-btn-primary {
     width: 100%;
     background: var(--primary);
-    padding: 12px;
-    color: var(--white);
+    padding: 13px;
+    color: white;
     border: none;
     border-radius: 8px;
+    font-weight: 600;
     cursor: pointer;
-    font-size: 16px;
+    transition: .2s;
 }
 
 .nc-btn-primary:hover {
-    background: var(--primary-mid);
+    background: var(--primary-dark);
 }
 
-/* ============= RODAPÉ GLOBAL ============= */
-.nc-footer {
-    margin-top: 30px;
-    padding: 15px 5px;
-    text-align: center;
-    font-size: 13px;
-    opacity: .8;
-    color: var(--text);
-}
-
-/* ============= RESPONSIVIDADE ============= */
-@media(max-width: 800px) {
-    .nc-sidebar {
-        position: fixed;
-        left: -250px;
-        top: 0;
-        height: 100%;
-        z-index: 10;
-    }
-
-    .nc-menu-toggle {
-        display: inline-block;
-    }
-
-    .nc-sidebar.open {
-        left: 0;
-    }
-
-    .nc-content {
-        padding: 20px;
-    }
-}
-
-/* ============= TABELAS ============= */
+/* =========================================================
+   TABELAS
+========================================================= */
 .nc-table {
     width: 100%;
     border-collapse: collapse;
     background: var(--white);
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
-    font-size: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+
+    box-shadow: 0 4px 14px var(--shadow);
 }
 
 .nc-table th {
     background: var(--primary);
     color: var(--white);
-    padding: 12px;
+    padding: 14px;
     text-align: left;
 }
 
 .nc-table td {
-    padding: 12px;
-    border-bottom: 1px solid var(--gray);
+    padding: 14px;
+    border-bottom: 1px solid var(--gray-light);
 }
 
 .nc-table tr:hover td {
-    background: #eaf1ff;
+    background: #eef4ff;
 }
 
+/* Mini botão */
 .nc-btn-table {
     background: var(--primary);
     padding: 6px 10px;
     color: white;
     text-decoration: none;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
-/* ============= FORMULÁRIOS ============= */
+/* =========================================================
+   FORMULÁRIOS
+========================================================= */
 .nc-form label {
     display: block;
     margin: 12px 0 4px;
@@ -248,4 +255,52 @@ body.nc-body {
     padding: 12px;
     border: 1px solid var(--gray);
     border-radius: 8px;
+}
+
+/* =========================================================
+   FOOTER NOUS PREMIUM
+========================================================= */
+.nc-footer {
+    width: 100%;
+    text-align: center;
+    padding: 16px 0;
+    color: #555;
+
+    position: fixed;
+    bottom: 0;
+    left: 260px;
+    background: var(--bg-light);
+    border-top: 1px solid var(--gray-light);
+    font-size: 14px;
+
+    backdrop-filter: blur(6px);
+    box-shadow: 0 -2px 6px var(--shadow);
+}
+
+/* =========================================================
+   MOBILE / RESPONSIVO
+========================================================= */
+@media(max-width: 850px) {
+    .nc-sidebar {
+        position: fixed;
+        left: -260px;
+        z-index: 10;
+    }
+
+    .nc-sidebar.open {
+        left: 0;
+    }
+
+    .nc-menu-toggle {
+        display: inline-block;
+    }
+
+    .nc-content {
+        margin-left: 0;
+        padding: 22px;
+    }
+
+    .nc-footer {
+        left: 0;
+    }
 }
