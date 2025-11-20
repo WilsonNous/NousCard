@@ -4,6 +4,7 @@ from .conciliacao_routes import conciliacao_bp
 from .contrato_routes import contrato_bp
 from .assistant_routes import assistant_bp
 from .auth_routes import auth_bp
+from .empresas_routes import empresas_bp
 
 def register_blueprints(app):
     app.register_blueprint(dashboard_bp)
@@ -12,3 +13,4 @@ def register_blueprints(app):
     app.register_blueprint(contrato_bp, url_prefix="/contratos")
     app.register_blueprint(assistant_bp, url_prefix="/assistant")
     app.register_blueprint(auth_bp)
+    app.register_blueprint(empresas_bp)
