@@ -104,3 +104,8 @@ def registrar():
         )
 
     return redirect(url_for("auth.login_page"))
+
+@auth_bp.route("/genhash")
+def genhash():
+    from werkzeug.security import generate_password_hash
+    return generate_password_hash("nouscard")
