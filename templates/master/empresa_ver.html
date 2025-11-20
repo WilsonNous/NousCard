@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Empresa: {{ empresa.nome }}</h1>
+
+<div class="nc-section">
+    <a href="{{ url_for('master.usuario_novo', empresa_id=empresa.id) }}"
+       class="nc-btn-primary" style="width:auto;">
+       ➕ Novo usuário
+    </a>
+</div>
+
+<div class="nc-section">
+    <h2>Usuários da empresa</h2>
+
+    <table class="nc-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Admin</th>
+                <th>Criado em</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td>{{ u.id }}</td>
+                <td>{{ u.nome }}</td>
+                <td>{{ u.email }}</td>
+                <td>{% if u.admin %}✔{% else %}—{% endif %}</td>
+                <td>{{ u.criado_em }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
