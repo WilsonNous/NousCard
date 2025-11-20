@@ -3,8 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <title>Login - NousCard</title>
+
+    <!-- CSS principal -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Ajustes visuais opcionais exclusivos do login -->
+    <style>
+        body.nc-login-body {
+            margin: 0;
+            padding: 0;
+            font-family: "Inter", Arial, sans-serif;
+            background: #eef2f7; /* fundo neutro */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .nc-login-box {
+            width: 340px;
+            background: #fff;
+            padding: 32px 28px;
+            border-radius: 14px;
+            box-shadow: 0 4px 14px rgba(0,0,0,.08);
+            text-align: center;
+            animation: fadeIn .4s ease-out;
+        }
+
+        .nc-login-box h2 {
+            margin-bottom: 18px;
+            color: #1877f2; /* azul Facebook */
+            font-size: 24px;
+        }
+
+        .nc-login-box input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 14px;
+            border-radius: 8px;
+            border: 1px solid #d0d7e1;
+            font-size: 15px;
+        }
+
+        .nc-login-box input:focus {
+            outline: none;
+            border-color: #1877f2;
+            box-shadow: 0 0 0 2px rgba(24,119,242,0.15);
+        }
+
+        .nc-btn-primary {
+            width: 100%;
+            padding: 12px;
+            background: #1877f2;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .nc-btn-primary:hover {
+            background: #0f63d1;
+        }
+
+        .nc-login-box p {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #444;
+        }
+
+        .nc-login-box a {
+            color: #1877f2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .nc-login-box a:hover {
+            text-decoration: underline;
+        }
+
+        .nc-error {
+            padding: 10px;
+            margin-bottom: 15px;
+            background: #ffe5e5;
+            border: 1px solid #ffb3b3;
+            color: #cf0000;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
+
 <body class="nc-login-body">
 
 <div class="nc-login-box">
@@ -15,16 +111,18 @@
     {% endif %}
 
     <form method="POST">
-        <input type="email" name="email" placeholder="E-mail" required>
-        <input type="password" name="senha" placeholder="Senha" required>
+        <input type="email" name="email" placeholder="E-mail" autocomplete="username" required>
+        <input type="password" name="senha" placeholder="Senha" autocomplete="current-password" required>
 
         <button type="submit" class="nc-btn-primary">Entrar</button>
     </form>
 
+    {% if show_register %}
     <p>
         Ainda não tem conta?
         <a href="{{ url_for('auth.registrar') }}">Criar empresa</a>
     </p>
+    {% endif %}
 </div>
 
 </body>
