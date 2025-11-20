@@ -313,3 +313,22 @@ form.nc-form {
     display: flex;
     gap: 8px;
 }
+
+.nc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.nc-table th,
+.nc-table td {
+    border-bottom: 1px solid var(--nc-border);
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.nc-table th {
+    background: #FAFAFA;
+    font-weight: 600;
+    font-size: 12px;
+}
