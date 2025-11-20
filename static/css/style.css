@@ -1,253 +1,315 @@
+/* static/css/style.css */
+
+/* =========================================================
+   VARIÁVEIS DE TEMA - AZUL NOUS (estilo Facebook)
+   ========================================================= */
 :root {
-  --nc-bg: #f4f6fb;
-  --nc-bg-card: #ffffff;
-  --nc-primary: #ff6d00;
-  --nc-primary-soft: #ffe0cc;
-  --nc-text: #222;
-  --nc-muted: #777;
-  --nc-border: #e0e4f0;
-  --nc-radius: 16px;
-  --nc-shadow: 0 10px 25px rgba(0,0,0,0.06);
-  --nc-font: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "Roboto", sans-serif;
+    --nc-primary: #1877F2;
+    --nc-primary-dark: #0D47A1;
+    --nc-bg: #F5F6F7;
+    --nc-bg-alt: #FFFFFF;
+    --nc-border: #E0E0E0;
+    --nc-text: #333333;
+    --nc-text-muted: #777777;
+
+    --nc-radius: 10px;
+    --nc-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
+/* =========================================================
+   RESET BÁSICO
+   ========================================================= */
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-body {
-  margin: 0;
-  font-family: var(--nc-font);
-  background: var(--nc-bg);
-  color: var(--nc-text);
+body.nc-body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--nc-bg);
+    color: var(--nc-text);
 }
 
-/* Header */
+/* =========================================================
+   HEADER
+   ========================================================= */
 .nc-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 32px;
-  background: #ffffff;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+    background: var(--nc-bg-alt);
+    border-bottom: 1px solid var(--nc-border);
+    box-shadow: var(--nc-shadow);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .nc-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
 }
 
 .nc-logo {
-  font-size: 32px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--nc-primary-dark);
 }
 
-.nc-header h1 {
-  margin: 0;
-  font-size: 22px;
+.nc-header-sub {
+    font-size: 12px;
+    color: var(--nc-text-muted);
 }
 
-.nc-header small {
-  color: var(--nc-muted);
+.nc-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.nc-nav a {
-  margin-left: 18px;
-  text-decoration: none;
-  color: var(--nc-muted);
-  font-weight: 500;
+.nc-user-label {
+    font-size: 14px;
+    color: var(--nc-text-muted);
 }
 
-.nc-nav a:hover {
-  color: var(--nc-primary);
+/* =========================================================
+   LAYOUT PRINCIPAL
+   ========================================================= */
+.nc-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 60px);
 }
 
-/* Main */
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+.nc-sidebar {
+    background: #FFFFFF;
+    border-right: 1px solid var(--nc-border);
+    padding: 16px 12px;
+}
+
+.nc-sidebar nav ul {
+    list-style: none;
+}
+
+.nc-sidebar nav ul li {
+    margin-bottom: 6px;
+}
+
+.nc-sidebar nav ul li a {
+    display: block;
+    padding: 8px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--nc-text);
+}
+
+.nc-sidebar nav ul li a:hover {
+    background: rgba(24, 119, 242, 0.08);
+    color: var(--nc-primary-dark);
+}
+
+.nc-sidebar-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--nc-text-muted);
+    margin-top: 12px;
+    margin-bottom: 4px;
+}
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
 .nc-main {
-  max-width: 1100px;
-  margin: 24px auto 40px;
-  padding: 0 16px;
+    padding: 20px 24px;
 }
 
-/* Section */
+/* =========================================================
+   BOTÕES
+   ========================================================= */
+.nc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.nc-btn-outline {
+    border: 1px solid var(--nc-primary);
+    color: var(--nc-primary);
+    background: #FFFFFF;
+}
+
+.nc-btn-outline:hover {
+    background: var(--nc-primary);
+    color: #FFFFFF;
+}
+
+/* =========================================================
+   SEÇÕES & CARDS
+   ========================================================= */
 .nc-section {
-  background: var(--nc-bg-card);
-  border-radius: var(--nc-radius);
-  padding: 20px 22px;
-  box-shadow: var(--nc-shadow);
-  margin-bottom: 20px;
+    background: var(--nc-bg-alt);
+    border-radius: var(--nc-radius);
+    box-shadow: var(--nc-shadow);
+    padding: 16px 18px;
+    margin-bottom: 16px;
 }
 
 .nc-section h2 {
-  margin-top: 0;
+    font-size: 18px;
+    margin-bottom: 10px;
 }
 
-/* KPI cards */
-.nc-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin-top: 16px;
+/* Card de info do usuário */
+.user-info-card h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
 }
 
-.nc-kpi-card {
-  background: #fafbff;
-  border-radius: var(--nc-radius);
-  padding: 14px 16px;
-  border: 1px solid var(--nc-border);
+.user-info-card p {
+    font-size: 14px;
+    margin-bottom: 4px;
 }
 
-.nc-kpi-label {
-  display: block;
-  font-size: 13px;
-  color: var(--nc-muted);
-}
-
-.nc-kpi-value {
-  display: block;
-  margin-top: 6px;
-  font-size: 20px;
-  font-weight: 600;
-}
-
-.nc-kpi-value.highlight {
-  color: #d80b36;
-}
-
-/* Charts */
-.nc-chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.nc-chart-placeholder {
-  border-radius: var(--nc-radius);
-  border: 1px dashed var(--nc-border);
-  padding: 35px 16px;
-  text-align: center;
-  color: var(--nc-muted);
-  font-size: 14px;
-}
-
-/* Upload */
-.nc-upload-form {
-  margin-top: 16px;
-}
-
-.nc-dropzone {
-  border: 2px dashed var(--nc-border);
-  border-radius: var(--nc-radius);
-  padding: 28px;
-  text-align: center;
-  color: var(--nc-muted);
-  cursor: pointer;
-  margin-bottom: 12px;
-  background: #fdfdff;
-}
-
-.nc-dropzone:hover {
-  border-color: var(--nc-primary);
-}
-
-.nc-btn-primary {
-  background: var(--nc-primary);
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 10px 22px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(255, 109, 0, 0.35);
-}
-
-.nc-btn-primary:hover {
-  filter: brightness(1.03);
-}
-
-.nc-upload-result, .nc-conc-resumo {
-  margin-top: 16px;
-  font-size: 14px;
-}
-
-/* Footer */
-.nc-footer {
-  text-align: center;
-  color: var(--nc-muted);
-  font-size: 12px;
-  padding: 16px 0 30px;
-}
-
-/* Login */
-.nc-login-body {
-  background: #f5f5f8;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.nc-login-box {
-  background: #fff;
-  padding: 28px;
-  width: 360px;
-  border-radius: var(--nc-radius);
-  box-shadow: var(--nc-shadow);
-}
-
-.nc-login-box h2 {
-  margin-top: 0;
-  text-align: center;
-}
-
-.nc-login-box input {
-  width: 100%;
-  padding: 10px;
-  margin: 8px 0;
-  border-radius: 8px;
-  border: 1px solid var(--nc-border);
-}
-
-.nc-error {
-  padding: 8px;
-  background: #ffb3b3;
-  border-radius: 8px;
-  margin-bottom: 10px;
-  color: #a00000;
-}
-
-.user-info-card {
-    background: #fff;
-    padding: 18px 22px;
-    border-radius: 10px;
-    margin-bottom: 25px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.06);
+/* Tags de nível de acesso */
+.tag-master,
+.tag-admin,
+.tag-user {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 .tag-master {
-    background: #6a00ff;
-    padding: 4px 8px;
-    border-radius: 4px;
-    color: white;
-    font-weight: bold;
+    background: #2E7D32;
+    color: #FFFFFF;
 }
 
 .tag-admin {
-    background: #ff8c00;
-    padding: 4px 8px;
-    border-radius: 4px;
-    color: white;
-    font-weight: bold;
+    background: #1565C0;
+    color: #FFFFFF;
 }
 
 .tag-user {
-    background: #3498db;
-    padding: 4px 8px;
-    border-radius: 4px;
-    color: white;
-    font-weight: bold;
+    background: #9E9E9E;
+    color: #FFFFFF;
+}
+
+/* =========================================================
+   GRID DE CONFIGURAÇÕES
+   ========================================================= */
+.nc-config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.nc-config-card {
+    display: block;
+    padding: 12px;
+    background: #FFFFFF;
+    border-radius: var(--nc-radius);
+    border: 1px solid var(--nc-border);
+    font-size: 14px;
+    text-decoration: none;
+    color: var(--nc-text);
+    box-shadow: var(--nc-shadow);
+}
+
+.nc-config-card:hover {
+    border-color: var(--nc-primary);
+    box-shadow: 0 4px 12px rgba(24, 119, 242, 0.16);
+}
+
+/* =========================================================
+   KPIs
+   ========================================================= */
+.nc-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.nc-kpi-card {
+    background: #FFFFFF;
+    border-radius: var(--nc-radius);
+    box-shadow: var(--nc-shadow);
+    padding: 12px 14px;
+}
+
+.nc-kpi-label {
+    font-size: 12px;
+    color: var(--nc-text-muted);
+}
+
+.nc-kpi-value {
+    font-size: 18px;
+    font-weight: 600;
+    display: block;
+    margin-top: 4px;
+}
+
+.nc-kpi-value.highlight {
+    color: #D84315;
+}
+
+/* =========================================================
+   PLACEHOLDERS GRÁFICOS
+   ========================================================= */
+.nc-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.nc-chart-placeholder {
+    border-radius: var(--nc-radius);
+    border: 1px dashed var(--nc-border);
+    padding: 30px;
+    font-size: 13px;
+    text-align: center;
+    color: var(--nc-text-muted);
+}
+
+/* =========================================================
+   FORMULÁRIOS BÁSICOS (úteis para empresas depois)
+   ========================================================= */
+form.nc-form {
+    display: grid;
+    gap: 10px;
+}
+
+.nc-form label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.nc-form input[type="text"],
+.nc-form input[type="email"],
+.nc-form input[type="password"],
+.nc-form input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--nc-border);
+    font-size: 14px;
+}
+
+.nc-form-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
 }
