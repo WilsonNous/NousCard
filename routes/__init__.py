@@ -17,4 +17,4 @@ def register_blueprints(app):
     app.register_blueprint(auth_bp)
     app.register_blueprint(empresas_bp)
     app.register_blueprint(master_bp)
-     app.register_blueprint(operacoes_bp, url_prefix="/operacoes")
+    app.register_blueprint(operacoes_bp, url_prefix="/operacoes")
