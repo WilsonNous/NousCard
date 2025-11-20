@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: nouscard
+    env: python
+    plan: starter
+    region: oregon
+
+    pythonVersion: 3.11
+
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FLASK_ENV
+        value: "production"
