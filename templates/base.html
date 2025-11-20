@@ -1,36 +1,58 @@
+<!-- templates/base.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <title>NousCard - Conciliação simples para microempresas</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <title>NousCard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="nc-body">
+
 <header class="nc-header">
     <div class="nc-header-left">
-        <span class="nc-logo">💳</span>
-        <div>
-            <h1>NousCard</h1>
-            <small>Clareza nos recebíveis sem dor de cabeça</small>
-        </div>
+        <h1 class="nc-logo">NousCard</h1>
+        {% if usuario %}
+            <span class="nc-header-sub">Gestão de cartões e conciliação</span>
+        {% endif %}
     </div>
-    <nav class="nc-nav">
-        <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('upload.upload_page') }}">Importar arquivos</a>
-        <a href="{{ url_for('conciliacao.conciliacao_page') }}">Conciliação</a>
-    </nav>
+
+    <div class="nc-header-right">
+        {% if usuario %}
+            <span class="nc-user-label">Olá, {{ usuario.nome }}</span>
+            <a href="{{ url_for('auth.logout') }}" class="nc-btn nc-btn-outline">Sair</a>
+        {% endif %}
+    </div>
 </header>
 
-<main class="nc-main">
-    {% block content %}{% endblock %}
-</main>
+<div class="nc-layout">
+    {% if usuario %}
+    <aside class="nc-sidebar">
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a></li>
 
-<footer class="nc-footer">
-    NousCard • Pensado para pequenos negócios • {{ 2025 }}
-</footer>
+                {% if usuario.is_master %}
+                    <li class="nc-sidebar-section-title">Administração Geral</li>
+                    <li><a href="{{ url_for('empresas.listar_empresas') }}">Empresas</a></li>
+                {% endif %}
 
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-<script src="{{ url_for('static', filename='js/upload.js') }}"></script>
+                {% if usuario.empresa_id %}
+                    <li class="nc-sidebar-section-title">Minha Empresa</li>
+                    <li><a href="#">Contas bancárias</a></li>
+                    <li><a href="#">Adquirentes</a></li>
+                    <li><a href="#">Taxas / Contratos</a></li>
+                    <li><a href="#">Importação de arquivos</a></li>
+                    <li><a href="#">Conciliação</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </aside>
+    {% endif %}
+
+    <main class="nc-main">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
 </body>
 </html>
