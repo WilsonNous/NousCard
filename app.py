@@ -7,19 +7,29 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Inicializa banco
+    # ------------------------------------------------------
+    # Inicializa SQLAlchemy APENAS como estrutura de modelos
+    # (Não é usado para conectar ao banco)
+    # ------------------------------------------------------
     db.init_app(app)
 
-    # Registra blueprints
+    # ------------------------------------------------------
+    # Registra todas as rotas
+    # ------------------------------------------------------
     register_blueprints(app)
 
+    # ------------------------------------------------------
+    # Rota simples para checagem
+    # ------------------------------------------------------
     @app.route("/health")
     def health_check():
         return {"status": "ok", "app": "NousCard"}
 
     return app
 
+
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Debug apenas local
+    app.run(host="0.0.0.0", port=5000, debug=True)
