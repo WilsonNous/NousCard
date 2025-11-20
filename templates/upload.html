@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="nc-section">
+    <h2>Importar arquivos</h2>
+    <p>Envie os arquivos da maquininha e do banco (CSV, Excel ou OFX). Nós cuidamos do resto.</p>
+
+    <form id="uploadForm" class="nc-upload-form">
+        <div id="dropZone" class="nc-dropzone">
+            Arraste e solte seus arquivos aqui<br>
+            ou clique para selecionar.
+            <input type="file" id="fileInput" name="files[]" multiple hidden>
+        </div>
+        <button type="submit" class="nc-btn-primary">Enviar e analisar</button>
+    </form>
+
+    <div id="uploadResult" class="nc-upload-result"></div>
+</section>
+{% endblock %}
