@@ -3,11 +3,11 @@ from utils.auth_middleware import login_required
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
+
 @dashboard_bp.route("/")
 @login_required
 def dashboard():
-
-    # Depois conectamos aos dados reais
+    # Depois: carregar dados reais do banco por empresa_id = g.user["empresa_id"]
     kpis = {
         "total_vendas": 0.00,
         "total_recebido": 0.00,
@@ -15,5 +15,6 @@ def dashboard():
         "alertas": 0,
     }
 
-    # Enviar o usuário logado (g.user vem do middleware)
-    return render_template("dashboard.html", kpis=kpis, user=g.user)
+    usuario = getattr(g, "user", None)
+
+    return render_template("dashboard.html", kpis=kpis, usuario=usuario)
