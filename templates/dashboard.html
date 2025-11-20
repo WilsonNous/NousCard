@@ -5,27 +5,46 @@
 <!-- IDENTIDADE DO USUÁRIO -->
 <!-- ===================================================== -->
 <section class="nc-section user-info-card">
-    <h3>Olá, {{ usuario.nome }}! 👋</h3>
+    <h3>Olá, {{ usuario.nome }}!</h3>
 
     <p>
         <strong>Acesso:</strong>
-        {% if usuario.master %}
+        {% if usuario.is_master %}
             <span class="tag-master">MASTER</span>
-        {% elif usuario.admin %}
+        {% elif usuario.is_admin %}
             <span class="tag-admin">ADMIN</span>
         {% else %}
             <span class="tag-user">Usuário</span>
         {% endif %}
     </p>
 
-    <p>
-        <strong>Empresa:</strong>
-        {% if usuario.empresa_id %}
-            ID {{ usuario.empresa_id }}
-        {% else %}
-            — (usuário MASTER sem vínculo)
+    {% if usuario.empresa %}
+        <p><strong>Empresa:</strong> {{ usuario.empresa.nome }}</p>
+    {% else %}
+        <p><strong>Empresa:</strong> — (usuário MASTER sem vínculo)</p>
+    {% endif %}
+</section>
+
+<!-- ===================================================== -->
+<!-- CONFIGURAÇÕES / ACESSOS -->
+<!-- ===================================================== -->
+<section class="nc-section">
+    <h2>Configurações</h2>
+
+    <div class="nc-config-grid">
+        {% if usuario.is_master %}
+            <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-config-card">
+                Gestão de empresas
+            </a>
         {% endif %}
-    </p>
+
+        {% if usuario.empresa_id %}
+            <a href="#" class="nc-config-card">Contas bancárias</a>
+            <a href="#" class="nc-config-card">Adquirentes</a>
+            <a href="#" class="nc-config-card">Taxas / Contratos</a>
+            <a href="#" class="nc-config-card">Importação / Conciliação</a>
+        {% endif %}
+    </div>
 </section>
 
 <!-- ===================================================== -->
@@ -38,17 +57,14 @@
             <span class="nc-kpi-label">Total de vendas</span>
             <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</span>
         </div>
-
         <div class="nc-kpi-card">
             <span class="nc-kpi-label">Total recebido</span>
             <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</span>
         </div>
-
         <div class="nc-kpi-card">
             <span class="nc-kpi-label">Diferença</span>
             <span class="nc-kpi-value highlight">R$ {{ "%.2f"|format(kpis.diferenca) }}</span>
         </div>
-
         <div class="nc-kpi-card">
             <span class="nc-kpi-label">Alertas</span>
             <span class="nc-kpi-value">{{ kpis.alertas }}</span>
