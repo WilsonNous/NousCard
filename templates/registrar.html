@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Criar conta - NousCard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="nc-login-body">
+
+<div class="nc-login-box">
+    <h2>Criar empresa</h2>
+
+    <form method="POST">
+        <input type="text" name="empresa" placeholder="Nome da empresa" required>
+        <input type="text" name="nome" placeholder="Seu nome" required>
+        <input type="email" name="email" placeholder="Seu e-mail" required>
+        <input type="password" name="senha" placeholder="Senha" required>
+
+        <button type="submit" class="nc-btn-primary">Criar conta</button>
+    </form>
+
+    <p>
+        Já tem acesso?
+        <a href="{{ url_for('auth.login_page') }}">Entrar</a>
+    </p>
+</div>
+
+</body>
+</html>
