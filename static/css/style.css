@@ -1,334 +1,181 @@
-/* static/css/style.css */
-
-/* =========================================================
-   VARIÁVEIS DE TEMA - AZUL NOUS (estilo Facebook)
-   ========================================================= */
+/* ============= CORES ============= */
 :root {
-    --nc-primary: #1877F2;
-    --nc-primary-dark: #0D47A1;
-    --nc-bg: #F5F6F7;
-    --nc-bg-alt: #FFFFFF;
-    --nc-border: #E0E0E0;
-    --nc-text: #333333;
-    --nc-text-muted: #777777;
-
-    --nc-radius: 10px;
-    --nc-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    --primary: #1877f2;
+    --primary-dark: #0e3a75;
+    --bg-light: #f4f6f9;
+    --white: #ffffff;
+    --gray: #d9dce1;
+    --text: #333;
+    --success: #27ae60;
+    --danger: #e74c3c;
 }
 
-/* =========================================================
-   RESET BÁSICO
-   ========================================================= */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
+/* ============= BASE ============= */
 body.nc-body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--nc-bg);
-    color: var(--nc-text);
-}
-
-/* =========================================================
-   HEADER
-   ========================================================= */
-.nc-header {
-    background: var(--nc-bg-alt);
-    border-bottom: 1px solid var(--nc-border);
-    box-shadow: var(--nc-shadow);
-    padding: 12px 24px;
+    background: var(--bg-light);
+    margin: 0;
+    font-family: "Inter", sans-serif;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    height: 100vh;
 }
 
-.nc-header-left {
+/* ============= SIDEBAR ============= */
+.nc-sidebar {
+    width: 250px;
+    background: var(--primary);
+    color: var(--white);
+    padding: 20px 0;
     display: flex;
     flex-direction: column;
+    transition: 0.3s;
+}
+
+.nc-sidebar.open {
+    left: 0;
+}
+
+.nc-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 18px;
 }
 
 .nc-logo {
     font-size: 20px;
-    font-weight: 700;
-    color: var(--nc-primary-dark);
+    font-weight: bold;
 }
 
-.nc-header-sub {
-    font-size: 12px;
-    color: var(--nc-text-muted);
-}
-
-.nc-header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.nc-user-label {
-    font-size: 14px;
-    color: var(--nc-text-muted);
-}
-
-/* =========================================================
-   LAYOUT PRINCIPAL
-   ========================================================= */
-.nc-layout {
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 0;
-    min-height: calc(100vh - 60px);
-}
-
-/* =========================================================
-   SIDEBAR
-   ========================================================= */
-.nc-sidebar {
-    background: #FFFFFF;
-    border-right: 1px solid var(--nc-border);
-    padding: 16px 12px;
-}
-
-.nc-sidebar nav ul {
-    list-style: none;
-}
-
-.nc-sidebar nav ul li {
-    margin-bottom: 6px;
-}
-
-.nc-sidebar nav ul li a {
-    display: block;
-    padding: 8px 10px;
-    font-size: 14px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--nc-text);
-}
-
-.nc-sidebar nav ul li a:hover {
-    background: rgba(24, 119, 242, 0.08);
-    color: var(--nc-primary-dark);
-}
-
-.nc-sidebar-section-title {
-    font-size: 11px;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--nc-text-muted);
-    margin-top: 12px;
-    margin-bottom: 4px;
-}
-
-/* =========================================================
-   MAIN CONTENT
-   ========================================================= */
-.nc-main {
-    padding: 20px 24px;
-}
-
-/* =========================================================
-   BOTÕES
-   ========================================================= */
-.nc-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-size: 13px;
+.nc-menu-toggle {
+    display: none;
+    background: none;
     border: none;
-    cursor: pointer;
-    text-decoration: none;
+    color: var(--white);
+    font-size: 22px;
 }
 
-.nc-btn-outline {
-    border: 1px solid var(--nc-primary);
-    color: var(--nc-primary);
-    background: #FFFFFF;
+/* ============= MENU ITEMS ============= */
+.nc-menu {
+    margin-top: 20px;
 }
 
-.nc-btn-outline:hover {
-    background: var(--nc-primary);
-    color: #FFFFFF;
-}
-
-/* =========================================================
-   SEÇÕES & CARDS
-   ========================================================= */
-.nc-section {
-    background: var(--nc-bg-alt);
-    border-radius: var(--nc-radius);
-    box-shadow: var(--nc-shadow);
-    padding: 16px 18px;
-    margin-bottom: 16px;
-}
-
-.nc-section h2 {
-    font-size: 18px;
-    margin-bottom: 10px;
-}
-
-/* Card de info do usuário */
-.user-info-card h3 {
-    font-size: 18px;
-    margin-bottom: 8px;
-}
-
-.user-info-card p {
-    font-size: 14px;
-    margin-bottom: 4px;
-}
-
-/* Tags de nível de acesso */
-.tag-master,
-.tag-admin,
-.tag-user {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 999px;
+.nc-menu-title {
+    padding: 10px 20px;
+    opacity: 0.8;
+    text-transform: uppercase;
     font-size: 11px;
-    font-weight: 600;
 }
 
-.tag-master {
-    background: #2E7D32;
-    color: #FFFFFF;
-}
-
-.tag-admin {
-    background: #1565C0;
-    color: #FFFFFF;
-}
-
-.tag-user {
-    background: #9E9E9E;
-    color: #FFFFFF;
-}
-
-/* =========================================================
-   GRID DE CONFIGURAÇÕES
-   ========================================================= */
-.nc-config-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-}
-
-.nc-config-card {
+.nc-menu-item {
     display: block;
-    padding: 12px;
-    background: #FFFFFF;
-    border-radius: var(--nc-radius);
-    border: 1px solid var(--nc-border);
-    font-size: 14px;
+    padding: 12px 20px;
     text-decoration: none;
-    color: var(--nc-text);
-    box-shadow: var(--nc-shadow);
+    color: var(--white);
+    transition: 0.2s;
+    font-size: 15px;
 }
 
-.nc-config-card:hover {
-    border-color: var(--nc-primary);
-    box-shadow: 0 4px 12px rgba(24, 119, 242, 0.16);
+.nc-menu-item:hover {
+    background: rgba(255, 255, 255, 0.15);
 }
 
-/* =========================================================
-   KPIs
-   ========================================================= */
+/* ============= CONTEÚDO ============= */
+.nc-content {
+    padding: 30px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* ============= CARDS E GRIDS ============= */
+.nc-section {
+    margin-bottom: 30px;
+}
+
 .nc-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
 }
 
 .nc-kpi-card {
-    background: #FFFFFF;
-    border-radius: var(--nc-radius);
-    box-shadow: var(--nc-shadow);
-    padding: 12px 14px;
+    background: var(--white);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid var(--gray);
 }
 
 .nc-kpi-label {
-    font-size: 12px;
-    color: var(--nc-text-muted);
+    font-size: 14px;
+    opacity: .7;
 }
 
 .nc-kpi-value {
-    font-size: 18px;
-    font-weight: 600;
-    display: block;
-    margin-top: 4px;
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 5px;
 }
 
-.nc-kpi-value.highlight {
-    color: #D84315;
+.highlight {
+    color: var(--danger);
 }
 
-/* =========================================================
-   PLACEHOLDERS GRÁFICOS
-   ========================================================= */
-.nc-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 12px;
-}
-
-.nc-chart-placeholder {
-    border-radius: var(--nc-radius);
-    border: 1px dashed var(--nc-border);
-    padding: 30px;
-    font-size: 13px;
-    text-align: center;
-    color: var(--nc-text-muted);
-}
-
-/* =========================================================
-   FORMULÁRIOS BÁSICOS (úteis para empresas depois)
-   ========================================================= */
-form.nc-form {
-    display: grid;
-    gap: 10px;
-}
-
-.nc-form label {
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 2px;
-}
-
-.nc-form input[type="text"],
-.nc-form input[type="email"],
-.nc-form input[type="password"],
-.nc-form input[type="number"] {
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--nc-border);
-    font-size: 14px;
-}
-
-.nc-form-actions {
-    margin-top: 8px;
+/* ============= LOGIN PAGE ============= */
+.nc-login-body {
+    background: var(--primary);
     display: flex;
-    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
-.nc-table {
+.nc-login-box {
+    background: var(--white);
+    padding: 35px;
+    border-radius: 10px;
+    width: 350px;
+}
+
+.nc-login-box input {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--gray);
 }
 
-.nc-table th,
-.nc-table td {
-    border-bottom: 1px solid var(--nc-border);
-    padding: 6px 8px;
-    text-align: left;
+.nc-btn-primary {
+    width: 100%;
+    background: var(--primary);
+    padding: 12px;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
 }
 
-.nc-table th {
-    background: #FAFAFA;
-    font-weight: 600;
-    font-size: 12px;
+.nc-btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+/* ============= RESPONSIVIDADE ============= */
+@media(max-width: 800px) {
+    .nc-sidebar {
+        position: fixed;
+        left: -250px;
+        top: 0;
+        height: 100%;
+        z-index: 10;
+    }
+
+    .nc-menu-toggle {
+        display: inline-block;
+    }
+
+    .nc-sidebar.open {
+        left: 0;
+    }
+
+    .nc-content {
+        padding: 20px;
+    }
 }
