@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Novo usuário — {{ empresa.nome }}</h1>
+
+<div class="nc-section">
+    <form method="POST" class="nc-form">
+
+        <label>Nome</label>
+        <input type="text" name="nome" required>
+
+        <label>E-mail</label>
+        <input type="email" name="email" required>
+
+        <label>Senha</label>
+        <input type="password" name="senha" required>
+
+        <label>
+            <input type="checkbox" name="admin">
+            Tornar administrador
+        </label>
+
+        <button type="submit" class="nc-btn-primary">Criar usuário</button>
+    </form>
+</div>
+
+{% endblock %}
