@@ -1,5 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
+
+<!-- ===================================================== -->
+<!-- IDENTIDADE DO USUÁRIO -->
+<!-- ===================================================== -->
+<section class="nc-section user-info-card">
+    <h3>Olá, {{ user.nome }}!</h3>
+
+    <p>
+        <strong>Acesso:</strong>
+        {% if user.is_master %}
+            <span class="tag-master">MASTER</span>
+        {% elif user.is_admin %}
+            <span class="tag-admin">ADMIN</span>
+        {% else %}
+            <span class="tag-user">Usuário</span>
+        {% endif %}
+    </p>
+
+    {% if user.empresa %}
+        <p><strong>Empresa:</strong> {{ user.empresa.nome }}</p>
+    {% else %}
+        <p><strong>Empresa:</strong> — (usuário MASTER sem vínculo)</p>
+    {% endif %}
+</section>
+
+<!-- ===================================================== -->
+<!-- KPIs PRINCIPAIS -->
+<!-- ===================================================== -->
 <section class="nc-section">
     <h2>Visão geral</h2>
     <div class="nc-kpi-grid">
@@ -22,6 +50,9 @@
     </div>
 </section>
 
+<!-- ===================================================== -->
+<!-- GRÁFICOS -->
+<!-- ===================================================== -->
 <section class="nc-section">
     <h2>Resumos gráficos</h2>
     <div class="nc-chart-grid">
@@ -29,4 +60,5 @@
         <div class="nc-chart-placeholder">Gráfico por adquirente (em breve)</div>
     </div>
 </section>
+
 {% endblock %}
