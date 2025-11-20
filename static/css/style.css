@@ -181,3 +181,41 @@ body {
   font-size: 12px;
   padding: 16px 0 30px;
 }
+
+/* Login */
+.nc-login-body {
+  background: #f5f5f8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.nc-login-box {
+  background: #fff;
+  padding: 28px;
+  width: 360px;
+  border-radius: var(--nc-radius);
+  box-shadow: var(--nc-shadow);
+}
+
+.nc-login-box h2 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.nc-login-box input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid var(--nc-border);
+}
+
+.nc-error {
+  padding: 8px;
+  background: #ffb3b3;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  color: #a00000;
+}
