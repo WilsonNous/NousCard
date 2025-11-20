@@ -1,7 +1,8 @@
 /* ============= CORES ============= */
 :root {
-    --primary: #1877f2;
-    --primary-dark: #0e3a75;
+    --primary: #1877f2;          /* Azul Facebook */
+    --primary-dark: #0c4180;     /* Azul escuro premium */
+    --primary-mid: #145dbf;      /* Azul intermediário */
     --bg-light: #f4f6f9;
     --white: #ffffff;
     --gray: #d9dce1;
@@ -22,18 +23,20 @@ body.nc-body {
 /* ============= SIDEBAR ============= */
 .nc-sidebar {
     width: 250px;
-    background: var(--primary);
+    background: var(--primary-dark);   /* Mais sofisticado e forte */
     color: var(--white);
     padding: 20px 0;
     display: flex;
     flex-direction: column;
     transition: 0.3s;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
 }
 
 .nc-sidebar.open {
     left: 0;
 }
 
+/* Header da sidebar */
 .nc-sidebar-header {
     display: flex;
     justify-content: space-between;
@@ -42,16 +45,18 @@ body.nc-body {
 }
 
 .nc-logo {
-    font-size: 20px;
+    font-size: 21px;
     font-weight: bold;
+    letter-spacing: 0.5px;
 }
 
+/* Botão mobile */
 .nc-menu-toggle {
     display: none;
     background: none;
     border: none;
     color: var(--white);
-    font-size: 22px;
+    font-size: 24px;
 }
 
 /* ============= MENU ITEMS ============= */
@@ -61,9 +66,10 @@ body.nc-body {
 
 .nc-menu-title {
     padding: 10px 20px;
-    opacity: 0.8;
+    opacity: 0.75;
     text-transform: uppercase;
     font-size: 11px;
+    letter-spacing: 0.4px;
 }
 
 .nc-menu-item {
@@ -71,12 +77,12 @@ body.nc-body {
     padding: 12px 20px;
     text-decoration: none;
     color: var(--white);
-    transition: 0.2s;
     font-size: 15px;
+    transition: 0.15s;
 }
 
 .nc-menu-item:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--primary-mid);    /* Azul intermediário elegante */
 }
 
 /* ============= CONTEÚDO ============= */
@@ -100,8 +106,9 @@ body.nc-body {
 .nc-kpi-card {
     background: var(--white);
     padding: 20px;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1px solid var(--gray);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
 .nc-kpi-label {
@@ -110,7 +117,7 @@ body.nc-body {
 }
 
 .nc-kpi-value {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: bold;
     margin-top: 5px;
 }
@@ -131,8 +138,9 @@ body.nc-body {
 .nc-login-box {
     background: var(--white);
     padding: 35px;
-    border-radius: 10px;
-    width: 350px;
+    border-radius: 12px;
+    width: 360px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
 }
 
 .nc-login-box input {
@@ -147,14 +155,25 @@ body.nc-body {
     width: 100%;
     background: var(--primary);
     padding: 12px;
-    color: white;
+    color: var(--white);
     border: none;
     border-radius: 8px;
     cursor: pointer;
+    font-size: 16px;
 }
 
 .nc-btn-primary:hover {
-    background: var(--primary-dark);
+    background: var(--primary-mid);
+}
+
+/* ============= RODAPÉ GLOBAL ============= */
+.nc-footer {
+    margin-top: 30px;
+    padding: 15px 5px;
+    text-align: center;
+    font-size: 13px;
+    opacity: .8;
+    color: var(--text);
 }
 
 /* ============= RESPONSIVIDADE ============= */
@@ -188,6 +207,7 @@ body.nc-body {
     border-radius: 8px;
     overflow: hidden;
     font-size: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .nc-table th {
@@ -203,7 +223,7 @@ body.nc-body {
 }
 
 .nc-table tr:hover td {
-    background: #eef4ff;
+    background: #eaf1ff;
 }
 
 .nc-btn-table {
