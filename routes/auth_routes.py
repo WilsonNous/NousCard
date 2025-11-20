@@ -21,28 +21,30 @@ def login_post():
     email = (request.form.get("email") or "").strip().lower()
     senha = request.form.get("senha") or ""
 
-    if not email or not senha:
-        return render_template("login.html", error="Informe e-mail e senha.")
+    print("=== DEBUG LOGIN ===")
+    print("email digitado:", email)
+    print("senha digitada:", senha)
 
     conn = get_conn()
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                id,
-                empresa_id,
-                nome,
-                email,
-                senha_hash,
-                admin,
-                master
-            FROM usuarios
-            WHERE email = %s
-            LIMIT 1
-            """,
-            (email,),
-        )
-        usuario = cur.fetchone()
+    cur = conn.cursor()
+
+    # MOSTRA TODOS OS USUÁRIOS QUE O RENDER ESTÁ LENDO
+    cur.execute("SELECT id, email, master, admin FROM usuarios")
+    print("usuarios no banco:", cur.fetchall())
+
+    # Agora sim busca o usuário
+    cur.execute(
+        """
+        SELECT id, empresa_id, nome, email, senha_hash, admin, master
+        FROM usuarios
+        WHERE email = %s
+        LIMIT 1
+        """,
+        (email,),
+    )
+    usuario = cur.fetchone()
+
+    print("usuario encontrado:", usuario)
 
     if not usuario or not check_password_hash(usuario["senha_hash"], senha):
         return render_template("login.html", error="Credenciais inválidas.")
