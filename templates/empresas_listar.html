@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="nc-section">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h2>Empresas</h2>
+        <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-outline">
+            + Nova empresa
+        </a>
+    </div>
+
+    {% if empresas %}
+        <table class="nc-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Documento</th>
+                    <th>Ativa</th>
+                    <th>Criada em</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in empresas %}
+                    <tr>
+                        <td>{{ e.id }}</td>
+                        <td>{{ e.nome }}</td>
+                        <td>{{ e.documento or "-" }}</td>
+                        <td>{{ "Sim" if e.ativa else "Não" }}</td>
+                        <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "-" }}</td>
+                        <td>
+                            <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}">Editar</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Nenhuma empresa cadastrada ainda.</p>
+    {% endif %}
+</section>
+
+{% endblock %}
