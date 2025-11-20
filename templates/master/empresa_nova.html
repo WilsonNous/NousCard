@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Criar nova empresa</h1>
+
+<div class="nc-section">
+    <form method="POST" class="nc-form">
+        <label>Nome da empresa</label>
+        <input type="text" name="nome" required>
+
+        <label>E-mail do administrador</label>
+        <input type="email" name="email" required>
+
+        <label>Nome do administrador</label>
+        <input type="text" name="admin_nome" required>
+
+        <label>Senha inicial</label>
+        <input type="password" name="senha" required>
+
+        <button type="submit" class="nc-btn-primary">Salvar empresa</button>
+    </form>
+</div>
+
+{% endblock %}
