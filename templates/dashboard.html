@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="nc-section">
+    <h2>Visão geral</h2>
+    <div class="nc-kpi-grid">
+        <div class="nc-kpi-card">
+            <span class="nc-kpi-label">Total de vendas</span>
+            <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</span>
+        </div>
+        <div class="nc-kpi-card">
+            <span class="nc-kpi-label">Total recebido</span>
+            <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</span>
+        </div>
+        <div class="nc-kpi-card">
+            <span class="nc-kpi-label">Diferença</span>
+            <span class="nc-kpi-value highlight">R$ {{ "%.2f"|format(kpis.diferenca) }}</span>
+        </div>
+        <div class="nc-kpi-card">
+            <span class="nc-kpi-label">Alertas</span>
+            <span class="nc-kpi-value">{{ kpis.alertas }}</span>
+        </div>
+    </div>
+</section>
+
+<section class="nc-section">
+    <h2>Resumos gráficos</h2>
+    <div class="nc-chart-grid">
+        <div class="nc-chart-placeholder">Gráfico por bandeira (em breve)</div>
+        <div class="nc-chart-placeholder">Gráfico por adquirente (em breve)</div>
+    </div>
+</section>
+{% endblock %}
