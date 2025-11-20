@@ -1,50 +1,52 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
-    <title>NousCard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NousCard</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
-<body class="nc-body">
+<body>
 
-<!-- ===================== SIDEBAR ===================== -->
-<aside class="nc-sidebar" id="sidebar">
-    <div class="nc-sidebar-header">
-        <span class="nc-logo">NousCard</span>
-        <button class="nc-menu-toggle" onclick="toggleSidebar()">☰</button>
+    <!-- ========================================================= -->
+    <!-- LAYOUT PRINCIPAL COM MENU LATERAL -->
+    <!-- ========================================================= -->
+    <div class="nc-layout">
+
+        <!-- ===================== MENU LATERAL ===================== -->
+        <aside class="nc-sidebar">
+
+            <h2 class="nc-sidebar-logo">NousCard</h2>
+
+            <nav class="nc-nav">
+                <a href="{{ url_for('dashboard.dashboard') }}" class="nc-nav-item">📊 Dashboard</a>
+
+                {% if session.get('is_master') %}
+                <a href="{{ url_for('master.listar_empresas') }}" class="nc-nav-item">🏢 Gerenciar Empresas</a>
+                {% endif %}
+
+                <a href="{{ url_for('auth.logout') }}" class="nc-nav-item logout">🚪 Sair</a>
+            </nav>
+        </aside>
+
+        <!-- ===================== ÁREA PRINCIPAL ===================== -->
+        <main class="nc-content">
+            {% block content %}{% endblock %}
+        </main>
+
     </div>
 
-    <nav class="nc-menu">
-        <a href="/" class="nc-menu-item">🏠 Dashboard</a>
-
-        {% if session.get("is_master") %}
-        <h4 class="nc-menu-title">Administração</h4>
-        <a href="/master/empresas" class="nc-menu-item">🏢 Empresas</a>
-        {% endif %}
-
-        {% if session.get("empresa_id") %}
-        <h4 class="nc-menu-title">Operações</h4>
-        <a href="#" class="nc-menu-item">📥 Importações</a>
-        <a href="#" class="nc-menu-item">📊 Conciliação</a>
-        {% endif %}
-
-        <h4 class="nc-menu-title">Conta</h4>
-        <a href="/logout" class="nc-menu-item">🚪 Sair</a>
-    </nav>
-</aside>
-
-<!-- ===================== CONTEÚDO ===================== -->
-<main class="nc-content">
-    {% block content %}{% endblock %}
-</main>
-
-<script>
-function toggleSidebar() {
-    document.getElementById("sidebar").classList.toggle("open");
-}
-</script>
+    <!-- ===================== RODAPÉ GLOBAL ===================== -->
+    <footer class="nc-footer">
+        <p>
+            NousCard © {{ current_year }} —
+            Desenvolvido por <strong>Nous Tecnologia</strong> •
+            <a href="mailto:contato@noustechnologia.com">contato@noustechnologia.com</a>
+        </p>
+    </footer>
 
 </body>
 </html>
