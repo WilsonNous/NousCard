@@ -1,58 +1,50 @@
-<!-- templates/base.html -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <title>NousCard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
+
 <body class="nc-body">
 
-<header class="nc-header">
-    <div class="nc-header-left">
-        <h1 class="nc-logo">NousCard</h1>
-        {% if usuario %}
-            <span class="nc-header-sub">Gestão de cartões e conciliação</span>
-        {% endif %}
+<!-- ===================== SIDEBAR ===================== -->
+<aside class="nc-sidebar" id="sidebar">
+    <div class="nc-sidebar-header">
+        <span class="nc-logo">NousCard</span>
+        <button class="nc-menu-toggle" onclick="toggleSidebar()">☰</button>
     </div>
 
-    <div class="nc-header-right">
-        {% if usuario %}
-            <span class="nc-user-label">Olá, {{ usuario.nome }}</span>
-            <a href="{{ url_for('auth.logout') }}" class="nc-btn nc-btn-outline">Sair</a>
+    <nav class="nc-menu">
+        <a href="/" class="nc-menu-item">🏠 Dashboard</a>
+
+        {% if session.get("is_master") %}
+        <h4 class="nc-menu-title">Administração</h4>
+        <a href="/master/empresas" class="nc-menu-item">🏢 Empresas</a>
         {% endif %}
-    </div>
-</header>
 
-<div class="nc-layout">
-    {% if usuario %}
-    <aside class="nc-sidebar">
-        <nav>
-            <ul>
-                <li><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a></li>
+        {% if session.get("empresa_id") %}
+        <h4 class="nc-menu-title">Operações</h4>
+        <a href="#" class="nc-menu-item">📥 Importações</a>
+        <a href="#" class="nc-menu-item">📊 Conciliação</a>
+        {% endif %}
 
-                {% if usuario.is_master %}
-                    <li class="nc-sidebar-section-title">Administração Geral</li>
-                    <li><a href="{{ url_for('empresas.listar_empresas') }}">Empresas</a></li>
-                {% endif %}
+        <h4 class="nc-menu-title">Conta</h4>
+        <a href="/logout" class="nc-menu-item">🚪 Sair</a>
+    </nav>
+</aside>
 
-                {% if usuario.empresa_id %}
-                    <li class="nc-sidebar-section-title">Minha Empresa</li>
-                    <li><a href="#">Contas bancárias</a></li>
-                    <li><a href="#">Adquirentes</a></li>
-                    <li><a href="#">Taxas / Contratos</a></li>
-                    <li><a href="#">Importação de arquivos</a></li>
-                    <li><a href="#">Conciliação</a></li>
-                {% endif %}
-            </ul>
-        </nav>
-    </aside>
-    {% endif %}
+<!-- ===================== CONTEÚDO ===================== -->
+<main class="nc-content">
+    {% block content %}{% endblock %}
+</main>
 
-    <main class="nc-main">
-        {% block content %}{% endblock %}
-    </main>
-</div>
+<script>
+function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("open");
+}
+</script>
 
 </body>
 </html>
