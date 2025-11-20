@@ -5,24 +5,27 @@
 <!-- IDENTIDADE DO USUÁRIO -->
 <!-- ===================================================== -->
 <section class="nc-section user-info-card">
-    <h3>Olá, {{ user.nome }}!</h3>
+    <h3>Olá, {{ usuario.nome }}! 👋</h3>
 
     <p>
         <strong>Acesso:</strong>
-        {% if user.is_master %}
+        {% if usuario.master %}
             <span class="tag-master">MASTER</span>
-        {% elif user.is_admin %}
+        {% elif usuario.admin %}
             <span class="tag-admin">ADMIN</span>
         {% else %}
             <span class="tag-user">Usuário</span>
         {% endif %}
     </p>
 
-    {% if user.empresa %}
-        <p><strong>Empresa:</strong> {{ user.empresa.nome }}</p>
-    {% else %}
-        <p><strong>Empresa:</strong> — (usuário MASTER sem vínculo)</p>
-    {% endif %}
+    <p>
+        <strong>Empresa:</strong>
+        {% if usuario.empresa_id %}
+            ID {{ usuario.empresa_id }}
+        {% else %}
+            — (usuário MASTER sem vínculo)
+        {% endif %}
+    </p>
 </section>
 
 <!-- ===================================================== -->
@@ -35,14 +38,17 @@
             <span class="nc-kpi-label">Total de vendas</span>
             <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</span>
         </div>
+
         <div class="nc-kpi-card">
             <span class="nc-kpi-label">Total recebido</span>
             <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</span>
         </div>
+
         <div class="nc-kpi-card">
             <span class="nc-kpi-label">Diferença</span>
             <span class="nc-kpi-value highlight">R$ {{ "%.2f"|format(kpis.diferenca) }}</span>
         </div>
+
         <div class="nc-kpi-card">
             <span class="nc-kpi-label">Alertas</span>
             <span class="nc-kpi-value">{{ kpis.alertas }}</span>
