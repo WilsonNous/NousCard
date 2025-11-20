@@ -179,3 +179,53 @@ body.nc-body {
         padding: 20px;
     }
 }
+
+/* ============= TABELAS ============= */
+.nc-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--white);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 15px;
+}
+
+.nc-table th {
+    background: var(--primary);
+    color: var(--white);
+    padding: 12px;
+    text-align: left;
+}
+
+.nc-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--gray);
+}
+
+.nc-table tr:hover td {
+    background: #eef4ff;
+}
+
+.nc-btn-table {
+    background: var(--primary);
+    padding: 6px 10px;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+/* ============= FORMULÁRIOS ============= */
+.nc-form label {
+    display: block;
+    margin: 12px 0 4px;
+    font-weight: 500;
+}
+
+.nc-form input,
+.nc-form select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--gray);
+    border-radius: 8px;
+}
