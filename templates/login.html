@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - NousCard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="nc-login-body">
+
+<div class="nc-login-box">
+    <h2>Entrar</h2>
+
+    {% if error %}
+        <p class="nc-error">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST">
+        <input type="email" name="email" placeholder="E-mail" required>
+        <input type="password" name="senha" placeholder="Senha" required>
+
+        <button type="submit" class="nc-btn-primary">Entrar</button>
+    </form>
+
+    <p>
+        Ainda não tem conta?
+        <a href="{{ url_for('auth.registrar') }}">Criar empresa</a>
+    </p>
+</div>
+
+</body>
+</html>
