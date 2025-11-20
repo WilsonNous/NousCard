@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, session, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, session, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Usuario, Empresa
+from db_conn import get_conn
 
 auth_bp = Blueprint("auth", __name__)
+
 
 # ---------------------------------------------------------
 # Página de login
@@ -17,19 +18,40 @@ def login_page():
 # ---------------------------------------------------------
 @auth_bp.route("/login", methods=["POST"])
 def login_post():
-    email = request.form.get("email")
-    senha = request.form.get("senha")
+    email = (request.form.get("email") or "").strip().lower()
+    senha = request.form.get("senha") or ""
 
-    usuario = Usuario.query.filter_by(email=email).first()
+    if not email or not senha:
+        return render_template("login.html", error="Informe e-mail e senha.")
 
-    if not usuario or not usuario.check_password(senha):
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                id,
+                empresa_id,
+                nome,
+                email,
+                senha_hash,
+                admin,
+                master
+            FROM usuarios
+            WHERE email = %s
+            LIMIT 1
+            """,
+            (email,),
+        )
+        usuario = cur.fetchone()
+
+    if not usuario or not check_password_hash(usuario["senha_hash"], senha):
         return render_template("login.html", error="Credenciais inválidas.")
 
-    # 🔥 Salva sessão completa
-    session["usuario_id"] = usuario.id
-    session["empresa_id"] = usuario.empresa_id
-    session["is_master"] = usuario.master
-    session["is_admin"] = usuario.admin or usuario.master
+    # Salva sessão
+    session["usuario_id"] = usuario["id"]
+    session["empresa_id"] = usuario["empresa_id"]
+    session["is_admin"] = bool(usuario.get("admin"))
+    session["is_master"] = bool(usuario.get("master"))
 
     return redirect(url_for("dashboard.dashboard"))
 
@@ -44,66 +66,39 @@ def logout():
 
 
 # ---------------------------------------------------------
-# Registro padrão (cria empresa + admin)
+# Registro inicial (cliente se auto cadastra)
 # ---------------------------------------------------------
 @auth_bp.route("/registrar", methods=["GET", "POST"])
 def registrar():
     if request.method == "GET":
         return render_template("registrar.html")
 
-    nome = request.form.get("nome")
-    email = request.form.get("email")
-    senha = request.form.get("senha")
-    empresa_nome = request.form.get("empresa")
+    nome = (request.form.get("nome") or "").strip()
+    email = (request.form.get("email") or "").strip().lower()
+    senha = request.form.get("senha") or ""
+    empresa_nome = (request.form.get("empresa") or "").strip()
 
-    # Cria empresa
-    empresa = Empresa(nome=empresa_nome)
-    db.session.add(empresa)
-    db.session.commit()
+    if not nome or not email or not senha or not empresa_nome:
+        return render_template("registrar.html", error="Preencha todos os campos.")
 
-    # Cria usuário admin da empresa
-    usuario = Usuario(
-        nome=nome,
-        email=email,
-        empresa_id=empresa.id,
-        admin=True
-    )
-    usuario.set_password(senha)
+    senha_hash = generate_password_hash(senha)
 
-    db.session.add(usuario)
-    db.session.commit()
+    conn = get_conn()
+    with conn.cursor() as cur:
+        # Cria empresa
+        cur.execute(
+            "INSERT INTO empresas (nome) VALUES (%s)",
+            (empresa_nome,),
+        )
+        empresa_id = cur.lastrowid
+
+        # Cria usuário admin da empresa
+        cur.execute(
+            """
+            INSERT INTO usuarios (empresa_id, nome, email, senha_hash, admin, master)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (empresa_id, nome, email, senha_hash, 1, 0),
+        )
 
     return redirect(url_for("auth.login_page"))
-
-
-# ---------------------------------------------------------
-# 🚀 Setup MASTER — Executado 1x (opcional)
-# ---------------------------------------------------------
-@auth_bp.route("/setup_master")
-def setup_master():
-    """
-    Cria o usuário MASTER global caso ainda não exista.
-    """
-    ja_existe = Usuario.query.filter_by(master=True).first()
-    if ja_existe:
-        return "Master já existe.", 400
-
-    master = Usuario(
-        nome="MASTER ROOT",
-        email="master@nouscard.com",
-        master=True,
-        admin=True,
-        empresa_id=None
-    )
-
-    master.set_password("nouscard_master")
-
-    db.session.add(master)
-    db.session.commit()
-
-    return jsonify({
-        "status": "ok",
-        "message": "Usuário MASTER criado.",
-        "login": "master@nouscard.com",
-        "senha": "nouscard_master"
-    })
