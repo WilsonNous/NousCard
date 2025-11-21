@@ -18,7 +18,7 @@ operacoes_bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
 @login_required
 @empresa_required
 def importar_page():
-    return render_template("importar_arquivos.html")
+    return render_template("importar.html")
 
 
 # ============================================================
