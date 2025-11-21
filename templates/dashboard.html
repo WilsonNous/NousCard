@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 
+<!-- ========================================= -->
+<!-- IDENTIDADE DO USUÁRIO -->
+<!-- ========================================= -->
 <section class="nc-section">
     <h2 class="nc-title">Olá, {{ usuario.nome }}!</h2>
 
@@ -22,16 +25,22 @@
         {% endif %}
     </p>
 
+    <!-- AÇÕES RÁPIDAS -->
     <div class="nc-actions">
-        <a href="{{ url_for('operacoes.importar') }}" class="nc-btn-primary">⬆️ Importar Arquivos</a>
-        <a href="{{ url_for('operacoes.conciliar') }}" class="nc-btn-secondary">✔️ Conciliação</a>
+        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary">⬆️ Importar Arquivos</a>
+        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary">✔️ Conciliação</a>
     </div>
 </section>
 
+
+<!-- ========================================= -->
+<!-- KPIs -->
+<!-- ========================================= -->
 <section class="nc-section">
     <h2 class="nc-title">Visão Geral</h2>
 
     <div class="nc-kpi-grid">
+
         <div class="nc-kpi-card">
             📦
             <div class="nc-kpi-label">Total de Vendas</div>
@@ -47,7 +56,7 @@
         <div class="nc-kpi-card">
             🔍
             <div class="nc-kpi-label">Diferença</div>
-            <div class="nc-kpi-value">{{ "%.2f"|format(kpis.diferenca) }}</div>
+            <div class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.diferenca) }}</div>
         </div>
 
         <div class="nc-kpi-card">
@@ -55,9 +64,14 @@
             <div class="nc-kpi-label">Alertas</div>
             <div class="nc-kpi-value">{{ kpis.alertas }}</div>
         </div>
+
     </div>
 </section>
 
+
+<!-- ========================================= -->
+<!-- GRÁFICOS FUTUROS -->
+<!-- ========================================= -->
 <section class="nc-section">
     <h2 class="nc-title">Resumos Gráficos</h2>
     <p>📊 Em breve você verá gráficos com bandeiras e adquirentes aqui.</p>
