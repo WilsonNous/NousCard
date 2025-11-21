@@ -84,11 +84,28 @@ def arquivos_importados_page():
 @login_required
 @empresa_required
 def arquivo_detalhe_page(arquivo_id):
+    import json
+
     empresa_id = session.get("empresa_id")
 
     arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
 
     if not arquivo:
-        return render_template("erro.html", mensagem="Arquivo não encontrado ou não pertence à sua empresa.")
+        return render_template(
+            "erro.html",
+            mensagem="Arquivo não encontrado ou não pertence à sua empresa."
+        )
 
-    return render_template("arquivo_detalhe.html", arquivo=arquivo)
+    # 🔥 Converter JSON salvo no banco para lista de registros
+    try:
+        registros = json.loads(arquivo["conteudo_json"])
+    except Exception as e:
+        registros = []
+        print("Erro ao carregar JSON:", e)
+
+    return render_template(
+        "arquivo_detalhe.html",
+        arquivo=arquivo,
+        registros=registros
+    )
+
