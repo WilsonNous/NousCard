@@ -14,8 +14,16 @@ def salvar_arquivo_importado(
     registros,
 ):
     total_registros = len(registros)
-    total_valor = sum(float(r.get("valor", 0)) for r in registros)
 
+    # Alguns arquivos podem não ter coluna valor → garantir "0"
+    total_valor = 0
+    for r in registros:
+        try:
+            total_valor += float(r.get("valor", 0))
+        except:
+            pass
+
+    # Salva registros como JSON no banco
     conteudo_json = json.dumps(registros, ensure_ascii=False)
 
     sql = text("""
@@ -45,12 +53,7 @@ def salvar_arquivo_importado(
 #  LISTAR ARQUIVOS IMPORTADOS
 # ============================================================
 def listar_arquivos_importados(empresa_id: int):
-    """
-    Retorna todos os arquivos importados para a empresa,
-    ordenados do mais recente para o mais antigo.
-    """
-
-    query = text("""
+    sql = text("""
         SELECT
             id,
             nome_arquivo,
@@ -64,7 +67,7 @@ def listar_arquivos_importados(empresa_id: int):
         ORDER BY created_at DESC
     """)
 
-    result = db.session.execute(query, {"empresa_id": empresa_id})
+    result = db.session.execute(sql, {"empresa_id": empresa_id})
 
     arquivos = []
     for row in result.mappings():
@@ -81,8 +84,11 @@ def listar_arquivos_importados(empresa_id: int):
     return arquivos
 
 
+# ============================================================
+#  BUSCAR UM ARQUIVO (COM JSON JÁ DECODIFICADO)
+# ============================================================
 def buscar_arquivo_por_id(arquivo_id, empresa_id):
-    query = text("""
+    sql = text("""
         SELECT
             id,
             nome_arquivo,
@@ -97,13 +103,28 @@ def buscar_arquivo_por_id(arquivo_id, empresa_id):
         LIMIT 1
     """)
 
-    result = db.session.execute(query, {
+    row = db.session.execute(sql, {
         "id": arquivo_id,
         "empresa_id": empresa_id
-    }).fetchone()
+    }).mappings().first()
 
-    if not result:
+    if not row:
         return None
 
-    return dict(result._mapping)
+    # 🔥 Aqui está a correção principal: decodificar JSON
+    registros = []
+    try:
+        if row["conteudo_json"]:
+            registros = json.loads(row["conteudo_json"])
+    except:
+        registros = []
 
+    return {
+        "id": row["id"],
+        "nome_arquivo": row["nome_arquivo"],
+        "tipo": row["tipo"],
+        "total_registros": row["total_registros"],
+        "total_valor": float(row["total_valor"] or 0),
+        "created_at": row["created_at"].strftime("%d/%m/%Y %H:%M") if row["created_at"] else "",
+        "registros": registros,
+    }
