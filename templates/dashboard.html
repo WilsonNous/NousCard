@@ -2,11 +2,15 @@
 
 {% block content %}
 
+<!-- ============================================================
+     SEÇÃO: BOAS-VINDAS + INFORMAÇÕES DO USUÁRIO
+============================================================ -->
 <section class="nc-section">
     <h2 class="nc-title">Olá, {{ usuario.nome }} 👋</h2>
 
     <div class="nc-user-status">
-        <div><span class="label">Acesso:</span>
+        <div>
+            <span class="label">Acesso:</span>
             {% if session.get('is_master') %}
                 <span class="role master">MASTER</span>
             {% elif session.get('is_admin') %}
@@ -16,7 +20,8 @@
             {% endif %}
         </div>
 
-        <div><span class="label">Empresa:</span>
+        <div>
+            <span class="label">Empresa:</span>
             {% if session.get('is_master') %}
                 — (usuário MASTER sem vínculo)
             {% else %}
@@ -32,6 +37,10 @@
 </section>
 
 
+
+<!-- ============================================================
+     SEÇÃO: KPIs
+============================================================ -->
 <section class="nc-section">
     <h2 class="nc-subtitle">Visão Geral</h2>
 
@@ -73,12 +82,69 @@
 </section>
 
 
+
+<!-- ============================================================
+     SEÇÃO: GRÁFICO PRINCIPAL
+============================================================ -->
 <section class="nc-section">
-    <h2 class="nc-subtitle">Resumos Gráficos</h2>
+    <h2 class="nc-subtitle">Gráfico de Vendas x Recebido</h2>
+
+    <div class="nc-graphs-container">
+        <canvas id="graficoVendasRecebidos"></canvas>
+    </div>
+</section>
+
+<!-- Importa Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const ctx = document.getElementById("graficoVendasRecebidos");
+    if (!ctx) return;
+
+    const vendas = {{ kpis.total_vendas|float }};
+    const recebidos = {{ kpis.total_recebido|float }};
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: ["Vendas", "Recebido"],
+            datasets: [{
+                label: "Valores",
+                data: [vendas, recebidos],
+                backgroundColor: ["#1877f2", "#3cb371"]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: (value) =>
+                            "R$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
+                    }
+                }
+            }
+        }
+    });
+
+});
+</script>
+
+
+
+<!-- ============================================================
+     SEÇÃO: PLACEHOLDER PARA PRÓXIMOS GRÁFICOS
+============================================================ -->
+<section class="nc-section">
+    <h2 class="nc-subtitle">Mais Análises</h2>
 
     <div class="nc-graph-placeholder">
         <i>📈</i>
-        <p>Gráficos com bandeiras e adquirentes serão exibidos aqui.</p>
+        <p>Gráficos com bandeiras, adquirentes e tendências aparecerão aqui.</p>
     </div>
 </section>
 
