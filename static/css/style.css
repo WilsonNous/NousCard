@@ -21,24 +21,27 @@
     --kpi-yellow: #e3a008;
 }
 
-
 /* ============================================================
-   BASE / LAYOUT
+   CORREÇÃO DE LAYOUT BASE
 ============================================================ */
-body.nc-body {
+
+/* O layout todo deve ocupar a tela */
+.nc-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
     margin: 0;
     padding: 0;
     background: var(--bg-light);
     font-family: "Inter", sans-serif;
-    display: flex;
-    min-height: 100vh;
 }
 
+/* Área interna (sidebar + conteúdo) */
 .nc-layout {
     display: flex;
+    flex: 1; /* empurra o footer para baixo */
     width: 100%;
 }
-
 
 /* ============================================================
    SIDEBAR
@@ -46,10 +49,12 @@ body.nc-body {
 .nc-sidebar {
     background: var(--sidebar-bg);
     width: 240px;
-    min-height: 100vh;
+    height: 100vh;         /* FIXA A ALTURA */
     color: var(--sidebar-text);
     display: flex;
     flex-direction: column;
+    position: sticky;
+    top: 0;
 }
 
 .nc-sidebar-header {
@@ -63,7 +68,7 @@ body.nc-body {
     color: #ffffff;
 }
 
-/* MENU ITEMS */
+/* MENU */
 .nc-nav {
     flex: 1;
     padding-top: 10px;
@@ -89,7 +94,6 @@ body.nc-body {
     color: #ff6b6b !important;
 }
 
-
 /* ============================================================
    CONTEÚDO PRINCIPAL
 ============================================================ */
@@ -98,7 +102,6 @@ body.nc-body {
     padding: 40px;
 }
 
-/* Seções */
 .nc-section {
     background: var(--white);
     border-radius: 10px;
@@ -119,7 +122,6 @@ body.nc-body {
     font-size: 20px;
     font-weight: 600;
 }
-
 
 /* ============================================================
    INFO USUÁRIO
@@ -145,7 +147,6 @@ body.nc-body {
 .role.user {
     color: #666;
 }
-
 
 /* ============================================================
    BOTÕES
@@ -181,7 +182,6 @@ body.nc-body {
 .nc-dashboard-actions a {
     margin-right: 10px;
 }
-
 
 /* ============================================================
    KPI CARDS
@@ -233,12 +233,9 @@ body.nc-body {
     font-weight: 600;
 }
 
-
 /* ============================================================
-   PÁGINA IMPORTAÇÃO E CONCILIAÇÃO
+   IMPORTAÇÃO & CONCILIAÇÃO
 ============================================================ */
-
-/* Dropzone */
 .nc-dropzone {
     border: 2px dashed var(--primary);
     background: #f0f5ff;
@@ -255,16 +252,13 @@ body.nc-body {
     border-color: var(--primary-dark);
 }
 
-/* Resultado do upload */
 .nc-upload-result {
     margin-top: 20px;
 }
 
-/* Resumo conciliação */
 .nc-conc-resumo {
     margin-top: 20px;
 }
-
 
 /* ============================================================
    PLACEHOLDER GRÁFICOS
@@ -283,14 +277,15 @@ body.nc-body {
     color: var(--primary);
 }
 
-
 /* ============================================================
-   RODAPÉ
+   RODAPÉ FIXO AO FINAL
 ============================================================ */
 .nc-footer {
+    width: 100%;
     text-align: center;
-    padding: 18px;
+    padding: 15px;
     font-size: 14px;
-    margin-top: 40px;
     color: var(--gray-dark);
+    border-top: 1px solid var(--gray);
+    background: var(--white);
 }
