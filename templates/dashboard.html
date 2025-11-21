@@ -1,80 +1,114 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- ========================================= -->
-<!-- IDENTIDADE DO USUÁRIO -->
-<!-- ========================================= -->
+<!-- ======================================================== -->
+<!-- TÍTULO E SAUDAÇÃO -->
+<!-- ======================================================== -->
 <section class="nc-section">
-    <h2 class="nc-title">Olá, {{ usuario.nome }}!</h2>
 
-    <p class="nc-user-info">
-        <span>Acesso:</span>
+    <h1 class="nc-title">Olá, {{ usuario.nome }} 👋</h1>
+
+    <p class="nc-user-status">
+        <span class="label">Acesso:</span>
         {% if session.get('is_master') %}
-            <strong>MASTER</strong>
+            <strong class="role master">MASTER</strong>
         {% elif session.get('is_admin') %}
-            <strong>Administrador</strong>
+            <strong class="role admin">ADMINISTRADOR</strong>
         {% else %}
-            Usuário
+            <strong class="role user">USUÁRIO</strong>
         {% endif %}
         <br>
 
+        <span class="label">Empresa:</span>
         {% if session.get("is_master") %}
-            <span>Empresa:</span> <strong>— (usuário MASTER sem vínculo)</strong>
+            <strong class="empresa">— (usuário MASTER sem vínculo)</strong>
         {% else %}
-            <span>Empresa:</span> <strong>{{ usuario.empresa_nome }}</strong>
+            <strong class="empresa">{{ usuario.empresa_nome }}</strong>
         {% endif %}
     </p>
 
-    <!-- AÇÕES RÁPIDAS -->
-    <div class="nc-actions">
-        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary">⬆️ Importar Arquivos</a>
-        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary">✔️ Conciliação</a>
+    <!-- AÇÕES DIRETAS -->
+    <div class="nc-dashboard-actions">
+        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary">
+            <i class="bi bi-upload"></i> Importar Arquivos
+        </a>
+
+        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary">
+            <i class="bi bi-check2-circle"></i> Conciliação
+        </a>
     </div>
+
 </section>
 
 
-<!-- ========================================= -->
-<!-- KPIs -->
-<!-- ========================================= -->
+<!-- ======================================================== -->
+<!-- KPIs PRINCIPAIS -->
+<!-- ======================================================== -->
 <section class="nc-section">
-    <h2 class="nc-title">Visão Geral</h2>
 
-    <div class="nc-kpi-grid">
+    <h2 class="nc-subtitle">Visão Geral</h2>
 
+    <div class="nc-kpis">
+
+        <!-- KPI 01 -->
         <div class="nc-kpi-card">
-            📦
-            <div class="nc-kpi-label">Total de Vendas</div>
-            <div class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</div>
+            <div class="kpi-icon kpi-blue">
+                <i class="bi bi-bag-check"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Total de Vendas</span>
+                <span class="kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</span>
+            </div>
         </div>
 
+        <!-- KPI 02 -->
         <div class="nc-kpi-card">
-            💰
-            <div class="nc-kpi-label">Total Recebido</div>
-            <div class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</div>
+            <div class="kpi-icon kpi-green">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Total Recebido</span>
+                <span class="kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</span>
+            </div>
         </div>
 
+        <!-- KPI 03 -->
         <div class="nc-kpi-card">
-            🔍
-            <div class="nc-kpi-label">Diferença</div>
-            <div class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.diferenca) }}</div>
+            <div class="kpi-icon kpi-yellow">
+                <i class="bi bi-exclamation-circle"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Diferença</span>
+                <span class="kpi-value">{{ "%.2f"|format(kpis.diferenca) }}</span>
+            </div>
         </div>
 
+        <!-- KPI 04 -->
         <div class="nc-kpi-card">
-            ⚠️
-            <div class="nc-kpi-label">Alertas</div>
-            <div class="nc-kpi-value">{{ kpis.alertas }}</div>
+            <div class="kpi-icon kpi-red">
+                <i class="bi bi-bell"></i>
+            </div>
+            <div class="kpi-info">
+                <span class="kpi-label">Alertas</span>
+                <span class="kpi-value">{{ kpis.alertas }}</span>
+            </div>
         </div>
 
     </div>
+
 </section>
 
 
-<!-- ========================================= -->
-<!-- GRÁFICOS FUTUROS -->
-<!-- ========================================= -->
+<!-- ======================================================== -->
+<!-- RESUMOS E GRÁFICOS FUTUROS -->
+<!-- ======================================================== -->
 <section class="nc-section">
-    <h2 class="nc-title">Resumos Gráficos</h2>
-    <p>📊 Em breve você verá gráficos com bandeiras e adquirentes aqui.</p>
+    <h2 class="nc-subtitle">Resumos Gráficos</h2>
+
+    <div class="nc-graph-placeholder">
+        <i class="bi bi-graph-up-arrow"></i>
+        <p>Os gráficos de bandeiras e adquirentes estarão aqui em breve.</p>
+    </div>
 </section>
 
 {% endblock %}
