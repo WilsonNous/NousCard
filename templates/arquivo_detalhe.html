@@ -41,12 +41,12 @@
         <button id="btnJson" class="nc-btn-secondary">{"{ }"} JSON</button>
     </div>
 
-    <!-- ÁREA DE VISUALIZAÇÃO -->
+    <!-- TABELA (VISÃO PRINCIPAL) -->
     <div id="viewTable" style="display:block;">
 
         <h3>📋 Registros</h3>
 
-        {% set registros = arquivo.conteudo_json | safe | loads %}
+        {% if registros and registros|length > 0 %}
 
         <div class="nc-table-wrapper">
             <table class="nc-table">
@@ -71,6 +71,10 @@
 
         {% if registros|length > 200 %}
         <p style="color:#888; margin-top:8px;">Mostrando apenas os 200 primeiros registros.</p>
+        {% endif %}
+
+        {% else %}
+        <p style="color:#999;">Nenhum registro encontrado neste arquivo.</p>
         {% endif %}
     </div>
 
