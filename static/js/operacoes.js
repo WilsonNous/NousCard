@@ -31,31 +31,31 @@ document.addEventListener("DOMContentLoaded", () => {
         // ================= UPLOAD =================
         uploadForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-        
+
             uploadResult.innerHTML = `<p>⏳ Processando arquivos...</p>`;
-        
+
             const files = fileInput.files;
             if (!files.length) {
                 uploadResult.innerHTML = `<p style="color:red">Nenhum arquivo selecionado.</p>`;
                 return;
             }
-        
+
             const formData = new FormData();
-            for (const f of files) formData.append("files", f); // 🔥 CORRIGIDO
-        
+            for (const f of files) formData.append("files", f);
+
             try {
                 const response = await fetch("/operacoes/upload", {
                     method: "POST",
                     body: formData,
                 });
-        
+
                 const data = await response.json();
-        
+
                 if (!data.ok) {
                     uploadResult.innerHTML = `<p style="color:red">${data.message}</p>`;
                     return;
                 }
-        
+
                 uploadResult.innerHTML = `
                     <div style="background:#eaf3ff;padding:15px;border-radius:8px;margin-top:12px;">
                         <h3>✔ Arquivos processados</h3>
@@ -71,6 +71,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 uploadResult.innerHTML = `<p style="color:red">Erro ao enviar arquivos.</p>`;
             }
         });
+
+    }  // 🔥🔥🔥 FECHAMENTO DO IF FALTANDO — ESSA LINHA CORRIGE O ERRO!!!
 
 
     // ====================================================================================
