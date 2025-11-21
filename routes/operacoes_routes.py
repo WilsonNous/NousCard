@@ -7,6 +7,7 @@ from utils.concilia import (
     normalizar_registros_vendas,
     normalizar_registros_recebimentos,
 )
+from services.importer_db import listar_arquivos_importados
 
 operacoes_bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
 
@@ -112,3 +113,16 @@ def conciliar_endpoint():
 @empresa_required
 def conciliar_page():
     return render_template("conciliacao.html")
+
+# ============================================================
+# Tela: Arquivos Importados
+# ============================================================
+@operacoes_bp.route("/arquivos", methods=["GET"])
+@login_required
+@empresa_required
+def arquivos_importados_page():
+    empresa_id = session.get("empresa_id")
+
+    arquivos = listar_arquivos_importados(empresa_id)
+
+    return render_template("arquivos_importados.html", arquivos=arquivos)
