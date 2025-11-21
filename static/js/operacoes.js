@@ -80,41 +80,50 @@ document.addEventListener("DOMContentLoaded", () => {
     // ====================================================================================
     const btnConciliar = document.getElementById("btnConciliar");
     const conciliacaoResumo = document.getElementById("conciliacaoResumo");
-
+    
     if (btnConciliar && conciliacaoResumo) {
-
+    
         btnConciliar.addEventListener("click", async () => {
-
+    
             conciliacaoResumo.innerHTML = `<p>⏳ Executando conciliação...</p>`;
-
+    
             try {
-                const response = await fetch("/operacoes/conciliar", {
+    
+                const response = await fetch("/operacoes/api/conciliar", {
                     method: "POST",
                 });
+    
                 const data = await response.json();
-
+    
                 if (!data.ok) {
-                    conciliacaoResumo.innerHTML = `<p style="color:red">${data.message}</p>`;
+                    conciliacaoResumo.innerHTML = `
+                        <p style="color:red">❌ ${data.message || "Erro ao processar conciliação."}</p>
+                    `;
                     return;
                 }
-
+    
+                const r = data.resultado;
+    
                 conciliacaoResumo.innerHTML = `
                     <div style="background:#eaf8ea;padding:15px;border-radius:8px;margin-top:12px;">
                         <h3>✔ Conciliação concluída</h3>
-
-                        <p><strong>Total de Vendas:</strong> R$ ${data.total_vendas.toFixed(2)}</p>
-                        <p><strong>Total Recebido:</strong> R$ ${data.total_recebimentos.toFixed(2)}</p>
-                        <p><strong>Diferença:</strong> R$ ${data.diferenca.toFixed(2)}</p>
-
+    
+                        <p><strong>Total de Vendas:</strong> R$ ${r.total_vendas.toFixed(2)}</p>
+                        <p><strong>Total Recebido:</strong> R$ ${r.total_recebimentos.toFixed(2)}</p>
+                        <p><strong>Diferença:</strong> 
+                            <span style="color:${r.diferenca === 0 ? "#0a0" : "#c00"};">
+                                R$ ${r.diferenca.toFixed(2)}
+                            </span>
+                        </p>
+    
                         <hr>
-
-                        <p><strong>Vendas conciliadas:</strong> ${data.qtd_conciliados}</p>
-                        <p><strong>Vendas divergentes:</strong> ${data.qtd_divergentes}</p>
-                        <p><strong>Vendas pendentes:</strong> ${data.qtd_pendentes_vendas}</p>
-                        <p><strong>Recebimentos pendentes:</strong> ${data.qtd_pendentes_recebimentos}</p>
+    
+                        <p><strong>Arquivos analisados:</strong> ${r.arquivos_processados}</p>
                     </div>
                 `;
+    
             } catch (err) {
+                console.error("Erro conciliação:", err);
                 conciliacaoResumo.innerHTML = `<p style="color:red">Erro ao processar conciliação.</p>`;
             }
         });
