@@ -2,45 +2,73 @@
 <html lang="pt-BR">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>NousCard</title>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 </head>
 
 <body class="nc-body">
 
     <div class="nc-layout">
 
-        <!-- ===================== MENU LATERAL ===================== -->
+        <!-- ===================== SIDEBAR PREMIUM ===================== -->
         <aside class="nc-sidebar">
-            <div class="nc-sidebar-header">
-                <h2>NousCard</h2>
+
+            <div class="nc-sidebar-brand">
+                <i class="bi bi-credit-card-2-front-fill"></i>
+                <span>NousCard</span>
             </div>
 
-            <nav class="nc-nav">
-                <a href="{{ url_for('dashboard.dashboard') }}" class="nc-nav-item">📊 Dashboard</a>
-                <a href="{{ url_for('operacoes.importar_page') }}" class="nc-nav-item">⬆️ Importar Arquivos</a>
-                <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-nav-item">✔️ Conciliação</a>
+            <nav class="nc-menu">
+
+                <a href="{{ url_for('dashboard.dashboard') }}"
+                   class="nc-menu-item {% if request.endpoint=='dashboard.dashboard' %}active{% endif %}">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+
+                <a href="{{ url_for('operacoes.importar_page') }}"
+                   class="nc-menu-item {% if 'importar' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-upload"></i> Importar
+                </a>
+
+                <a href="{{ url_for('operacoes.conciliar_page') }}"
+                   class="nc-menu-item {% if 'conciliar' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-check2-circle"></i> Conciliação
+                </a>
+
                 {% if session.get('is_master') %}
-                    <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-nav-item">🏢 Gerenciar Empresas</a>
+                <a href="{{ url_for('empresas.listar_empresas') }}"
+                   class="nc-menu-item {% if 'empresas' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-buildings"></i> Empresas
+                </a>
                 {% endif %}
-                <a href="{{ url_for('auth.logout') }}" class="nc-nav-item logout">🚪 Sair</a>
+
+                <a href="{{ url_for('auth.logout') }}" class="nc-menu-item logout">
+                    <i class="bi bi-box-arrow-right"></i> Sair
+                </a>
+
             </nav>
         </aside>
 
-        <!-- ===================== ÁREA PRINCIPAL ===================== -->
+        <!-- ===================== CONTEÚDO ===================== -->
         <main class="nc-content">
             {% block content %}{% endblock %}
         </main>
 
     </div>
 
+    <!-- ===================== RODAPÉ ===================== -->
     <footer class="nc-footer">
         NousCard © {{ current_year }} — Desenvolvido por <strong>Nous Tecnologia</strong> •
         <a href="mailto:contato@noustechnologia.com">contato@noustechnologia.com</a>
     </footer>
 
 </body>
+
 </html>
