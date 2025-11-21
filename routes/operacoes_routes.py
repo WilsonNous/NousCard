@@ -103,3 +103,12 @@ def conciliar_endpoint():
     resultado["message"] = "Conciliação executada com sucesso."
 
     return jsonify(resultado)
+
+# ============================================================
+# Tela de CONCILIAÇÃO (GET)
+# ============================================================
+@operacoes_bp.route("/conciliacao", methods=["GET"])
+@login_required
+@empresa_required
+def conciliar_page():
+    return render_template("conciliacao.html")
