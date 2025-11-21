@@ -5,9 +5,9 @@
     --primary: #1877f2;
     --primary-dark: #0e4fb3;
 
-    --sidebar-bg: #0f1c2e;
-    --sidebar-text: #c5cdd7;
-    --sidebar-hover: #1e2b40;
+    --topbar-bg: #0f1c2e;
+    --topbar-text: #c5cdd7;
+    --topbar-hover: #1e2b40;
 
     --bg-light: #f5f6f8;
     --white: #ffffff;
@@ -22,75 +22,62 @@
 }
 
 /* ============================================================
-   CORREÇÃO DE LAYOUT BASE
+   BASE
 ============================================================ */
-
-/* O layout todo deve ocupar a tela */
-.nc-body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+body.nc-body {
     margin: 0;
     padding: 0;
     background: var(--bg-light);
     font-family: "Inter", sans-serif;
-}
-
-/* Área interna (sidebar + conteúdo) */
-.nc-layout {
+    min-height: 100vh;
     display: flex;
-    flex: 1; /* empurra o footer para baixo */
-    width: 100%;
+    flex-direction: column;
 }
 
 /* ============================================================
-   SIDEBAR
+   TOPBAR — NOVO MENU HORIZONTAL
 ============================================================ */
-.nc-sidebar {
-    background: var(--sidebar-bg);
-    width: 240px;
-    height: 100vh;         /* FIXA A ALTURA */
-    color: var(--sidebar-text);
+.nc-topbar {
+    width: 100%;
+    height: 60px;
+    background: var(--topbar-bg);
+    color: var(--topbar-text);
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 25px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
     position: sticky;
     top: 0;
+    z-index: 999;
 }
 
-.nc-sidebar-header {
-    padding: 22px 30px;
-    border-bottom: 1px solid #1c2a3c;
+.nc-topbar-left {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
 }
 
-.nc-sidebar-header h2 {
-    margin: 0;
-    font-size: 22px;
-    color: #ffffff;
+.nc-topbar-nav {
+    display: flex;
+    gap: 20px;
 }
 
-/* MENU */
-.nc-nav {
-    flex: 1;
-    padding-top: 10px;
-}
-
-.nc-nav-item {
-    display: block;
-    padding: 14px 30px;
-    color: var(--sidebar-text);
+.nc-topbar-item {
+    color: var(--topbar-text);
     text-decoration: none;
     font-size: 15px;
-    border-left: 3px solid transparent;
+    padding: 6px 12px;
+    border-radius: 6px;
     transition: 0.2s;
 }
 
-.nc-nav-item:hover {
-    background: var(--sidebar-hover);
-    border-left: 3px solid var(--primary);
-    color: #ffffff;
+.nc-topbar-item:hover {
+    background: var(--topbar-hover);
+    color: #fff;
 }
 
-.logout {
+.nc-topbar-item.logout {
     color: #ff6b6b !important;
 }
 
@@ -98,10 +85,13 @@
    CONTEÚDO PRINCIPAL
 ============================================================ */
 .nc-content {
-    flex: 1;
-    padding: 40px;
+    width: 100%;
+    max-width: 1350px;
+    margin: 30px auto;
+    padding: 0 25px;
 }
 
+/* Seções */
 .nc-section {
     background: var(--white);
     border-radius: 10px;
@@ -135,18 +125,9 @@
     font-weight: 600;
 }
 
-.role.master {
-    color: var(--primary);
-    font-weight: 700;
-}
-
-.role.admin {
-    color: #333;
-}
-
-.role.user {
-    color: #666;
-}
+.role.master { color: var(--primary); font-weight: 700; }
+.role.admin  { color: #333; }
+.role.user   { color: #666; }
 
 /* ============================================================
    BOTÕES
@@ -234,7 +215,7 @@
 }
 
 /* ============================================================
-   IMPORTAÇÃO & CONCILIAÇÃO
+   PAGE IMPORTAÇÃO
 ============================================================ */
 .nc-dropzone {
     border: 2px dashed var(--primary);
@@ -261,7 +242,7 @@
 }
 
 /* ============================================================
-   PLACEHOLDER GRÁFICOS
+   GRÁFICOS
 ============================================================ */
 .nc-graph-placeholder {
     text-align: center;
@@ -278,7 +259,7 @@
 }
 
 /* ============================================================
-   RODAPÉ FIXO AO FINAL
+   FOOTER
 ============================================================ */
 .nc-footer {
     width: 100%;
@@ -286,6 +267,7 @@
     padding: 15px;
     font-size: 14px;
     color: var(--gray-dark);
-    border-top: 1px solid var(--gray);
     background: var(--white);
+    border-top: 1px solid var(--gray);
+    margin-top: 40px;
 }
