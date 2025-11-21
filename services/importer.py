@@ -8,8 +8,15 @@ from utils.parsers import (
 )
 
 from utils.helpers import gerar_hash_arquivo
-from services.importer_db import salvar_arquivo_importado
+from services.importer_db import (
+    salvar_arquivo_importado,
+    listar_arquivos_importados
+)
 
+
+# ============================================================
+#  IDENTIFICAR TIPO DO ARQUIVO
+# ============================================================
 
 def identificar_tipo(nome_arquivo: str) -> str:
     """Identifica automaticamente se o arquivo é de vendas ou recebimentos."""
@@ -24,6 +31,10 @@ def identificar_tipo(nome_arquivo: str) -> str:
     return "desconhecido"
 
 
+# ============================================================
+#  PROCESSAR UM ÚNICO ARQUIVO
+# ============================================================
+
 def process_file(file_storage):
     """
     Processa um único arquivo:
@@ -33,6 +44,7 @@ def process_file(file_storage):
     """
     nome = file_storage.filename.lower()
 
+    # Detectar tipo de arquivo
     if nome.endswith(".csv"):
         registros = parse_csv_generic(file_storage)
 
@@ -59,9 +71,14 @@ def process_file(file_storage):
     }
 
 
+# ============================================================
+#  PROCESSAR VÁRIOS ARQUIVOS (IMPORTAÇÃO COMPLETA)
+# ============================================================
+
 def process_uploaded_files(files, empresa_id, usuario_id):
     """
-    Processa todos os arquivos enviados, salva no banco
+    Processa todos os arquivos enviados,
+    salva no banco,
     e retorna um resumo geral.
     """
 
@@ -79,10 +96,10 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         tipo = resultado["tipo"]
         registros = resultado["registros"]
 
-        # Gera hash do arquivo
+        # Gera hash único do arquivo
         hash_arquivo = gerar_hash_arquivo(file_storage)
 
-        # Salva no banco
+        # Salvar no banco
         salvar_arquivo_importado(
             empresa_id=empresa_id,
             usuario_id=usuario_id,
@@ -101,3 +118,14 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         })
 
     return resultados
+
+
+# ============================================================
+#  EXPORTAR LISTAGEM DE ARQUIVOS IMPORTADOS
+# ============================================================
+
+def listar_importados(empresa_id: int):
+    """
+    Função wrapper para permitir importar diretamente do importer.py.
+    """
+    return listar_arquivos_importados(empresa_id)
