@@ -1,4 +1,4 @@
-from config import db
+from models.base import db
 from sqlalchemy import text
 
 
