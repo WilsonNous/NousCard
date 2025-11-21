@@ -21,14 +21,11 @@
 
             <nav class="nc-nav">
                 <a href="{{ url_for('dashboard.dashboard') }}" class="nc-nav-item">📊 Dashboard</a>
-
-                <a href="{{ url_for('operacoes.importar') }}" class="nc-nav-item">⬆️ Importar Arquivos</a>
-                <a href="{{ url_for('operacoes.conciliar') }}" class="nc-nav-item">✔️ Conciliação</a>
-
+                <a href="{{ url_for('operacoes.importar_page') }}" class="nc-nav-item">⬆️ Importar Arquivos</a>
+                <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-nav-item">✔️ Conciliação</a>
                 {% if session.get('is_master') %}
-                <a href="{{ url_for('master.listar_empresas') }}" class="nc-nav-item">🏢 Gerenciar Empresas</a>
+                    <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-nav-item">🏢 Gerenciar Empresas</a>
                 {% endif %}
-
                 <a href="{{ url_for('auth.logout') }}" class="nc-nav-item logout">🚪 Sair</a>
             </nav>
         </aside>
