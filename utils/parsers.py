@@ -66,32 +66,34 @@ def parse_data(value):
 def normalize_row(row: dict):
     new = {}
     for key, value in row.items():
+        k = key.strip().lower()
 
-        # remove espaços duplicados, \n, \t e caracteres invisíveis
-        k = re.sub(r"\s+", " ", key).strip().lower()
-
-        # normalização de valor
+        # Detectar coluna de valor
         if k in ("valor", "amount", "valor_bruto", "vlr", "price"):
             new["valor"] = parse_valor(value)
 
-        elif "valor" in k:
+        # Detectar coluna de entrada (Itaú)
+        elif k in ("entrada", "credit", "credito"):
             new["valor"] = parse_valor(value)
 
-        # normalização de data
+        # Detectar coluna de data
         elif k in ("data", "date", "dt", "transaction date"):
             new["data"] = parse_data(value)
 
-        elif "data" in k:
+        elif re.search(r"valor", k):
+            new["valor"] = parse_valor(value)
+
+        elif re.search(r"data", k):
             new["data"] = parse_data(value)
 
-        # descrição
+        # Descrição
         elif k in ("descricao", "desc", "memo", "historico"):
             new["descricao"] = str(value).strip() if value else ""
 
         else:
             new[k] = value
 
-    # garantir campos obrigatórios
+    # Garantir campos obrigatórios
     if "valor" not in new:
         new["valor"] = 0.0
 
