@@ -46,7 +46,7 @@
         <h3>📌 Conteúdo JSON (limitado a 200 registros)</h3>
 
         <pre class="json-box">
-{{ arquivo.conteudo_json | tojson(indent=2) }}
+{{ arquivo.registros | tojson(indent=2) }}
         </pre>
     </div>
 
@@ -54,8 +54,8 @@
     <div id="tab-tabela" class="tab-content">
         <h3>📋 Visualização em Tabela</h3>
 
-        {% set registros = arquivo.conteudo_json %}
-        {% if registros %}
+        {% set registros = arquivo.registros %}
+        {% if registros and registros|length > 0 and registros[0] is mapping %}
 
         <div class="table-wrapper">
             <table class="nc-table">
@@ -79,7 +79,7 @@
         </div>
 
         {% else %}
-            <p>Este arquivo não contém registros.</p>
+            <p>Este arquivo não contém registros tabulares para exibição.</p>
         {% endif %}
     </div>
 
@@ -91,7 +91,6 @@
 
 </section>
 
-<!-- ===================== ESTILOS ===================== -->
 <style>
     .detail-cards {
         display: grid;
@@ -116,7 +115,6 @@
         font-weight: bold;
     }
 
-    /* Tabs */
     .tabs {
         display: flex;
         gap: 10px;
@@ -160,7 +158,6 @@
     }
 </style>
 
-<!-- ===================== JS TABS ===================== -->
 <script>
     document.querySelectorAll(".tab-button").forEach(btn => {
         btn.addEventListener("click", () => {
