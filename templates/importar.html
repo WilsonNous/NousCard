@@ -9,7 +9,7 @@
         <div id="dropZone" class="nc-dropzone">
             Arraste e solte seus arquivos aqui<br>
             ou clique para selecionar.
-            <input type="file" id="fileInput" name="files[]" multiple hidden>
+            <input type="file" id="fileInput" name="files" multiple hidden>
         </div>
 
         <button type="submit" class="nc-btn-primary" style="margin-top:15px">
@@ -20,7 +20,5 @@
     <div id="uploadResult" class="nc-upload-result"></div>
 </section>
 
-<!-- ===================== JS de Upload / Drag & Drop ===================== -->
 <script src="{{ url_for('static', filename='js/operacoes.js') }}"></script>
-
 {% endblock %}
