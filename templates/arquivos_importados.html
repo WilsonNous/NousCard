@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="nc-section">
+    <h2 class="nc-title">Arquivos Importados</h2>
+    <p>Aqui você encontra todos os arquivos já enviados e processados pelo sistema.</p>
+
+    {% if arquivos|length == 0 %}
+        <p>Nenhum arquivo importado ainda.</p>
+    {% else %}
+
+    <div class="nc-table-container">
+        <table class="nc-table">
+            <thead>
+                <tr>
+                    <th>Arquivo</th>
+                    <th>Tipo</th>
+                    <th>Registros</th>
+                    <th>Valor Total</th>
+                    <th>Hash</th>
+                    <th>Data Importação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in arquivos %}
+                <tr>
+                    <td>{{ a.nome_arquivo }}</td>
+                    <td>{{ a.tipo|capitalize }}</td>
+                    <td>{{ a.total_registros }}</td>
+                    <td>R$ {{ "%.2f"|format(a.total_valor) }}</td>
+                    <td class="hash-col">{{ a.hash }}</td>
+                    <td>{{ a.created_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% endif %}
+</section>
+
+{% endblock %}
