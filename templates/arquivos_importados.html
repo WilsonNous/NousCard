@@ -24,7 +24,11 @@
             <tbody>
                 {% for a in arquivos %}
                 <tr>
-                    <td>{{ a.nome_arquivo }}</td>
+                    <td>
+                       <a href="{{ url_for('operacoes.arquivo_detalhe_page', arquivo_id=a.id) }}">
+                           {{ a.nome_arquivo }}
+                       </a>
+                    </td>
                     <td>{{ a.tipo|capitalize }}</td>
                     <td>{{ a.total_registros }}</td>
                     <td>R$ {{ "%.2f"|format(a.total_valor) }}</td>
