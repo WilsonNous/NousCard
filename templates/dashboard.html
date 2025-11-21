@@ -1,86 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- ===================================================== -->
-<!-- IDENTIDADE DO USUÁRIO -->
-<!-- ===================================================== -->
-<section class="nc-section user-info-card">
-    <h3>Olá, {{ usuario.nome }}!</h3>
+<section class="nc-section">
+    <h2 class="nc-title">Olá, {{ usuario.nome }}!</h2>
 
-    <p>
-        <strong>Acesso:</strong>
-        {% if usuario.is_master %}
-            <span class="tag-master">MASTER</span>
-        {% elif usuario.is_admin %}
-            <span class="tag-admin">ADMIN</span>
+    <p class="nc-user-info">
+        <span>Acesso:</span>
+        {% if session.get('is_master') %}
+            <strong>MASTER</strong>
+        {% elif session.get('is_admin') %}
+            <strong>Administrador</strong>
         {% else %}
-            <span class="tag-user">Usuário</span>
+            Usuário
+        {% endif %}
+        <br>
+
+        {% if session.get("is_master") %}
+            <span>Empresa:</span> <strong>— (usuário MASTER sem vínculo)</strong>
+        {% else %}
+            <span>Empresa:</span> <strong>{{ usuario.empresa_nome }}</strong>
         {% endif %}
     </p>
 
-    {% if usuario.empresa %}
-        <p><strong>Empresa:</strong> {{ usuario.empresa.nome }}</p>
-    {% else %}
-        <p><strong>Empresa:</strong> — (usuário MASTER sem vínculo)</p>
-    {% endif %}
-</section>
-
-<!-- ===================================================== -->
-<!-- CONFIGURAÇÕES / ACESSOS -->
-<!-- ===================================================== -->
-<section class="nc-section">
-    <h2>Configurações</h2>
-
-    <div class="nc-config-grid">
-        {% if usuario.is_master %}
-            <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-config-card">
-                Gestão de empresas
-            </a>
-        {% endif %}
-
-        {% if usuario.empresa_id %}
-            <a href="#" class="nc-config-card">Contas bancárias</a>
-            <a href="#" class="nc-config-card">Adquirentes</a>
-            <a href="#" class="nc-config-card">Taxas / Contratos</a>
-            <a href="#" class="nc-config-card">Importação / Conciliação</a>
-        {% endif %}
+    <div class="nc-actions">
+        <a href="{{ url_for('operacoes.importar') }}" class="nc-btn-primary">⬆️ Importar Arquivos</a>
+        <a href="{{ url_for('operacoes.conciliar') }}" class="nc-btn-secondary">✔️ Conciliação</a>
     </div>
 </section>
 
-<!-- ===================================================== -->
-<!-- KPIs PRINCIPAIS -->
-<!-- ===================================================== -->
 <section class="nc-section">
-    <h2>Visão geral</h2>
+    <h2 class="nc-title">Visão Geral</h2>
+
     <div class="nc-kpi-grid">
         <div class="nc-kpi-card">
-            <span class="nc-kpi-label">Total de vendas</span>
-            <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</span>
+            📦
+            <div class="nc-kpi-label">Total de Vendas</div>
+            <div class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_vendas) }}</div>
         </div>
+
         <div class="nc-kpi-card">
-            <span class="nc-kpi-label">Total recebido</span>
-            <span class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</span>
+            💰
+            <div class="nc-kpi-label">Total Recebido</div>
+            <div class="nc-kpi-value">R$ {{ "%.2f"|format(kpis.total_recebido) }}</div>
         </div>
+
         <div class="nc-kpi-card">
-            <span class="nc-kpi-label">Diferença</span>
-            <span class="nc-kpi-value highlight">R$ {{ "%.2f"|format(kpis.diferenca) }}</span>
+            🔍
+            <div class="nc-kpi-label">Diferença</div>
+            <div class="nc-kpi-value">{{ "%.2f"|format(kpis.diferenca) }}</div>
         </div>
+
         <div class="nc-kpi-card">
-            <span class="nc-kpi-label">Alertas</span>
-            <span class="nc-kpi-value">{{ kpis.alertas }}</span>
+            ⚠️
+            <div class="nc-kpi-label">Alertas</div>
+            <div class="nc-kpi-value">{{ kpis.alertas }}</div>
         </div>
     </div>
 </section>
 
-<!-- ===================================================== -->
-<!-- GRÁFICOS -->
-<!-- ===================================================== -->
 <section class="nc-section">
-    <h2>Resumos gráficos</h2>
-    <div class="nc-chart-grid">
-        <div class="nc-chart-placeholder">Gráfico por bandeira (em breve)</div>
-        <div class="nc-chart-placeholder">Gráfico por adquirente (em breve)</div>
-    </div>
+    <h2 class="nc-title">Resumos Gráficos</h2>
+    <p>📊 Em breve você verá gráficos com bandeiras e adquirentes aqui.</p>
 </section>
 
 {% endblock %}
