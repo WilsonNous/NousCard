@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="nc-section">
+    <h2 class="nc-title">Detalhes do Arquivo</h2>
+
+    <p><strong>Nome:</strong> {{ arquivo.nome_arquivo }}</p>
+    <p><strong>Tipo:</strong> {{ arquivo.tipo|capitalize }}</p>
+    <p><strong>Total Registros:</strong> {{ arquivo.total_registros }}</p>
+    <p><strong>Total Valor:</strong> R$ {{ "%.2f"|format(arquivo.total_valor) }}</p>
+    <p><strong>Importado em:</strong> {{ arquivo.created_at }}</p>
+
+    <hr>
+
+    <h3>Registros (até 50 linhas):</h3>
+
+    <pre style="max-height:400px; overflow:auto; background:#f7f7f7; padding:15px; border-radius:8px;">
+{{ arquivo.conteudo_json[:50] | tojson(indent=2) }}
+    </pre>
+
+    <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-btn-secondary">
+        ⬅️ Voltar
+    </a>
+
+</section>
+
+{% endblock %}
