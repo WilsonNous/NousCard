@@ -80,8 +80,9 @@ def listar_arquivos_importados(empresa_id: int):
 
     return arquivos
 
+
 def buscar_arquivo_por_id(arquivo_id, empresa_id):
-    query = """
+    query = text("""
         SELECT
             id,
             nome_arquivo,
@@ -94,7 +95,7 @@ def buscar_arquivo_por_id(arquivo_id, empresa_id):
         WHERE id = :id
           AND empresa_id = :empresa_id
         LIMIT 1
-    """
+    """)
 
     result = db.session.execute(query, {
         "id": arquivo_id,
@@ -104,4 +105,5 @@ def buscar_arquivo_por_id(arquivo_id, empresa_id):
     if not result:
         return None
 
-    return dict(result)
+    return dict(result._mapping)
+
