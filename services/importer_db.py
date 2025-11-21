@@ -111,12 +111,13 @@ def buscar_arquivo_por_id(arquivo_id, empresa_id):
     if not row:
         return None
 
-    # 🔥 Aqui está a correção principal: decodificar JSON
-    registros = []
+    # 🔥 Blindagem total no JSON
+    conteudo_str = row.get("conteudo_json")
+
     try:
-        if row["conteudo_json"]:
-            registros = json.loads(row["conteudo_json"])
-    except:
+        registros = json.loads(conteudo_str) if conteudo_str else []
+    except Exception as e:
+        print("Erro ao decodificar JSON:", e)
         registros = []
 
     return {
@@ -126,5 +127,6 @@ def buscar_arquivo_por_id(arquivo_id, empresa_id):
         "total_registros": row["total_registros"],
         "total_valor": float(row["total_valor"] or 0),
         "created_at": row["created_at"].strftime("%d/%m/%Y %H:%M") if row["created_at"] else "",
-        "registros": registros,
+        "conteudo_json": conteudo_str,   # 👉 devolvemos original (opcional)
+        "registros": registros,          # 👉 devolvemos parseado
     }
