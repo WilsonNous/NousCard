@@ -1,36 +1,21 @@
-/* =========================================================
-   CORES PRINCIPAIS • PALETA NOUS
-========================================================= */
+/* ============= CORES ============= */
 :root {
-    --primary: #1877f2;         /* Azul Facebook premium */
-    --primary-dark: #0d47a1;
-    --primary-light: #3b8bff;
-
-    --bg-light: #f0f2f5;
-    --bg-card: #ffffff;
+    --primary: #1877f2;
+    --primary-dark: #0e4fb3;
+    --bg-light: #f5f6f8;
     --white: #ffffff;
-
-    --gray-light: #e4e6eb;
-    --gray: #ccd0d5;
-    --gray-dark: #606770;
-
-    --text: #1c1e21;
-
-    --shadow: rgba(0,0,0,0.10);
-    --shadow-strong: rgba(0,0,0,0.18);
-
-    --success: #2ecc71;
-    --danger: #e74c3c;
+    --text: #333;
+    --gray: #dfe1e5;
+    --gray-dark: #babec4;
 }
 
-/* =========================================================
-   RESET / BASE
-========================================================= */
-body {
+/* ============= BASE ============= */
+body.nc-body {
     margin: 0;
     font-family: "Inter", sans-serif;
     background: var(--bg-light);
-    color: var(--text);
+    display: flex;
+    min-height: 100vh;
 }
 
 .nc-layout {
@@ -38,269 +23,134 @@ body {
     width: 100%;
 }
 
-/* =========================================================
-   SIDEBAR PREMIUM
-========================================================= */
+/* ============= SIDEBAR ============= */
 .nc-sidebar {
-    width: 260px;
-    background: var(--primary);
-    color: var(--white);
-    padding: 22px 0;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    position: fixed;
-    left: 0;
-    top: 0;
-
-    box-shadow: 3px 0 12px var(--shadow);
+    width: 230px;
+    background: var(--white);
+    border-right: 1px solid var(--gray);
+    padding: 15px 0;
 }
 
-.nc-sidebar-logo {
-    font-size: 22px;
-    font-weight: 700;
-    padding: 0 24px;
-    margin-bottom: 15px;
-    letter-spacing: .5px;
-}
-
-/* Menu */
-.nc-nav {
-    margin-top: 10px;
+.nc-sidebar-header h2 {
+    margin: 0;
+    padding: 15px 25px;
+    font-size: 20px;
 }
 
 .nc-nav-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-
-    padding: 14px 24px;
-    font-size: 16px;
-    color: var(--white);
+    display: block;
+    padding: 12px 25px;
     text-decoration: none;
-    transition: all .2s ease;
+    color: var(--text);
+    font-size: 15px;
+    border-left: 3px solid transparent;
+    transition: 0.2s;
 }
 
 .nc-nav-item:hover {
-    background: rgba(255,255,255,.14);
-    padding-left: 28px;
+    background: #eef4ff;
+    border-left: 3px solid var(--primary);
 }
 
-.nc-nav-item.logout {
-    margin-top: auto;
-    background: rgba(0,0,0,0.18);
-    font-weight: 600;
+.logout {
+    margin-top: 20px;
+    color: #d9534f !important;
 }
 
-/* =========================================================
-   ÁREA DE CONTEÚDO
-========================================================= */
+/* ============= CONTEÚDO ============= */
 .nc-content {
     flex: 1;
-    margin-left: 260px;
-    padding: 40px;
+    padding: 35px;
 }
 
-/* =========================================================
-   SEÇÕES / TITULOS / GRID
-========================================================= */
+.nc-title {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
 .nc-section {
-    margin-bottom: 45px;
-}
-
-.nc-section h2 {
-    margin-bottom: 18px;
-    font-size: 22px;
-    font-weight: 600;
-}
-
-/* KPI GRID */
-.nc-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 22px;
-}
-
-.nc-kpi-card {
-    background: var(--bg-card);
-    padding: 24px;
-    border-radius: 14px;
-
-    border: 1px solid var(--gray-light);
-    box-shadow: 0 4px 10px var(--shadow);
-    transition: .2s;
-}
-
-.nc-kpi-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 14px var(--shadow-strong);
-}
-
-.nc-kpi-label {
-    font-size: 14px;
-    opacity: .7;
-}
-
-.nc-kpi-value {
-    font-size: 26px;
-    margin-top: 4px;
-    font-weight: 700;
-}
-
-.highlight {
-    color: var(--danger);
-}
-
-/* =========================================================
-   LOGIN PAGE PREMIUM
-========================================================= */
-.nc-login-body {
-    background: var(--primary);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-}
-
-.nc-login-box {
     background: var(--white);
-    padding: 40px 32px;
-    border-radius: 14px;
-    width: 360px;
-
-    box-shadow: 0 6px 18px var(--shadow);
-}
-
-.nc-login-box h2 {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.nc-login-box input {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 14px;
-    border-radius: 8px;
+    padding: 25px;
+    border-radius: 10px;
+    margin-bottom: 25px;
     border: 1px solid var(--gray);
-    font-size: 15px;
+}
+
+/* ============= INFORMAÇÕES DO USUÁRIO ============= */
+.nc-user-info span {
+    font-weight: 500;
+}
+
+/* ============= BOTÕES ============= */
+.nc-actions a {
+    margin-right: 10px;
 }
 
 .nc-btn-primary {
-    width: 100%;
     background: var(--primary);
-    padding: 13px;
     color: white;
+    padding: 12px 16px;
     border: none;
     border-radius: 8px;
-    font-weight: 600;
+    font-size: 15px;
     cursor: pointer;
-    transition: .2s;
+    transition: 0.2s;
+    display: inline-block;
+    text-decoration: none;
 }
 
 .nc-btn-primary:hover {
     background: var(--primary-dark);
 }
 
-/* =========================================================
-   TABELAS
-========================================================= */
-.nc-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--white);
-    border-radius: 12px;
-    overflow: hidden;
-
-    box-shadow: 0 4px 14px var(--shadow);
-}
-
-.nc-table th {
-    background: var(--primary);
-    color: var(--white);
-    padding: 14px;
-    text-align: left;
-}
-
-.nc-table td {
-    padding: 14px;
-    border-bottom: 1px solid var(--gray-light);
-}
-
-.nc-table tr:hover td {
-    background: #eef4ff;
-}
-
-/* Mini botão */
-.nc-btn-table {
-    background: var(--primary);
-    padding: 6px 10px;
+.nc-btn-secondary {
+    background: #444;
     color: white;
-    text-decoration: none;
-    border-radius: 6px;
-    font-size: 13px;
-}
-
-/* =========================================================
-   FORMULÁRIOS
-========================================================= */
-.nc-form label {
-    display: block;
-    margin: 12px 0 4px;
-    font-weight: 500;
-}
-
-.nc-form input,
-.nc-form select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid var(--gray);
+    padding: 12px 16px;
     border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    transition: 0.2s;
 }
 
-/* =========================================================
-   FOOTER NOUS PREMIUM
-========================================================= */
-.nc-footer {
-    width: 100%;
-    text-align: center;
-    padding: 16px 0;
-    color: #555;
+.nc-btn-secondary:hover {
+    background: #222;
+}
 
-    position: fixed;
-    bottom: 0;
-    left: 260px;
-    background: var(--bg-light);
-    border-top: 1px solid var(--gray-light);
+/* ============= KPI CARDS ============= */
+.nc-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+}
+
+.nc-kpi-card {
+    background: var(--white);
+    border: 1px solid var(--gray);
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.nc-kpi-label {
     font-size: 14px;
-
-    backdrop-filter: blur(6px);
-    box-shadow: 0 -2px 6px var(--shadow);
+    color: var(--gray-dark);
+    margin-top: 5px;
 }
 
-/* =========================================================
-   MOBILE / RESPONSIVO
-========================================================= */
-@media(max-width: 850px) {
-    .nc-sidebar {
-        position: fixed;
-        left: -260px;
-        z-index: 10;
-    }
+.nc-kpi-value {
+    font-size: 22px;
+    margin-top: 5px;
+    font-weight: 600;
+}
 
-    .nc-sidebar.open {
-        left: 0;
-    }
-
-    .nc-menu-toggle {
-        display: inline-block;
-    }
-
-    .nc-content {
-        margin-left: 0;
-        padding: 22px;
-    }
-
-    .nc-footer {
-        left: 0;
-    }
+/* ============= RODAPÉ ============= */
+.nc-footer {
+    text-align: center;
+    padding: 15px;
+    font-size: 14px;
+    color: var(--gray-dark);
+    border-top: 1px solid var(--gray);
+    margin-top: 30px;
+    background: var(--white);
 }
