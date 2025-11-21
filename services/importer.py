@@ -32,33 +32,51 @@ def identificar_tipo(nome_arquivo: str) -> str:
 
 
 # ============================================================
-#  PROCESSAR UM ÚNICO ARQUIVO
+#  PROCESSAR UM ÚNICO ARQUIVO (SAFE)
 # ============================================================
 
 def process_file(file_storage):
     """
     Processa um único arquivo:
-    - detecta o tipo
-    - extrai dados
-    - retorna registros normalizados
+    - identifica tipo
+    - executa parser correspondente
+    - captura erros em OFX e formatos inválidos
     """
+
     nome = file_storage.filename.lower()
 
-    # Detectar tipo de arquivo
-    if nome.endswith(".csv"):
-        registros = parse_csv_generic(file_storage)
+    try:
+        # CSV / TXT
+        if nome.endswith(".csv") or nome.endswith(".txt"):
+            registros = parse_csv_generic(file_storage)
 
-    elif nome.endswith(".xlsx") or nome.endswith(".xls"):
-        registros = parse_excel_generic(file_storage)
+        # Excel
+        elif nome.endswith(".xlsx") or nome.endswith(".xls"):
+            registros = parse_excel_generic(file_storage)
 
-    elif nome.endswith(".ofx"):
-        registros = parse_ofx_generic(file_storage)
+        # OFX (proteção contra FITID ausente)
+        elif nome.endswith(".ofx"):
+            try:
+                registros = parse_ofx_generic(file_storage)
+            except Exception as e:
+                return {
+                    "ok": False,
+                    "arquivo": nome,
+                    "erro": f"Erro ao interpretar OFX: {str(e)}"
+                }
 
-    else:
+        else:
+            return {
+                "ok": False,
+                "arquivo": nome,
+                "erro": "Formato não suportado"
+            }
+
+    except Exception as e:
         return {
             "ok": False,
             "arquivo": nome,
-            "erro": "Formato não suportado"
+            "erro": f"Erro ao processar arquivo: {str(e)}"
         }
 
     tipo = identificar_tipo(nome)
@@ -72,14 +90,14 @@ def process_file(file_storage):
 
 
 # ============================================================
-#  PROCESSAR VÁRIOS ARQUIVOS (IMPORTAÇÃO COMPLETA)
+#  PROCESSAR MÚLTIPLOS ARQUIVOS + SALVAR NO BANCO
 # ============================================================
 
 def process_uploaded_files(files, empresa_id, usuario_id):
     """
     Processa todos os arquivos enviados,
     salva no banco,
-    e retorna um resumo geral.
+    retorna um resumo geral para exibição no frontend.
     """
 
     resultados = []
@@ -96,10 +114,10 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         tipo = resultado["tipo"]
         registros = resultado["registros"]
 
-        # Gera hash único do arquivo
+        # Gera hash único
         hash_arquivo = gerar_hash_arquivo(file_storage)
 
-        # Salvar no banco
+        # Salva no banco de dados
         salvar_arquivo_importado(
             empresa_id=empresa_id,
             usuario_id=usuario_id,
@@ -121,11 +139,8 @@ def process_uploaded_files(files, empresa_id, usuario_id):
 
 
 # ============================================================
-#  EXPORTAR LISTAGEM DE ARQUIVOS IMPORTADOS
+#  EXPORTAR LISTAGEM — FACILITA USO EM ROTAS
 # ============================================================
 
 def listar_importados(empresa_id: int):
-    """
-    Função wrapper para permitir importar diretamente do importer.py.
-    """
     return listar_arquivos_importados(empresa_id)
