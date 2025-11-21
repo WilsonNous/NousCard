@@ -35,10 +35,10 @@ def upload_arquivos():
     resultados = process_uploaded_files(files, empresa_id, usuario_id)
 
     total_arquivos = len(resultados)
-    qtde_vendas = sum(1 for r in resultados if r["tipo"] == "venda")
-    qtde_recebimentos = sum(1 for r in resultados if r["tipo"] == "recebimento")
-    total_vendas = sum(r.get("linhas", 0) for r in resultados if r["tipo"] == "venda")
-    total_recebimentos = sum(r.get("linhas", 0) for r in resultados if r["tipo"] == "recebimento")
+    qtde_vendas = sum(1 for r in resultados if r.get("tipo") == "venda")
+    qtde_recebimentos = sum(1 for r in resultados if r.get("tipo") == "recebimento")
+    total_vendas = sum(r.get("linhas", 0) for r in resultados if r.get("tipo") == "venda")
+    total_recebimentos = sum(r.get("linhas", 0) for r in resultados if r.get("tipo") == "recebimento")
 
     resumo = {
         "ok": True,
