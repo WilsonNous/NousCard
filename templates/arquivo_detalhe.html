@@ -3,6 +3,9 @@
 
 <section class="nc-section">
 
+    {# 🔥 Correção essencial: garantir que "registros" existe no escopo #}
+    {% set registros = registros or [] %}
+
     <h2 class="nc-title">📄 Detalhes do Arquivo Importado</h2>
 
     <!-- CARDS SUPERIORES -->
