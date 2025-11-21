@@ -126,3 +126,17 @@ def arquivos_importados_page():
     arquivos = listar_arquivos_importados(empresa_id)
 
     return render_template("arquivos_importados.html", arquivos=arquivos)
+
+@operacoes_bp.route("/arquivo/<int:arquivo_id>")
+@login_required
+def arquivo_detalhe_page(arquivo_id):
+    empresa_id = session.get("empresa_id")
+
+    from services.importer_db import buscar_arquivo_por_id
+
+    arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
+
+    if not arquivo:
+        return render_template("erro.html", mensagem="Arquivo não encontrado ou não pertence à sua empresa.")
+
+    return render_template("arquivo_detalhe.html", arquivo=arquivo)
