@@ -64,39 +64,34 @@ def parse_data(value):
 # Normalização genérica de colunas
 # ============================================================
 def normalize_row(row: dict):
-    """
-    Padroniza campos:
-    - data
-    - valor
-    - descricao
-    - qualquer outro permanece intacto
-    """
     new = {}
     for key, value in row.items():
-        k = key.strip().lower()
 
-        # Detectar coluna de valor
+        # remove espaços duplicados, \n, \t e caracteres invisíveis
+        k = re.sub(r"\s+", " ", key).strip().lower()
+
+        # normalização de valor
         if k in ("valor", "amount", "valor_bruto", "vlr", "price"):
             new["valor"] = parse_valor(value)
 
-        # Detectar coluna de data
+        elif "valor" in k:
+            new["valor"] = parse_valor(value)
+
+        # normalização de data
         elif k in ("data", "date", "dt", "transaction date"):
             new["data"] = parse_data(value)
 
-        # Detecção automática por regex
-        elif re.search(r"valor", k):
-            new["valor"] = parse_valor(value)
-        elif re.search(r"data", k):
+        elif "data" in k:
             new["data"] = parse_data(value)
 
-        # Descrição
+        # descrição
         elif k in ("descricao", "desc", "memo", "historico"):
             new["descricao"] = str(value).strip() if value else ""
 
         else:
             new[k] = value
 
-    # Garantir campos obrigatórios
+    # garantir campos obrigatórios
     if "valor" not in new:
         new["valor"] = 0.0
 
@@ -104,7 +99,6 @@ def normalize_row(row: dict):
         new["descricao"] = ""
 
     return new
-
 
 # ============================================================
 # PARSER CSV
