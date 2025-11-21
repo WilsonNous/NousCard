@@ -109,3 +109,30 @@ def arquivo_detalhe_page(arquivo_id):
         registros=registros
     )
 
+# ============================================================
+# API: Executar Conciliação
+# ============================================================
+@operacoes_bp.route("/api/conciliar", methods=["POST"])
+@login_required
+@empresa_required
+def conciliar_api():
+    empresa_id = session.get("empresa_id")
+
+    try:
+        from services.conciliador import executar_conciliacao
+        
+        resultado = executar_conciliacao(empresa_id)
+
+        return jsonify({
+            "ok": True,
+            "message": "Conciliação executada com sucesso.",
+            "resultado": resultado
+        })
+
+    except Exception as e:
+        print("Erro na conciliação:", e)
+        return jsonify({
+            "ok": False,
+            "message": "Erro ao processar conciliação."
+        }), 500
+
