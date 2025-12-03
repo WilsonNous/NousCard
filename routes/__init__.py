@@ -8,13 +8,19 @@ from .operacoes_routes import operacoes_bp
 from .dashboard_api import dashboard_api
 
 
-
 def register_blueprints(app):
+    # Interface principal
     app.register_blueprint(dashboard_bp)
-    app.register_blueprint(contrato_bp, url_prefix="/contratos")
-    app.register_blueprint(assistant_bp, url_prefix="/assistant")
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(empresas_bp)
-    app.register_blueprint(master_bp)
-    app.register_blueprint(operacoes_bp, url_prefix="/operacoes")
-    app.register_blueprint(dashboard_api
+
+    # Módulos adicionais
+    app.register_blueprint(contrato_bp)         # já tem prefixo interno
+    app.register_blueprint(assistant_bp)        # já tem prefixo interno
+    app.register_blueprint(auth_bp)             # login e auth
+    app.register_blueprint(empresas_bp)         # gestão de empresas
+    app.register_blueprint(master_bp)           # área master
+
+    # Operações
+    app.register_blueprint(operacoes_bp)        # já tem prefixo /operacoes
+
+    # API do dashboard
+    app.register_blueprint(dashboard_api)       # já tem prefixo /api/dashboard
