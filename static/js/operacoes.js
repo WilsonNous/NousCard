@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
             try {
     
-                const response = await fetch("/operacoes/api/conciliar", {
+                const response = await fetch("/operacoes/conciliar", {
                     method: "POST",
                 });
     
