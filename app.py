@@ -12,7 +12,7 @@ def create_app():
     # Inicializa banco
     db.init_app(app)
 
-    # Registra blueprints
+    # Registra rotas e APIs
     register_blueprints(app)
 
     # ---------------------------------------------------------
