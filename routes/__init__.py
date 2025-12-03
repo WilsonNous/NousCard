@@ -5,6 +5,9 @@ from .auth_routes import auth_bp
 from .empresas_routes import empresas_bp
 from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
+from .dashboard_api import dashboard_api
+
+
 
 def register_blueprints(app):
     app.register_blueprint(dashboard_bp)
@@ -14,3 +17,4 @@ def register_blueprints(app):
     app.register_blueprint(empresas_bp)
     app.register_blueprint(master_bp)
     app.register_blueprint(operacoes_bp, url_prefix="/operacoes")
+    app.register_blueprint(dashboard_api
