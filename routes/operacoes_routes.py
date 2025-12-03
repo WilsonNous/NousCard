@@ -112,7 +112,7 @@ def arquivo_detalhe_page(arquivo_id):
 # ============================================================
 # API: Executar Conciliação
 # ============================================================
-@operacoes_bp.route("/api/conciliar", methods=["POST"])
+@operacoes_bp.route("/conciliar", methods=["POST"])
 @login_required
 @empresa_required
 def conciliar_api():
