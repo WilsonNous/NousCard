@@ -65,42 +65,68 @@ def parse_data(value):
 # ============================================================
 def normalize_row(row: dict):
     new = {}
+    valor_alternativo = None  # ← valor detectado fora da coluna "valor"
+
     for key, value in row.items():
         k = key.strip().lower()
 
-        # Detectar coluna de valor
+        # =======================================================
+        # 1) Colunas que DEFINITIVAMENTE representam valor
+        # =======================================================
         if k in ("valor", "amount", "valor_bruto", "vlr", "price"):
             new["valor"] = parse_valor(value)
 
-        # Detectar coluna de entrada (Itaú)
-        elif k in ("entrada", "credit", "credito"):
-            new["valor"] = parse_valor(value)
+        # =======================================================
+        # 2) Bancos e adquirentes usam outros nomes para valor
+        # =======================================================
+        elif k in (
+            "entrada", "creditado", "credito",
+            "valor_liquido", "vlr_liq", "valor_liq",
+            "valor lançado", "lancado"
+        ):
+            valor_alternativo = parse_valor(value)
 
-        # Detectar coluna de data
+        # =======================================================
+        # 3) Detecção automática baseada em regex para fallback
+        # =======================================================
+        elif re.search(r"valor|liq|credit", k):
+            valor_alternativo = parse_valor(value)
+
+        # =======================================================
+        # 4) Datas
+        # =======================================================
         elif k in ("data", "date", "dt", "transaction date"):
             new["data"] = parse_data(value)
-
-        elif re.search(r"valor", k):
-            new["valor"] = parse_valor(value)
 
         elif re.search(r"data", k):
             new["data"] = parse_data(value)
 
-        # Descrição
-        elif k in ("descricao", "desc", "memo", "historico"):
+        # =======================================================
+        # 5) Descrição
+        # =======================================================
+        elif k in ("descricao", "desc", "memo", "historico", "detalhe"):
             new["descricao"] = str(value).strip() if value else ""
 
         else:
             new[k] = value
 
-    # Garantir campos obrigatórios
-    if "valor" not in new:
-        new["valor"] = 0.0
+    # =======================================================
+    # GARANTIR VALOR CORRETO
+    # =======================================================
+    if "valor" not in new or new["valor"] == 0:
+        if valor_alternativo is not None:
+            new["valor"] = valor_alternativo
+        else:
+            new["valor"] = 0.0
 
+    # =======================================================
+    # GARANTIR DESCRIÇÃO
+    # =======================================================
     if "descricao" not in new:
         new["descricao"] = ""
 
     return new
+
 
 # ============================================================
 # PARSER CSV
