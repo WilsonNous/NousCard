@@ -72,60 +72,61 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-    }  // 🔥🔥🔥 FECHAMENTO DO IF FALTANDO — ESSA LINHA CORRIGE O ERRO!!!
+    } // 🔥 FECHAMENTO DO IF — correto agora
 
 
     // ====================================================================================
-    //  CONCILIAÇÃO (somente se existir)
+    //  CONCILIAÇÃO REAL (NOVO ENDPOINT)
     // ====================================================================================
     const btnConciliar = document.getElementById("btnConciliar");
     const conciliacaoResumo = document.getElementById("conciliacaoResumo");
-    
+
+    // Pega empresa_id exposta no template base.html
+    const empresaId = window.EMPRESA_ID;
+
     if (btnConciliar && conciliacaoResumo) {
-    
+
         btnConciliar.addEventListener("click", async () => {
-    
+
             conciliacaoResumo.innerHTML = `<p>⏳ Executando conciliação...</p>`;
-    
+
             try {
-    
-                const response = await fetch("/operacoes/conciliar", {
+
+                // 🔥 CHAMADA NOVA PARA O MOTOR REAL
+                const response = await fetch("/api/conciliacao/processar", {
                     method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ empresa_id: empresaId })
                 });
-    
+
                 const data = await response.json();
-    
-                if (!data.ok) {
+
+                if (data.status !== "success") {
                     conciliacaoResumo.innerHTML = `
                         <p style="color:red">❌ ${data.message || "Erro ao processar conciliação."}</p>
                     `;
                     return;
                 }
-    
+
                 const r = data.resultado;
-    
+
                 conciliacaoResumo.innerHTML = `
                     <div style="background:#eaf8ea;padding:15px;border-radius:8px;margin-top:12px;">
                         <h3>✔ Conciliação concluída</h3>
-    
-                        <p><strong>Total de Vendas:</strong> R$ ${r.total_vendas.toFixed(2)}</p>
-                        <p><strong>Total Recebido:</strong> R$ ${r.total_recebimentos.toFixed(2)}</p>
-                        <p><strong>Diferença:</strong> 
-                            <span style="color:${r.diferenca === 0 ? "#0a0" : "#c00"};">
-                                R$ ${r.diferenca.toFixed(2)}
-                            </span>
-                        </p>
-    
-                        <hr>
-    
-                        <p><strong>Arquivos analisados:</strong> ${r.arquivos_processados}</p>
+
+                        <p><strong>Vendas conciliadas:</strong> ${r.conciliados}</p>
+                        <p><strong>Parciais:</strong> ${r.parciais}</p>
+                        <p><strong>Multivendas:</strong> ${r.multivendas}</p>
+                        <p><strong>Não conciliadas:</strong> ${r.nao_conciliados}</p>
+                        <p><strong>Créditos sem origem:</strong> ${r.creditos_sem_origem}</p>
                     </div>
                 `;
-    
+
             } catch (err) {
                 console.error("Erro conciliação:", err);
                 conciliacaoResumo.innerHTML = `<p style="color:red">Erro ao processar conciliação.</p>`;
             }
+
         });
     }
 
