@@ -8,11 +8,17 @@ class ContratoTaxa(db.Model):
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
     adquirente_id = db.Column(db.Integer, db.ForeignKey("adquirentes.id"), nullable=False)
 
-    bandeira = db.Column(db.String(50), nullable=True)      # Visa, Master...
-    produto = db.Column(db.String(50), nullable=True)       # Débito, Crédito, Parcelado...
+    bandeira = db.Column(db.String(50), nullable=True)
+    produto = db.Column(db.String(50), nullable=True)
     taxa_percentual = db.Column(db.Numeric(10, 4), nullable=True)
     tarifa_fixa = db.Column(db.Numeric(10, 2), nullable=True)
+
+    # FUTURO – antecipação
+    percentual_antecipacao = db.Column(db.Numeric(10, 4), nullable=True)
+    prazo_antecipacao = db.Column(db.Integer, nullable=True)  # dias
+
     aluguel_maquineta = db.Column(db.Numeric(10, 2), nullable=True)
+
     vigencia_inicio = db.Column(db.Date, nullable=True)
     vigencia_fim = db.Column(db.Date, nullable=True)
     ativo = db.Column(db.Boolean, default=True)
