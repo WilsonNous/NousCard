@@ -136,3 +136,27 @@ def conciliar_api():
             "message": "Erro ao processar conciliação."
         }), 500
 
+
+@operacoes_bp.route("/detalhado", methods=["GET"])
+@login_required
+@empresa_required
+def detalhado_page():
+    return render_template("detalhado.html")
+
+
+@operacoes_bp.route("/api/detalhado", methods=["GET"])
+@login_required
+@empresa_required
+def detalhado_api():
+    empresa_id = session.get("empresa_id")
+
+    try:
+        from services.detalhamento_service import gerar_detalhamento
+        data = gerar_detalhamento(empresa_id)
+
+        return jsonify({"ok": True, "dados": data})
+
+    except Exception as e:
+        print("Erro ao gerar detalhamento:", e)
+        return jsonify({"ok": False, "message": "Erro ao gerar relatório detalhado."}), 500
+
