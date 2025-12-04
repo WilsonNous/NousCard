@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="nc-section">
+    <h2 class="nc-title">📅 Visão Detalhada — Linha por Linha</h2>
+    <p class="nc-subtitle">Resumo diário por adquirente, liquidação e status.</p>
+
+    <div id="detalhadoContainer">
+        <p>Carregando dados...</p>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/detalhado.js') }}"></script>
+
+<style>
+.detalhado-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.detalhado-table th {
+    background: #0048a8;
+    color: #fff;
+    padding: 8px;
+}
+
+.detalhado-table td {
+    padding: 6px;
+    border-bottom: 1px solid #ddd;
+}
+
+.status-ok { color: #008000; font-weight: bold; }
+.status-pendente { color: #cc0000; font-weight: bold; }
+
+@media(max-width: 768px) {
+    .detalhado-table { font-size: 12px; }
+}
+</style>
+
+{% endblock %}
