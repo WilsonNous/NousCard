@@ -9,15 +9,18 @@ class MovBanco(db.Model):
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
 
     data_movimento = db.Column(db.Date, nullable=False)
+
     banco = db.Column(db.String(50), nullable=True)
     historico = db.Column(db.String(255), nullable=True)
 
-    origem = db.Column(db.String(50), nullable=True)
+    origem = db.Column(db.String(50), nullable=True)   # ex: cielo, rede, stone...
 
     valor = db.Column(db.Numeric(12, 2), nullable=False)
 
-    # Novos campos
-    valor_conciliado = db.Column(db.Numeric(12,2), default=0)
+    # ===================================================================
+    # Novos campos necessários para conciliação avançada
+    # ===================================================================
+    valor_conciliado = db.Column(db.Numeric(12, 2), default=0)
     conciliado = db.Column(db.Boolean, default=False)
 
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
@@ -25,4 +28,9 @@ class MovBanco(db.Model):
     conciliacoes = db.relationship("Conciliacao", backref="mov_banco", lazy=True)
 
     def __repr__(self):
-        return f"<MovBanco {self.id} R${self.valor}>"
+        return (
+            f"<MovBanco id={self.id} "
+            f"data={self.data_movimento} "
+            f"valor={float(self.valor) if self.valor is not None else 0} "
+            f"conciliado={self.conciliado}>"
+        )
