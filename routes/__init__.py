@@ -7,6 +7,9 @@ from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
 from .dashboard_api import dashboard_api
 
+# 🔥 IMPORTANTE — NOVO:
+from .conciliacao_api import bp_conc
+
 
 def register_blueprints(app):
     # Interface principal
@@ -24,3 +27,6 @@ def register_blueprints(app):
 
     # API do dashboard
     app.register_blueprint(dashboard_api)       # já tem prefixo /api/dashboard
+
+    # 🔥 API nova de conciliação
+    app.register_blueprint(bp_conc)             # prefixo /api/conciliacao
