@@ -1,9 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from models import db, MovAdquirente, MovBanco, Conciliacao
-from services.conciliacao import executar_conciliacao  # seu motor avançado
+from services.conciliacao import executar_conciliacao
 
 bp_conc = Blueprint("conciliacao_api", __name__)
-
 
 # ============================================================
 # 1️⃣ PROCESSAR CONCILIAÇÃO
@@ -11,11 +10,16 @@ bp_conc = Blueprint("conciliacao_api", __name__)
 @bp_conc.route("/api/conciliacao/processar", methods=["POST"])
 def api_processar_conciliacao():
 
-    data = request.get_json() or {}
-    empresa_id = data.get("empresa_id")
+    # empresa vem do usuário logado
+    usuario = getattr(g, "user", None)
+
+    if not usuario:
+        return jsonify({"status": "error", "message": "Usuário não autenticado"}), 401
+
+    empresa_id = usuario.empresa_id
 
     if not empresa_id:
-        return jsonify({"status": "error", "message": "empresa_id é obrigatório"}), 400
+        return jsonify({"status": "error", "message": "Usuário sem empresa vinculada"}), 400
 
     resultado = executar_conciliacao(empresa_id)
 
@@ -24,7 +28,6 @@ def api_processar_conciliacao():
         "message": "Conciliação executada com sucesso",
         "resultado": resultado
     }), 200
-
 
 
 # ============================================================
