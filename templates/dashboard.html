@@ -2,9 +2,6 @@
 
 {% block content %}
 
-<!-- ============================================================
-     SEÇÃO: BOAS-VINDAS + INFORMAÇÕES DO USUÁRIO
-============================================================ -->
 <section class="nc-section">
     <h2 class="nc-title">Olá, {{ usuario.nome }} 👋</h2>
 
@@ -36,11 +33,6 @@
     </div>
 </section>
 
-
-
-<!-- ============================================================
-     SEÇÃO: KPIs
-============================================================ -->
 <section class="nc-section">
     <h2 class="nc-subtitle">Visão Geral</h2>
 
@@ -49,7 +41,7 @@
         <div class="nc-kpi-card">
             <div class="kpi-icon kpi-blue">🛍️</div>
             <div class="kpi-info">
-                <div class="kpi-label">Total de Vendas</div>
+                <div class="kpi-label">Total Vendas</div>
                 <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
             </div>
         </div>
@@ -81,10 +73,16 @@
     </div>
 </section>
 
-
+<!-- ============================================================
+     NOVA SEÇÃO: ADQUIRENTES (com ícones e cores)
+============================================================ -->
+<section class="nc-section">
+    <h2 class="nc-subtitle">Totais por Adquirente</h2>
+    <div id="acqContainer" class="nc-acq-grid"></div>
+</section>
 
 <!-- ============================================================
-     SEÇÃO: GRÁFICO PRINCIPAL
+     GRÁFICOS
 ============================================================ -->
 <section class="nc-section">
     <h2 class="nc-subtitle">Gráfico de Vendas x Recebido</h2>
@@ -94,11 +92,6 @@
     </div>
 </section>
 
-
-
-<!-- ============================================================
-     SEÇÃO: GRÁFICO DE BANDEIRAS
-============================================================ -->
 <section class="nc-section">
     <h2 class="nc-subtitle">Vendas por Bandeira</h2>
 
@@ -108,22 +101,50 @@
 </section>
 
 
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 
+<style>
 
+.nc-acq-grid {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
 
-<!-- ============================================================
-     SEÇÃO: PLACEHOLDER PARA PRÓXIMOS GRÁFICOS
-============================================================ -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">Mais Análises</h2>
+.nc-acq-card {
+    background: #fff;
+    padding: 15px;
+    border-radius: 14px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+    border: 1px solid #eee;
+    text-align: center;
+    transition: 0.2s;
+}
 
-    <div class="nc-graph-placeholder">
-        <i>📈</i>
-        <p>Gráficos com adquirentes, tendências e perfis aparecerão aqui.</p>
-    </div>
-</section>
+.nc-acq-card:hover {
+    transform: translateY(-4px);
+}
+
+.nc-acq-icon {
+    font-size: 32px;
+    margin-bottom: 6px;
+}
+
+.nc-acq-value {
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 4px;
+}
+
+/* Cores personalizadas */
+.acq-cielo { color: #0071ce; }
+.acq-rede { color: #ff6600; }
+.acq-getnet { color: #cc0000; }
+.acq-stone { color: #0fa968; }
+.acq-pagseguro { color: #13a300; }
+.acq-outros { color: #444; }
+
+</style>
 
 {% endblock %}
