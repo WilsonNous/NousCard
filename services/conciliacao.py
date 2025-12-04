@@ -4,11 +4,10 @@ from models import db, MovAdquirente, MovBanco, Conciliacao, Adquirente
 
 
 # ============================================================
-# 🔧 Funções utilitárias
+# 🔧 FUNÇÕES AUXILIARES
 # ============================================================
 
 def normalizar(texto):
-    """Deixa o texto consistente para comparação."""
     if not texto:
         return ""
     return texto.lower().replace(" ", "").replace("-", "").replace(".", "")
@@ -16,8 +15,7 @@ def normalizar(texto):
 
 def identificar_adquirente_por_historico(historico, adquirentes):
     """
-    Tenta identificar a origem (Cielo, Rede, Stone...) a partir
-    do texto do lançamento bancário.
+    Tenta identificar Cielo, Rede, Getnet, Stone etc. pelo texto do extrato.
     """
     hist_norm = normalizar(historico)
 
@@ -26,25 +24,20 @@ def identificar_adquirente_por_historico(historico, adquirentes):
             for chave in adq.palavras_chave_extrato.split(","):
                 if normalizar(chave) in hist_norm:
                     return adq.id
-
     return None
 
 
-
 # ============================================================
-# 🎯 Regras de matching
+# 🎯 REGRAS DE MATCHING
 # ============================================================
 
-TOLERANCIA_DIAS = 2  # sua escolha (opção B)
+TOLERANCIA_DIAS = 2  # tolerância de D±2 no repasse
 
 
 def datas_compatíveis(data_prevista, data_banco):
-    """Verifica se a data do banco está dentro da tolerância."""
     if not data_prevista or not data_banco:
         return False
-
     return abs((data_prevista - data_banco).days) <= TOLERANCIA_DIAS
-
 
 
 # ============================================================
@@ -53,67 +46,60 @@ def datas_compatíveis(data_prevista, data_banco):
 
 def tentar_matching(venda, recebimentos):
     """
-    Tenta conciliar uma venda com:
-    1) Match exato
-    2) Match parcial
-    3) Match multivenda (várias vendas para 1 crédito)
+    MATCH INDIVIDUAL:
+      1) valor exato
+      2) valor parcial
     """
 
-    # ---------------------------------------
-    # 🔵 1. MATCH EXATO (valor igual)
-    # ---------------------------------------
-    for r in recebimentos:
-        if float(r.valor) == float(venda.valor_liquido) and datas_compatíveis(venda.data_prevista_pagamento, r.data_movimento):
-            return [(venda, r, float(r.valor))]  # lista com 1 vínculo
+    valor_liq_venda = float(venda.valor_liquido or 0)
 
-    # ---------------------------------------
-    # 🟡 2. MATCH PARCIAL (valor menor que o previsto)
-    # ---------------------------------------
+    # -----------------------------------------
+    # 🔵 MATCH EXATO
+    # -----------------------------------------
     for r in recebimentos:
-        if float(r.valor) < float(venda.valor_liquido) and datas_compatíveis(venda.data_prevista_pagamento, r.data_movimento):
+        if float(r.valor) == valor_liq_venda and datas_compatíveis(venda.data_prevista_pagamento, r.data_movimento):
+            return [(venda, r, float(r.valor))]
+
+    # -----------------------------------------
+    # 🟡 MATCH PARCIAL
+    # -----------------------------------------
+    for r in recebimentos:
+        if float(r.valor) < valor_liq_venda and datas_compatíveis(venda.data_prevista_pagamento, r.data_movimento):
             return [(venda, r, float(r.valor))]
 
     return None
 
 
-
 # ============================================================
-# 🔄 MULTIVENDA (crédito pagando várias vendas)
+# 🔄 MULTIVENDA
 # ============================================================
 
 def tentar_multivenda(recebimento, vendas):
-    """
-    Recebimento que pode pagar várias vendas.
-    Ex: crédito consolidado da Cielo.
-    """
-
-    total = float(recebimento.valor)
+    total = float(recebimento.valor or 0)
     acumulado = 0
     vinculos = []
 
     for v in vendas:
-        valor_prev = float(v.valor_liquido)
+        valor_prev = float(v.valor_liquido or 0)
 
         if acumulado + valor_prev <= total:
             acumulado += valor_prev
-            vinculos.append((v, recebimento, valor_prev))  # venda, recebimento, valor conciliado
+            vinculos.append((v, recebimento, valor_prev))
 
         if acumulado == total:
             return vinculos
 
-    return None  # não fechou exatamente
-
+    return None
 
 
 # ============================================================
-# 📝 Gravação da conciliação
+# 💾 GRAVAÇÃO DA CONCILIAÇÃO
 # ============================================================
 
 def registrar_conciliacao(vinculos, empresa_id):
-    """Grava os vínculos N–N na tabela conciliacoes."""
-
     for venda, recebimento, valor in vinculos:
 
+        # REGISTRO NA TABELA conciliações
         conc = Conciliacao(
             empresa_id=empresa_id,
             mov_adquirente_id=venda.id,
@@ -125,42 +111,34 @@ def registrar_conciliacao(vinculos, empresa_id):
         )
         db.session.add(conc)
 
-        # Atualiza a venda
-        venda.valor_conciliado += valor
-        venda.data_primeiro_recebimento = recebimento.data_movimento if not venda.data_primeiro_recebimento else venda.data_primeiro_recebimento
+        # Atualiza venda
+        venda.valor_conciliado = (float(venda.valor_conciliado or 0) + valor)
+        venda.data_primeiro_recebimento = venda.data_primeiro_recebimento or recebimento.data_movimento
         venda.data_ultimo_recebimento = recebimento.data_movimento
 
-        if float(venda.valor_conciliado) == float(venda.valor_liquido):
+        # define status
+        if float(venda.valor_conciliado) >= float(venda.valor_liquido or 0):
             venda.status_conciliacao = "conciliado"
         elif float(venda.valor_conciliado) > 0:
             venda.status_conciliacao = "parcial"
 
-        # Atualiza o recebimento
-        recebimento.valor_conciliado += valor
-        recebimento.conciliado = (float(recebimento.valor_conciliado) == float(recebimento.valor))
+        # Atualiza recebimento
+        recebimento.valor_conciliado = (float(recebimento.valor_conciliado or 0) + valor)
+        recebimento.conciliado = float(recebimento.valor_conciliado) >= float(recebimento.valor or 0)
 
     db.session.commit()
 
 
-
 # ============================================================
-# 🚀 Função principal chamada pelo endpoint
+# 🚀 FUNÇÃO PRINCIPAL
 # ============================================================
 
 def executar_conciliacao(empresa_id):
-    """
-    Conciliação avançada:
-      ✔ Matching exato
-      ✔ Matching parcial
-      ✔ Matching multivenda
-      ✔ Tolerância ±2 dias
-    """
-
     vendas = MovAdquirente.query.filter_by(empresa_id=empresa_id).all()
     recebimentos = MovBanco.query.filter_by(empresa_id=empresa_id, conciliado=False).all()
     adquirentes = Adquirente.query.all()
 
-    resultados = {
+    resultado = {
         "conciliados": 0,
         "parciais": 0,
         "multivendas": 0,
@@ -168,9 +146,9 @@ def executar_conciliacao(empresa_id):
         "creditos_sem_origem": 0
     }
 
-    # =========================================
-    # 🔹 Primeira fase: match por venda
-    # =========================================
+    # ----------------------------------------------------
+    # 🔹 MATCH INDIVIDUAL
+    # ----------------------------------------------------
     for venda in vendas:
 
         if venda.status_conciliacao == "conciliado":
@@ -181,36 +159,38 @@ def executar_conciliacao(empresa_id):
         if vinculos:
             registrar_conciliacao(vinculos, empresa_id)
 
-            if sum([v[2] for v in vinculos]) == float(venda.valor_liquido):
-                resultados["conciliados"] += 1
+            total_conc = sum(v[2] for v in vinculos)
+
+            if total_conc == float(venda.valor_liquido):
+                resultado["conciliados"] += 1
             else:
-                resultados["parciais"] += 1
+                resultado["parciais"] += 1
 
             continue
 
-    # =========================================
-    # 🔹 Segunda fase: multivenda
-    # =========================================
-    vendas_pendentes = [v for v in vendas if v.status_conciliacao == "pendente"]
-    receb_pendentes = [r for r in recebimentos if not r.conciliado]
+    # ----------------------------------------------------
+    # 🔹 MULTIVENDA
+    # ----------------------------------------------------
+    pend_vendas = [v for v in vendas if v.status_conciliacao == "pendente"]
+    pend_receb = [r for r in recebimentos if not r.conciliado]
 
-    for r in receb_pendentes:
+    for r in pend_receb:
 
-        vinculos = tentar_multivenda(r, vendas_pendentes)
+        vinculos = tentar_multivenda(r, pend_vendas)
 
         if vinculos:
             registrar_conciliacao(vinculos, empresa_id)
-            resultados["multivendas"] += 1
+            resultado["multivendas"] += 1
 
-    # =========================================
-    # 🔹 Pós-processamento
-    # =========================================
+    # ----------------------------------------------------
+    # 🔹 CONTABILIZAÇÃO FINAL
+    # ----------------------------------------------------
     for v in vendas:
         if v.status_conciliacao == "pendente":
-            resultados["nao_conciliados"] += 1
+            resultado["nao_conciliados"] += 1
 
     for r in recebimentos:
         if not r.conciliado and float(r.valor) > 0:
-            resultados["creditos_sem_origem"] += 1
+            resultado["creditos_sem_origem"] += 1
 
-    return resultados
+    return resultado
