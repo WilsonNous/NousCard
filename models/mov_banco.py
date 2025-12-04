@@ -7,6 +7,13 @@ class MovBanco(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
 
+    # 🔹 NOVO CAMPO — necessário para conciliar por conta bancária
+    conta_bancaria_id = db.Column(
+        db.Integer,
+        db.ForeignKey("contas_bancarias.id"),
+        nullable=True
+    )
+
     data_movimento = db.Column(db.Date, nullable=False)
     banco = db.Column(db.String(50), nullable=True)
     historico = db.Column(db.String(255), nullable=True)
@@ -21,7 +28,11 @@ class MovBanco(db.Model):
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relacionamento com conciliações
-    conciliacoes = db.relationship("Conciliacao", back_populates="mov_banco", lazy=True)
+    conciliacoes = db.relationship(
+        "Conciliacao",
+        back_populates="mov_banco",
+        lazy=True
+    )
 
     def __repr__(self):
         return f"<MovBanco {self.id} R${self.valor}>"
