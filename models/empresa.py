@@ -14,7 +14,6 @@ class Empresa(db.Model):
 
     contas_bancarias = db.relationship("ContaBancaria", backref="empresa", lazy=True)
     contratos = db.relationship("ContratoTaxa", backref="empresa", lazy=True)
-    usuarios = db.relationship("Usuario", backref="empresa", lazy=True)
-
+    
     def __repr__(self):
         return f"<Empresa {self.nome}>"
