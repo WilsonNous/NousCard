@@ -4,7 +4,6 @@
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    // Elementos HTML
     const kpiVendas = document.querySelector(".kpi-value-vendas");
     const kpiRecebido = document.querySelector(".kpi-value-recebido");
     const kpiDiferenca = document.querySelector(".kpi-value-diferenca");
@@ -13,11 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const ctxGrafico = document.getElementById("graficoVendasRecebidos");
     const ctxBandeiras = document.getElementById("graficoBandeiras");
 
+    const acqContainer = document.getElementById("acqContainer");
+
     let graficoVendas = null;
     let graficoBandeiras = null;
 
-    // ============================================================
-    //  Função: Buscar KPIs da API
     // ============================================================
     async function carregarKPIs() {
         try {
@@ -28,7 +27,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             atualizarKPIs(data.kpis);
             atualizarGraficoVendas(data.kpis);
-            atualizarGraficoBandeiras(data.kpis.bandeiras || {});
+            atualizarGraficoBandeiras(data.kpis.bandeiras);
+            atualizarAdquirentes(data.kpis.adquirentes);
 
         } catch (err) {
             console.log("Erro ao carregar KPIs:", err);
@@ -36,66 +36,86 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================================
-    //  Atualização dos valores dos KPIs
-    // ============================================================
     function atualizarKPIs(kpis) {
 
-        if (kpiVendas)
-            kpiVendas.textContent = "R$ " + kpis.total_vendas.toFixed(2);
-
-        if (kpiRecebido)
-            kpiRecebido.textContent = "R$ " + kpis.total_recebido.toFixed(2);
-
-        if (kpiDiferenca)
-            kpiDiferenca.textContent = kpis.diferenca.toFixed(2);
-
-        if (kpiAlertas)
-            kpiAlertas.textContent = kpis.alertas;
+        kpiVendas.textContent = "R$ " + kpis.total_vendas.toFixed(2);
+        kpiRecebido.textContent = "R$ " + kpis.total_recebido.toFixed(2);
+        kpiDiferenca.textContent = kpis.diferenca.toFixed(2);
+        kpiAlertas.textContent = kpis.alertas;
     }
 
     // ============================================================
-    //  Gráfico: Vendas x Recebido
+    function atualizarAdquirentes(adquirentes) {
+        acqContainer.innerHTML = "";
+
+        if (!adquirentes || Object.keys(adquirentes).length === 0) {
+            acqContainer.innerHTML = "<p>Nenhuma venda encontrada</p>";
+            return;
+        }
+
+        for (const [nome, valor] of Object.entries(adquirentes)) {
+
+            const icons = {
+                "Cielo": "💳",
+                "Rede": "🟧",
+                "Getnet": "🟥",
+                "Stone": "🟩",
+                "PagSeguro": "🟢",
+                "Outros": "⚪"
+            };
+
+            const colorClass = {
+                "Cielo": "acq-cielo",
+                "Rede": "acq-rede",
+                "Getnet": "acq-getnet",
+                "Stone": "acq-stone",
+                "PagSeguro": "acq-pagseguro",
+                "Outros": "acq-outros",
+            };
+
+            acqContainer.insertAdjacentHTML(
+                "beforeend",
+                `
+                <div class="nc-acq-card ${colorClass[nome] || 'acq-outros'}">
+                    <div class="nc-acq-icon">${icons[nome] || "💳"}</div>
+                    <div class="nc-acq-label">${nome}</div>
+                    <div class="nc-acq-value">R$ ${valor.toFixed(2)}</div>
+                </div>
+                `
+            );
+        }
+    }
+
     // ============================================================
     function atualizarGraficoVendas(kpis) {
-
         if (!ctxGrafico) return;
 
-        if (graficoVendas) graficoVendas.destroy(); // limpa gráfico anterior
+        if (graficoVendas) graficoVendas.destroy();
 
         graficoVendas = new Chart(ctxGrafico, {
             type: "bar",
             data: {
                 labels: ["Vendas", "Recebido"],
                 datasets: [{
-                    label: "Valores",
                     data: [kpis.total_vendas, kpis.total_recebido],
                     backgroundColor: ["#1877f2", "#3cb371"],
-                    borderRadius: 6
+                    borderRadius: 8
                 }]
             },
             options: {
                 responsive: true,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: (value) =>
-                                "R$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
-                        }
-                    }
+                    y: { beginAtZero: true }
                 }
             }
         });
     }
 
     // ============================================================
-    //  Gráfico: Bandeiras (Pizza)
-    // ============================================================
     function atualizarGraficoBandeiras(bandeiras) {
-
         if (!ctxBandeiras) return;
-        if (!bandeiras || Object.keys(bandeiras).length === 0) return;
+        if (!bandeiras) return;
 
         if (graficoBandeiras) graficoBandeiras.destroy();
 
@@ -104,25 +124,17 @@ document.addEventListener("DOMContentLoaded", () => {
             data: {
                 labels: Object.keys(bandeiras),
                 datasets: [{
-                    label: "Vendas por Bandeira",
                     data: Object.values(bandeiras),
                     borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
-                plugins: {
-                    legend: { position: "bottom" }
-                }
+                plugins: { legend: { position: "bottom" } }
             }
         });
     }
 
-    // ============================================================
-    //  Atualização automática a cada 10 segundos
-    // ============================================================
-    setInterval(carregarKPIs, 10000);
-
-    // Carrega ao iniciar
     carregarKPIs();
+    setInterval(carregarKPIs, 10000);
 });
