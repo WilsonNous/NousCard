@@ -2,10 +2,10 @@
 
 {% block content %}
 
-<section class="nc-section">
+<section class="nc-section nc-scale">
     <h2 class="nc-title">Olá, {{ usuario.nome }} 👋</h2>
 
-    <div class="nc-user-status">
+    <div class="nc-user-status small">
         <div>
             <span class="label">Acesso:</span>
             {% if session.get('is_master') %}
@@ -27,75 +27,74 @@
         </div>
     </div>
 
-    <div class="nc-dashboard-actions">
-        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary">⬆️ Importar Arquivos</a>
-        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary">✔️ Conciliação</a>
+    <div class="nc-dashboard-actions compact">
+        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary small">⬆️ Importar</a>
+        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary small">✔️ Conciliação</a>
+        <a href="{{ url_for('operacoes.detalhado_page') }}" class="nc-btn-gray small">📅 Detalhamento</a>
     </div>
 </section>
 
-<section class="nc-section">
-    <h2 class="nc-subtitle">Visão Geral</h2>
 
-    <div class="nc-kpis">
+<section class="nc-section nc-scale">
+    <h2 class="nc-subtitle small">Visão Geral</h2>
 
-        <div class="nc-kpi-card">
-            <div class="kpi-icon kpi-blue">🛍️</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Total Vendas</div>
-                <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
+    <div class="nc-kpis small">
+
+        <div class="nc-kpi-card small">
+            <div class="kpi-icon kpi-blue small">🛍️</div>
+            <div class="kpi-info small">
+                <div class="kpi-label small">Total Vendas</div>
+                <div class="kpi-value kpi-value-vendas small">R$ 0,00</div>
             </div>
         </div>
 
-        <div class="nc-kpi-card">
-            <div class="kpi-icon kpi-green">💸</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Total Recebido</div>
-                <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+        <div class="nc-kpi-card small">
+            <div class="kpi-icon kpi-green small">💸</div>
+            <div class="kpi-info small">
+                <div class="kpi-label small">Total Recebido</div>
+                <div class="kpi-value kpi-value-recebido small">R$ 0,00</div>
             </div>
         </div>
 
-        <div class="nc-kpi-card">
-            <div class="kpi-icon kpi-yellow">⚠️</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Diferença</div>
-                <div class="kpi-value kpi-value-diferenca">0,00</div>
+        <div class="nc-kpi-card small">
+            <div class="kpi-icon kpi-yellow small">⚠️</div>
+            <div class="kpi-info small">
+                <div class="kpi-label small">Diferença</div>
+                <div class="kpi-value kpi-value-diferenca small">0,00</div>
             </div>
         </div>
 
-        <div class="nc-kpi-card">
-            <div class="kpi-icon kpi-red">🔔</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Alertas</div>
-                <div class="kpi-value kpi-value-alertas">0</div>
+        <div class="nc-kpi-card small">
+            <div class="kpi-icon kpi-red small">🔔</div>
+            <div class="kpi-info small">
+                <div class="kpi-label small">Alertas</div>
+                <div class="kpi-value kpi-value-alertas small">0</div>
             </div>
         </div>
 
     </div>
 </section>
 
-<!-- ============================================================
-     NOVA SEÇÃO: ADQUIRENTES (com ícones e cores)
-============================================================ -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">Totais por Adquirente</h2>
-    <div id="acqContainer" class="nc-acq-grid"></div>
+
+<section class="nc-section nc-scale">
+    <h2 class="nc-subtitle small">Totais por Adquirente</h2>
+    <div id="acqContainer" class="nc-acq-grid small"></div>
 </section>
 
-<!-- ============================================================
-     GRÁFICOS
-============================================================ -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">Gráfico de Vendas x Recebido</h2>
 
-    <div class="nc-graphs-container">
+<section class="nc-section nc-scale">
+    <h2 class="nc-subtitle small">Gráfico de Vendas x Recebido</h2>
+
+    <div class="nc-graphs-container small">
         <canvas id="graficoVendasRecebidos"></canvas>
     </div>
 </section>
 
-<section class="nc-section">
-    <h2 class="nc-subtitle">Vendas por Bandeira</h2>
 
-    <div class="nc-graphs-container">
+<section class="nc-section nc-scale">
+    <h2 class="nc-subtitle small">Vendas por Bandeira</h2>
+
+    <div class="nc-graphs-container small">
         <canvas id="graficoBandeiras"></canvas>
     </div>
 </section>
@@ -106,38 +105,65 @@
 
 <style>
 
-.nc-acq-grid {
-    display: grid;
-    gap: 15px;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+/* === Escala Geral Reduzida (aprox -40%) === */
+.nc-scale { font-size: 0.62rem !important; }
+.nc-scale .small { font-size: 0.62rem !important; }
+
+.nc-dashboard-actions.compact a {
+    padding: 6px 10px !important;
+    font-size: 0.62rem !important;
+}
+
+/* Ajuste dos KPI Cards menores */
+.nc-kpi-card.small {
+    padding: 8px !important;
+}
+
+.kpi-icon.small {
+    font-size: 20px !important;
+}
+
+.kpi-value.small {
+    font-size: 0.9rem !important;
+}
+
+.kpi-label.small {
+    font-size: 0.7rem !important;
+}
+
+/* Adquirentes */
+.nc-acq-grid.small {
+    gap: 8px !important;
 }
 
 .nc-acq-card {
-    background: #fff;
-    padding: 15px;
-    border-radius: 14px;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.12);
-    border: 1px solid #eee;
-    text-align: center;
-    transition: 0.2s;
-}
-
-.nc-acq-card:hover {
-    transform: translateY(-4px);
+    padding: 10px !important;
+    border-radius: 10px;
 }
 
 .nc-acq-icon {
-    font-size: 32px;
-    margin-bottom: 6px;
+    font-size: 20px;
 }
 
 .nc-acq-value {
-    font-size: 20px;
-    font-weight: bold;
-    margin-top: 4px;
+    font-size: 0.9rem;
 }
 
-/* Cores personalizadas */
+/* Botão cinza */
+.nc-btn-gray.small {
+    background: #e5e5e5;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.62rem;
+    display: inline-block;
+    border: 1px solid #ccc;
+}
+
+.nc-btn-gray.small:hover {
+    background: #d9d9d9;
+}
+
+/* Cores personalizadas adquirentes */
 .acq-cielo { color: #0071ce; }
 .acq-rede { color: #ff6600; }
 .acq-getnet { color: #cc0000; }
