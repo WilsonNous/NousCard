@@ -44,4 +44,121 @@ def upload_arquivos():
         "message": "Arquivos importados, analisados e salvos com sucesso.",
         "total_arquivos": total_arquivos,
         "qtde_vendas": qtde_vendas,
-        "qtde_recebimentos": qtde_recebimento
+        "qtde_recebimentos": qtde_recebimentos,
+        "total_vendas": total_vendas,
+        "total_recebimentos": total_recebimentos,
+        "result": resultados
+    }
+
+    return jsonify(resumo)
+
+
+# ============================================================
+# Tela de CONCILIAÇÃO (GET)
+# ============================================================
+@operacoes_bp.route("/conciliacao", methods=["GET"])
+@login_required
+@empresa_required
+def conciliar_page():
+    return render_template("conciliacao.html")
+
+
+# ============================================================
+# Tela: Arquivos Importados
+# ============================================================
+@operacoes_bp.route("/arquivos", methods=["GET"])
+@login_required
+@empresa_required
+def arquivos_importados_page():
+    empresa_id = session.get("empresa_id")
+
+    arquivos = listar_arquivos_importados(empresa_id)
+    return render_template("arquivos_importados.html", arquivos=arquivos)
+
+
+# ============================================================
+# Tela: Detalhamento do Arquivo
+# ============================================================
+@operacoes_bp.route("/arquivo/<int:arquivo_id>")
+@login_required
+@empresa_required
+def arquivo_detalhe_page(arquivo_id):
+    import json
+
+    empresa_id = session.get("empresa_id")
+
+    arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
+
+    if not arquivo:
+        return render_template(
+            "erro.html",
+            mensagem="Arquivo não encontrado ou não pertence à sua empresa."
+        )
+
+    # Converter JSON armazenado
+    try:
+        registros = json.loads(arquivo["conteudo_json"])
+    except Exception:
+        registros = []
+
+    return render_template(
+        "arquivo_detalhe.html",
+        arquivo=arquivo,
+        registros=registros
+    )
+
+
+# ============================================================
+# API: Executar Conciliação   (AJUSTADO)
+# ============================================================
+@operacoes_bp.route("/api/processar_conciliacao", methods=["POST"])
+@login_required
+@empresa_required
+def conciliar_api():
+    empresa_id = session.get("empresa_id")
+
+    try:
+        # nome correto do arquivo
+        from services.conciliacao import executar_conciliacao
+
+        resultado = executar_conciliacao(empresa_id)
+
+        return jsonify({
+            "ok": True,
+            "message": "Conciliação executada com sucesso.",
+            "resultado": resultado
+        })
+
+    except Exception as e:
+        print("Erro na conciliação:", e)
+        return jsonify({
+            "ok": False,
+            "message": "Erro ao processar conciliação."
+        }), 500
+
+
+# ============================================================
+# Telas / API: Detalhamento
+# ============================================================
+@operacoes_bp.route("/detalhado", methods=["GET"])
+@login_required
+@empresa_required
+def detalhado_page():
+    return render_template("detalhado.html")
+
+
+@operacoes_bp.route("/api/detalhado", methods=["GET"])
+@login_required
+@empresa_required
+def detalhado_api():
+    empresa_id = session.get("empresa_id")
+
+    try:
+        from services.detalhamento_service import gerar_detalhamento
+        data = gerar_detalhamento(empresa_id)
+
+        return jsonify({"ok": True, "dados": data})
+
+    except Exception as e:
+        print("Erro ao gerar detalhamento:", e)
+        return jsonify({"ok": False, "message": "Erro ao gerar relatório detalhado."}), 500
