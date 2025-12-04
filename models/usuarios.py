@@ -1,4 +1,3 @@
-# models/usuarios.py
 from .base import db
 from datetime import datetime
 
@@ -17,16 +16,7 @@ class Usuario(db.Model):
 
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # relação opcional com empresa (para master pode ser None)
-    empresa = db.relationship("Empresa", backref="usuarios", lazy="joined")
-
-    @property
-    def is_master(self):
-        return bool(self.master)
-
-    @property
-    def is_admin(self):
-        return bool(self.admin)
+    empresa = db.relationship("Empresa", backref="usuarios", lazy=True)
 
     def __repr__(self):
         return f"<Usuario {self.email}>"
