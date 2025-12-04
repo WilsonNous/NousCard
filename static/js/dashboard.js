@@ -11,8 +11,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const kpiAlertas = document.querySelector(".kpi-value-alertas");
 
     const ctxGrafico = document.getElementById("graficoVendasRecebidos");
+    const ctxBandeiras = document.getElementById("graficoBandeiras");
 
-    let grafico = null;
+    let graficoVendas = null;
+    let graficoBandeiras = null;
 
     // ============================================================
     //  Função: Buscar KPIs da API
@@ -25,7 +27,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!data.ok) return;
 
             atualizarKPIs(data.kpis);
-            atualizarGrafico(data.kpis);
+            atualizarGraficoVendas(data.kpis);
+            atualizarGraficoBandeiras(data.kpis.bandeiras || {});
 
         } catch (err) {
             console.log("Erro ao carregar KPIs:", err);
@@ -51,15 +54,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ============================================================
-    //  Montar ou atualizar gráfico
+    //  Gráfico: Vendas x Recebido
     // ============================================================
-    function atualizarGrafico(kpis) {
+    function atualizarGraficoVendas(kpis) {
 
         if (!ctxGrafico) return;
 
-        if (grafico) grafico.destroy(); // limpa gráfico anterior
+        if (graficoVendas) graficoVendas.destroy(); // limpa gráfico anterior
 
-        grafico = new Chart(ctxGrafico, {
+        graficoVendas = new Chart(ctxGrafico, {
             type: "bar",
             data: {
                 labels: ["Vendas", "Recebido"],
@@ -81,6 +84,35 @@ document.addEventListener("DOMContentLoaded", () => {
                                 "R$ " + value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
                         }
                     }
+                }
+            }
+        });
+    }
+
+    // ============================================================
+    //  Gráfico: Bandeiras (Pizza)
+    // ============================================================
+    function atualizarGraficoBandeiras(bandeiras) {
+
+        if (!ctxBandeiras) return;
+        if (!bandeiras || Object.keys(bandeiras).length === 0) return;
+
+        if (graficoBandeiras) graficoBandeiras.destroy();
+
+        graficoBandeiras = new Chart(ctxBandeiras, {
+            type: "pie",
+            data: {
+                labels: Object.keys(bandeiras),
+                datasets: [{
+                    label: "Vendas por Bandeira",
+                    data: Object.values(bandeiras),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: "bottom" }
                 }
             }
         });
