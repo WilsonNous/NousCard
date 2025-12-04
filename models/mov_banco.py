@@ -7,7 +7,7 @@ class MovBanco(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
 
-    # 🔹 NOVO CAMPO — necessário para conciliar por conta bancária
+    # Relacionamento com contas bancárias
     conta_bancaria_id = db.Column(
         db.Integer,
         db.ForeignKey("contas_bancarias.id"),
@@ -15,8 +15,12 @@ class MovBanco(db.Model):
     )
 
     data_movimento = db.Column(db.Date, nullable=False)
+
     banco = db.Column(db.String(50), nullable=True)
     historico = db.Column(db.String(255), nullable=True)
+
+    # 🔹 CAMPO EXISTENTE NO BANCO, FALTAVA NO MODELO
+    documento = db.Column(db.String(100), nullable=True)
 
     origem = db.Column(db.String(50), nullable=True)
 
@@ -24,6 +28,9 @@ class MovBanco(db.Model):
 
     valor_conciliado = db.Column(db.Numeric(12, 2), default=0)
     conciliado = db.Column(db.Boolean, default=False)
+
+    # 🔹 TAMBÉM EXISTE NO BANCO E É USADO PELO IMPORTADOR
+    arquivo_origem = db.Column(db.String(255), nullable=True)
 
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
