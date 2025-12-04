@@ -47,7 +47,7 @@ def calcular_kpis(empresa_id: int):
 
             if tipo == "venda":
                 total_vendas += valor
-                vendas_acq[acquirente] += valor
+                vendas_acq[adquirente] += valor
 
                 detalhamento_vendas.append({
                     "data": data,
@@ -62,7 +62,7 @@ def calcular_kpis(empresa_id: int):
 
             elif tipo == "recebimento":
                 total_recebido += valor
-                receb_acq[acquirente] += valor
+                receb_acq[adquirente] += valor
 
                 detalhamento_recebidos.append({
                     "data": data,
