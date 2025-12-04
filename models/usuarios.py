@@ -1,6 +1,3 @@
-from .base import db
-from datetime import datetime
-
 class Usuario(db.Model):
     __tablename__ = "usuarios"
 
@@ -16,7 +13,12 @@ class Usuario(db.Model):
 
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
-    empresa = db.relationship("Empresa", backref="usuarios", lazy=True)
+    empresa = db.relationship("Empresa", backref="usuarios", lazy="joined")
 
-    def __repr__(self):
-        return f"<Usuario {self.email}>"
+    @property
+    def is_master(self):
+        return bool(self.master)
+
+    @property
+    def is_admin(self):
+        return bool(self.admin)
