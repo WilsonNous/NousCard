@@ -8,14 +8,13 @@ from utils.parsers import (
 )
 
 from utils.helpers import gerar_hash_arquivo
-from services.importer_db import (
-    salvar_arquivo_importado,
-    listar_arquivos_importados
+from services.importer_db import salvar_arquivo_importado
+from services.importer_db_movimento import (
+    salvar_vendas,
+    salvar_recebimentos
 )
 
 from models import db
-import json
-
 
 
 # ============================================================
@@ -23,7 +22,6 @@ import json
 # ============================================================
 
 def identificar_tipo(nome_arquivo: str) -> str:
-    """Identifica automaticamente se o arquivo é de vendas ou recebimentos."""
     nome = nome_arquivo.lower()
 
     if "receb" in nome or "extrato" in nome or "ofx" in nome:
@@ -36,29 +34,19 @@ def identificar_tipo(nome_arquivo: str) -> str:
 
 
 # ============================================================
-#  PROCESSAR UM ÚNICO ARQUIVO (SAFE)
+#  PROCESSAR UM ARQUIVO
 # ============================================================
 
 def process_file(file_storage):
-    """
-    Processa um único arquivo:
-    - identifica tipo
-    - executa parser correspondente
-    - captura erros em OFX e formatos inválidos
-    """
-
     nome = file_storage.filename.lower()
 
     try:
-        # CSV / TXT
         if nome.endswith(".csv") or nome.endswith(".txt"):
             registros = parse_csv_generic(file_storage)
 
-        # Excel
         elif nome.endswith(".xlsx") or nome.endswith(".xls"):
             registros = parse_excel_generic(file_storage)
 
-        # OFX (proteção contra FITID ausente)
         elif nome.endswith(".ofx"):
             try:
                 registros = parse_ofx_generic(file_storage)
@@ -94,20 +82,14 @@ def process_file(file_storage):
 
 
 # ============================================================
-#  PROCESSAR MÚLTIPLOS ARQUIVOS + SALVAR NO BANCO
+#  PROCESSAR MULTIPLOS ARQUIVOS
 # ============================================================
 
 def process_uploaded_files(files, empresa_id, usuario_id):
-    """
-    Processa todos os arquivos enviados,
-    salva no banco,
-    retorna um resumo geral para exibição no frontend.
-    """
 
     resultados = []
 
     for file_storage in files:
-
         resultado = process_file(file_storage)
 
         if not resultado["ok"]:
@@ -118,11 +100,11 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         tipo = resultado["tipo"]
         registros = resultado["registros"]
 
-        # Gera hash único
+        # hash
         hash_arquivo = gerar_hash_arquivo(file_storage)
 
-        # Salva no banco de dados
-        salvar_arquivo_importado(
+        # Salvar JSON + metadados
+        arquivo_id = salvar_arquivo_importado(
             empresa_id=empresa_id,
             usuario_id=usuario_id,
             nome_arquivo=nome,
@@ -130,6 +112,16 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             hash_arquivo=hash_arquivo,
             registros=registros
         )
+
+        # ============================
+        # 🔥 SALVAR NAS TABELAS REAIS
+        # ============================
+
+        if tipo == "venda":
+            salvar_vendas(registros, empresa_id, arquivo_id)
+
+        elif tipo == "recebimento":
+            salvar_recebimentos(registros, empresa_id, arquivo_id)
 
         resultados.append({
             "ok": True,
@@ -143,9 +135,9 @@ def process_uploaded_files(files, empresa_id, usuario_id):
 
 
 # ============================================================
-#  EXPORTAR LISTAGEM — FACILITA USO EM ROTAS
+#  LISTAR
 # ============================================================
 
 def listar_importados(empresa_id: int):
+    from services.importer_db import listar_arquivos_importados
     return listar_arquivos_importados(empresa_id)
-
