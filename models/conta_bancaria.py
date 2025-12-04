@@ -14,7 +14,8 @@ class ContaBancaria(db.Model):
 
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
-    mov_banco = db.relationship("MovBanco", backref="conta_bancaria", lazy=True)
+    # ❌ REMOVIDO — não existe FK no MovBanco
+    # mov_banco = db.relationship("MovBanco", backref="conta_bancaria", lazy=True)
 
     def __repr__(self):
         return f"<Conta {self.banco} - {self.agencia}/{self.conta}>"
