@@ -26,36 +26,34 @@ def to_date(valor):
 
 
 # ============================================================
-#  SALVAR VENDAS (Cielo, Rede, Stone, Getnet etc.)
+#  SALVAR VENDAS
 # ============================================================
+
 def salvar_vendas(registros, empresa_id, arquivo_id):
 
     for r in registros:
-
         venda = MovAdquirente(
-            empresa_id=empresa_id,
-            adquirente_id=int(r.get("adquirente_id") or 1),
+            empresa_id = empresa_id,
+            adquirente_id = int(r.get("adquirente_id", 1)),
+            data_venda = r.get("data_venda"),
+            data_prevista_pagamento = r.get("data_prevista"),
 
-            data_venda=to_date(r.get("data_venda")),
-            data_prevista_pagamento=to_date(r.get("data_prevista")),
+            bandeira = r.get("bandeira"),
+            produto = r.get("produto"),
 
-            bandeira=r.get("bandeira"),
-            produto=r.get("produto"),
+            parcela = r.get("parcela"),
+            total_parcelas = r.get("total_parcelas"),
 
-            parcela=int(r.get("parcela") or 1),
-            total_parcelas=int(r.get("total_parcelas") or 1),
+            nsu = r.get("nsu"),
+            autorizacao = r.get("autorizacao"),
 
-            nsu=r.get("nsu"),
-            autorizacao=r.get("autorizacao"),
+            valor_bruto = r.get("valor_bruto", 0),
+            taxa_cobrada = r.get("taxa", 0),
+            valor_liquido = r.get("valor_liquido", 0),
 
-            valor_bruto=float(r.get("valor_bruto") or 0),
-            taxa_cobrada=float(r.get("taxa") or 0),
-            valor_liquido=float(r.get("valor_liquido") or 0),
-
-            valor_conciliado=0,
-            status_conciliacao="pendente",
-
-            arquivo_origem=str(arquivo_id)
+            valor_conciliado = 0,
+            status_conciliacao = "pendente",
+            arquivo_origem = arquivo_id
         )
 
         db.session.add(venda)
@@ -65,30 +63,31 @@ def salvar_vendas(registros, empresa_id, arquivo_id):
 
 
 # ============================================================
-#  SALVAR RECEBIMENTOS (Extratos bancários)
+#  SALVAR RECEBIMENTOS
 # ============================================================
+
 def salvar_recebimentos(registros, empresa_id, arquivo_id):
 
     for r in registros:
 
         mov = MovBanco(
-            empresa_id=empresa_id,
-            conta_bancaria_id=int(r.get("conta_id") or 1),
+            empresa_id = empresa_id,
+            conta_bancaria_id = int(r.get("conta_id", 1)),
 
-            data_movimento=to_date(r.get("data")),
-            banco=r.get("banco") or r.get("origem"),
-            historico=r.get("descricao") or r.get("historico"),
+            data_movimento = r.get("data"),
+            historico = r.get("descricao"),
+            documento = r.get("documento"),
 
-            documento=r.get("documento"),
+            valor = r.get("valor", 0),
+            valor_conciliado = 0,
+            conciliado = False,
 
-            origem=r.get("origem") or "extrato",
-
-            valor=float(r.get("valor") or 0),
-            valor_conciliado=0,
-            conciliado=False,
-
-            arquivo_origem=str(arquivo_id)
+            arquivo_origem = arquivo_id
         )
+
+        db.session.add(mov)
+
+    db.session.commit()
 
         db.session.add(mov)
 
