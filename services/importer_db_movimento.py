@@ -89,6 +89,3 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id):
 
     db.session.commit()
 
-        db.session.add(mov)
-
-    db.session.commit()
