@@ -1,100 +1,76 @@
-from services.importer_db import listar_arquivos_importados, buscar_arquivo_por_id
-from datetime import datetime
+from models import MovAdquirente, MovBanco, Conciliacao, Adquirente
+from sqlalchemy.orm import joinedload
+from datetime import timedelta
+
 
 def gerar_detalhamento(empresa_id):
+    # Carrega vendas com conciliações e adquirentes
+    vendas = (
+        MovAdquirente.query
+        .filter_by(empresa_id=empresa_id)
+        .options(
+            joinedload(MovAdquirente.conciliacoes).joinedload(Conciliacao.mov_banco),
+            joinedload(MovAdquirente.adquirente_rel)
+        )
+        .all()
+    )
 
-    arquivos = listar_arquivos_importados(empresa_id)
+    recebimentos = MovBanco.query.filter_by(empresa_id=empresa_id).all()
 
-    vendas = []
-    recebimentos = []
-
-    # Carrega conteúdo completo dos arquivos
-    for arq in arquivos:
-        item = buscar_arquivo_por_id(arq["id"], empresa_id)
-        if not item or "registros" not in item:
-            continue
-
-        for row in item["registros"]:
-            if arq["tipo"] == "venda":
-                vendas.append(row)
-            elif arq["tipo"] == "recebimento":
-                recebimentos.append(row)
-
-    # Índice rápido de recebimentos por descrição + valor
-    idx_receb = {}
-    for r in recebimentos:
-        chave = (r.get("descricao", ""), float(r.get("valor", 0)))
-        idx_receb[chave] = r
-
-    # Montagem da visão detalhada
     linhas = []
 
+    # -------------------------------
+    # DETALHAMENTO POR VENDA
+    # -------------------------------
     for v in vendas:
-        data_venda = v.get("data", "")
-        valor = float(v.get("valor", 0))
-        desc = v.get("descricao", "")
+        adquirente = v.adquirente_rel.nome if hasattr(v, "adquirente_rel") and v.adquirente_rel else "-"
 
-        adquirente = detectar_adquirente(desc)
-        previsao = calcular_previsao(data_venda, adquirente)
+        data_prevista = v.data_prevista_pagamento.strftime("%Y-%m-%d") if v.data_prevista_pagamento else "-"
 
-        chave = (desc, valor)
-        recebido = idx_receb.get(chave)
-
+        # Prepara estrutura de saída
         linha = {
-            "data_venda": data_venda,
+            "venda_id": v.id,
+            "data_venda": v.data_venda.strftime("%Y-%m-%d") if v.data_venda else "-",
             "adquirente": adquirente,
-            "descricao": desc,
-            "valor_venda": valor,
-            "previsao": previsao,
+            "bandeira": v.bandeira or "-",
+            "produto": v.produto or "-",
 
-            "recebido": float(recebido["valor"]) if recebido else 0.0,
-            "data_recebimento": recebido.get("data") if recebido else "-",
-            "banco": detectar_banco(recebido["descricao"]) if recebido else "-",
+            "valor_liquido": float(v.valor_liquido or 0),
+            "valor_conciliado": float(v.valor_conciliado or 0),
+            "faltante": float(v.valor_liquido) - float(v.valor_conciliado or 0),
 
-            "status": "Recebido" if recebido else "Pendente"
+            "previsao_pagamento": data_prevista,
+
+            "recebimentos": [],
+            "status": v.status_conciliacao,
         }
+
+        # Adiciona detalhes dos recebimentos
+        for c in v.conciliacoes:
+            r = c.mov_banco
+            linha["recebimentos"].append({
+                "mov_banco_id": r.id,
+                "data": r.data_movimento.strftime("%Y-%m-%d"),
+                "banco": r.banco or "-",
+                "valor": float(c.valor_conciliado or 0),
+            })
 
         linhas.append(linha)
 
-    # Ordena por data da venda
-    linhas.sort(key=lambda x: x["data_venda"])
+    # -------------------------------
+    # RECEBIMENTOS SEM ORIGEM
+    # -------------------------------
+    creditos_sem_origem = []
+    for r in recebimentos:
+        if not r.conciliacoes:
+            creditos_sem_origem.append({
+                "mov_banco_id": r.id,
+                "data_movimento": r.data_movimento.strftime("%Y-%m-%d"),
+                "valor": float(r.valor or 0),
+                "descricao": r.historico or "-",
+            })
 
-    return linhas
-
-
-def detectar_adquirente(desc):
-    desc = desc.lower()
-
-    if "cielo" in desc: return "Cielo"
-    if "rede" in desc: return "Rede"
-    if "getnet" in desc: return "Getnet"
-    if "stone" in desc: return "Stone"
-
-    return "Desconhecida"
-
-
-def detectar_banco(desc):
-    desc = desc.lower()
-
-    if "itau" in desc or "itaú" in desc: return "Itaú"
-    if "bb" in desc or "brasil" in desc: return "Banco do Brasil"
-
-    return "-"
-
-
-def calcular_previsao(data_venda, adquirente):
-    try:
-        dv = datetime.strptime(data_venda, "%Y-%m-%d")
-    except:
-        return "-"
-
-    # Prazos reais (podemos depois personalizar por empresa)
-    dias = {
-        "Cielo": 2,
-        "Rede": 1,
-        "Getnet": 2,
-        "Stone": 1
-    }.get(adquirente, 2)
-
-    previsao = dv.replace(day=dv.day + dias)
-    return previsao.strftime("%Y-%m-%d")
+    return {
+        "vendas": linhas,
+        "creditos_sem_origem": creditos_sem_origem
+    }
