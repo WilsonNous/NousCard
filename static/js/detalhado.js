@@ -1,95 +1,124 @@
-document.addEventListener("DOMContentLoaded", () => {
-    carregarDetalhado();
-});
-
-async function carregarDetalhado() {
+document.addEventListener("DOMContentLoaded", async () => {
 
     const container = document.getElementById("detalhadoContainer");
-    const empresaId = window.EMPRESA_ID;
-
-    container.innerHTML = "<p>⏳ Carregando dados...</p>";
+    container.innerHTML = "<p>⏳ Carregando detalhamento...</p>";
 
     try {
-        const res = await fetch(`/api/conciliacao/detalhes?empresa_id=${empresaId}`);
+        const res = await fetch("/operacoes/api/detalhado");
         const data = await res.json();
 
-        if (data.status !== "success") {
-            container.innerHTML = "<p style='color:red'>Erro ao carregar dados.</p>";
+        if (!data.ok) {
+            container.innerHTML = `<p style='color:red'>Erro ao carregar dados.</p>`;
             return;
         }
 
-        // Junta todas as listas em uma única tabela
-        const linhas = [
-            ...data.conciliadas,
-            ...data.parciais,
-            ...data.pendentes,
-            ...data.nao_recebidas,
-        ];
+        const vendas = data.dados.vendas || [];
+        const creditos = data.dados.creditos_sem_origem || [];
 
-        montarTabela(linhas);
+        let html = "";
 
-    } catch (err) {
-        console.error(err);
-        container.innerHTML = "<p style='color:red'>Falha ao comunicar com o servidor.</p>";
-    }
-}
-
-
-function montarTabela(linhas) {
-    const container = document.getElementById("detalhadoContainer");
-
-    if (!linhas.length) {
-        container.innerHTML = "<p>Nenhum dado encontrado.</p>";
-        return;
-    }
-
-    let html = `
+        // =========================================================
+        // 🎯 LISTA DE VENDAS DETALHADAS
+        // =========================================================
+        html += `
+        <h3>📌 Vendas e Conciliações</h3>
         <table class="detalhado-table">
             <thead>
                 <tr>
                     <th>Data Venda</th>
                     <th>Adquirente</th>
                     <th>Bandeira</th>
-                    <th>Valor</th>
-                    <th>Previsto</th>
+                    <th>Produto</th>
+                    <th>Valor Líquido</th>
                     <th>Conciliado</th>
-                    <th>Diferença</th>
+                    <th>Faltante</th>
+                    <th>Previsão</th>
+                    <th>Recebimentos</th>
                     <th>Status</th>
                 </tr>
             </thead>
             <tbody>
-    `;
-
-    for (const row of linhas) {
-
-        const liquido = row.valor_liquido ?? 0;
-        const conciliado = row.valor_conciliado ?? 0;
-        const diff = liquido - conciliado;
-
-        let statusClass =
-            row.status === "conciliado"
-                ? "status-ok"
-                : row.status === "parcial"
-                ? "status-parcial"
-                : "status-pendente";
-
-        html += `
-            <tr>
-                <td>${row.data_venda || ""}</td>
-                <td>${row.adquirente || ""}</td>
-                <td>${row.bandeira || ""}</td>
-                <td>R$ ${liquido.toFixed(2)}</td>
-                <td>${row.data_prevista || ""}</td>
-                <td>R$ ${conciliado.toFixed(2)}</td>
-                <td style="color:${diff === 0 ? "#008000" : "#cc0000"};">
-                    R$ ${diff.toFixed(2)}
-                </td>
-                <td class="${statusClass}">${row.status}</td>
-            </tr>
         `;
+
+        vendas.forEach(v => {
+
+            const statusClass =
+                v.status === "conciliado" ? "status-ok" :
+                v.status === "parcial" ? "status-parcial" :
+                "status-pendente";
+
+            let recebHtml = "-";
+
+            if (v.recebimentos.length > 0) {
+                recebHtml = v.recebimentos
+                    .map(r => `${r.data} — R$ ${r.valor.toFixed(2)} (${r.banco})`)
+                    .join("<br>");
+            }
+
+            html += `
+                <tr>
+                    <td>${v.data_venda}</td>
+                    <td>${v.adquirente}</td>
+                    <td>${v.bandeira}</td>
+                    <td>${v.produto}</td>
+                    <td>R$ ${v.valor_liquido.toFixed(2)}</td>
+                    <td>R$ ${v.valor_conciliado.toFixed(2)}</td>
+                    <td>R$ ${v.faltante.toFixed(2)}</td>
+                    <td>${v.previsao_pagamento}</td>
+                    <td>${recebHtml}</td>
+                    <td class="${statusClass}">${v.status.toUpperCase()}</td>
+                </tr>
+            `;
+        });
+
+        html += "</tbody></table>";
+
+        // =========================================================
+        // 🎯 RECEBIMENTOS SEM ORIGEM
+        // =========================================================
+        html += `
+            <h3 style="margin-top:40px;">⚠️ Créditos sem Origem</h3>
+            <table class="detalhado-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Descrição</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        if (creditos.length === 0) {
+            html += `
+                <tr>
+                    <td colspan="3" style="text-align:center; color:#777">
+                        Nenhum crédito pendente
+                    </td>
+                </tr>`;
+        } else {
+            creditos.forEach(c => {
+                html += `
+                    <tr>
+                        <td>${c.data_movimento}</td>
+                        <td>${c.descricao}</td>
+                        <td>R$ ${c.valor.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        html += "</tbody></table>";
+
+        // =========================================================
+        // FINAL: renderiza tudo
+        // =========================================================
+        container.innerHTML = html;
+
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = "<p style='color:red'>Erro ao carregar detalhamento.</p>";
     }
 
-    html += "</tbody></table>";
-
-    container.innerHTML = html;
-}
+});
