@@ -19,7 +19,7 @@ class MovBanco(db.Model):
     banco = db.Column(db.String(50), nullable=True)
     historico = db.Column(db.String(255), nullable=True)
 
-    # 🔹 CAMPO EXISTENTE NO BANCO, FALTAVA NO MODELO
+    # Campo que existia no banco
     documento = db.Column(db.String(100), nullable=True)
 
     origem = db.Column(db.String(50), nullable=True)
@@ -29,12 +29,11 @@ class MovBanco(db.Model):
     valor_conciliado = db.Column(db.Numeric(12, 2), default=0)
     conciliado = db.Column(db.Boolean, default=False)
 
-    # 🔹 TAMBÉM EXISTE NO BANCO E É USADO PELO IMPORTADOR
+    # Também existia no banco, faltava no modelo
     arquivo_origem = db.Column(db.String(255), nullable=True)
 
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relacionamento com conciliações
     conciliacoes = db.relationship(
         "Conciliacao",
         back_populates="mov_banco",
