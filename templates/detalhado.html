@@ -23,7 +23,6 @@
     background: #0048a8;
     color: #fff;
     padding: 8px;
-    text-align: left;
 }
 
 .detalhado-table td {
@@ -31,31 +30,12 @@
     border-bottom: 1px solid #ddd;
 }
 
-/* STATUS */
-.status-ok {
-    color: #008000;
-    font-weight: bold;
-}
+.status-ok { color: #008000; font-weight: bold; }
+.status-pendente { color: #cc0000; font-weight: bold; }
+.status-parcial { color: #d87d00; font-weight: bold; }
 
-.status-parcial {
-    color: #e69500;
-    font-weight: bold;
-}
-
-.status-pendente {
-    color: #cc0000;
-    font-weight: bold;
-}
-
-/* MOBILE */
 @media(max-width: 768px) {
-    .detalhado-table {
-        font-size: 12px;
-    }
-    .detalhado-table th,
-    .detalhado-table td {
-        padding: 5px;
-    }
+    .detalhado-table { font-size: 12px; }
 }
 </style>
 
