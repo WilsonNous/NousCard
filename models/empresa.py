@@ -1,19 +1,73 @@
-from .base import db
-from datetime import datetime
+from .base import db, BaseMixin
+from datetime import datetime, timezone
+import os
+from cryptography.fernet import Fernet
 
-class Empresa(db.Model):
+class Empresa(db.Model, BaseMixin):
     __tablename__ = "empresas"
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(150), nullable=False)
-    documento = db.Column(db.String(20), nullable=True)
-    email = db.Column(db.String(120), nullable=True)
+    _documento_encrypted = db.Column("documento", db.String(255), nullable=True)
+    _email_encrypted = db.Column("email", db.String(255), nullable=True)
     telefone = db.Column(db.String(30), nullable=True)
 
-    criado_em = db.Column(db.DateTime, default=datetime.utcnow)
+    # Relacionamentos padronizados
+    contas_bancarias = db.relationship("ContaBancaria", back_populates="empresa", lazy=True)
+    contratos = db.relationship("ContratoTaxa", back_populates="empresa", lazy=True)
+    movimentos_adquirente = db.relationship("MovAdquirente", back_populates="empresa", lazy=True)
+    movimentos_banco = db.relationship("MovBanco", back_populates="empresa", lazy=True)
+    conciliacoes = db.relationship("Conciliacao", back_populates="empresa", lazy=True)
+    usuarios = db.relationship("Usuario", back_populates="empresa", lazy=True)
+    arquivos_importados = db.relationship("ArquivoImportado", back_populates="empresa", lazy=True)
 
-    contas_bancarias = db.relationship("ContaBancaria", backref="empresa", lazy=True)
-    contratos = db.relationship("ContratoTaxa", backref="empresa", lazy=True)
-    
+    __table_args__ = (
+        db.Index('idx_empresa_nome', 'nome'),
+        db.Index('idx_empresa_ativo', 'ativo'),
+    )
+
+    # Criptografia de dados sensíveis
+    @property
+    def documento(self):
+        if self._documento_encrypted and os.getenv("ENCRYPTION_KEY"):
+            try:
+                f = Fernet(os.getenv("ENCRYPTION_KEY"))
+                return f.decrypt(self._documento_encrypted.encode()).decode()
+            except:
+                return self._documento_encrypted
+        return self._documento_encrypted
+
+    @documento.setter
+    def documento(self, value):
+        if value and os.getenv("ENCRYPTION_KEY"):
+            try:
+                f = Fernet(os.getenv("ENCRYPTION_KEY"))
+                self._documento_encrypted = f.encrypt(value.encode()).decode()
+            except:
+                self._documento_encrypted = value
+        else:
+            self._documento_encrypted = value
+
+    @property
+    def email(self):
+        if self._email_encrypted and os.getenv("ENCRYPTION_KEY"):
+            try:
+                f = Fernet(os.getenv("ENCRYPTION_KEY"))
+                return f.decrypt(self._email_encrypted.encode()).decode()
+            except:
+                return self._email_encrypted
+        return self._email_encrypted
+
+    @email.setter
+    def email(self, value):
+        if value and os.getenv("ENCRYPTION_KEY"):
+            try:
+                f = Fernet(os.getenv("ENCRYPTION_KEY"))
+                self._email_encrypted = f.encrypt(value.encode()).decode()
+            except:
+                self._email_encrypted = value
+        else:
+            self._email_encrypted = value
+
     def __repr__(self):
         return f"<Empresa {self.nome}>"
