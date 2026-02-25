@@ -4,10 +4,11 @@
 # ============================================================
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.ext.declarative import declared_attr  # ✅ IMPORTANTE para ForeignKeys em mixins
 from datetime import datetime, timezone
 from flask import g
 
-# Inicializar SQLAlchemy (compatível com 1.4 e 2.0 via Flask-SQLAlchemy)
+# Inicializar SQLAlchemy
 db = SQLAlchemy()
 
 # ============================================================
@@ -19,18 +20,23 @@ class TimestampMixin:
     Adiciona campos de timestamp com timezone.
     Compatível com SQLAlchemy 1.4 e 2.0.
     """
-    criado_em = db.Column(
-        db.DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
-        index=True  # Índice para queries por data
-    )
-    atualizado_em = db.Column(
-        db.DateTime(timezone=True),
-        onupdate=lambda: datetime.now(timezone.utc),
-        nullable=True,
-        index=True
-    )
+    @declared_attr
+    def criado_em(cls):
+        return db.Column(
+            db.DateTime(timezone=True),
+            default=lambda: datetime.now(timezone.utc),
+            nullable=False,
+            index=True
+        )
+    
+    @declared_attr
+    def atualizado_em(cls):
+        return db.Column(
+            db.DateTime(timezone=True),
+            onupdate=lambda: datetime.now(timezone.utc),
+            nullable=True,
+            index=True
+        )
 
 
 class SoftDeleteMixin:
@@ -38,25 +44,31 @@ class SoftDeleteMixin:
     Adiciona soft delete (flag ativo/inativo).
     Nunca exclui dados permanentemente, apenas marca como inativo.
     """
-    ativo = db.Column(
-        db.Boolean,
-        default=True,
-        nullable=False,
-        index=True  # Índice para filtrar por status
-    )
+    @declared_attr
+    def ativo(cls):
+        return db.Column(
+            db.Boolean,
+            default=True,
+            nullable=False,
+            index=True
+        )
 
 
 class MultiTenantMixin:
     """
     Garante isolamento de dados por empresa (multi-tenant).
     Todas as queries devem filtrar por empresa_id.
+    
+    Nota: ForeignKey em mixins DEVE usar @declared_attr no SQLAlchemy 1.4+
     """
-    empresa_id = db.Column(
-        db.Integer,
-        db.ForeignKey("empresas.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True  # Índice crítico para performance em queries multi-tenant
-    )
+    @declared_attr
+    def empresa_id(cls):
+        return db.Column(
+            db.Integer,
+            db.ForeignKey("empresas.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True
+        )
 
     @classmethod
     def query_tenant(cls, empresa_id=None):
