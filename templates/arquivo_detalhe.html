@@ -1,169 +1,53 @@
 {% extends "base.html" %}
+
+{% block title %}{{ arquivo.nome_arquivo }} - NousCard{% endblock %}
+
 {% block content %}
-
 <section class="nc-section">
-
-    {# 🔥 Correção essencial: garantir que "registros" existe no escopo #}
-    {% set registros = registros or [] %}
-
-    <h2 class="nc-title">📄 Detalhes do Arquivo Importado</h2>
-
-    <!-- CARDS SUPERIORES -->
-    <div class="nc-card-grid">
-        <div class="nc-card">
-            <label>Nome do Arquivo</label>
-            <strong>{{ arquivo.nome_arquivo }}</strong>
+    <div class="nc-section-header">
+        <div>
+            <h2>📄 {{ arquivo.nome_arquivo | e }}</h2>
+            <p class="nc-subtitle">
+                Tipo: {{ arquivo.tipo | title }} • 
+                Registros: {{ arquivo.total_registros }} • 
+                Valor Total: R$ {{ arquivo.total_valor }} •
+                Importado em: {{ arquivo.created_at }}
+            </p>
         </div>
-
-        <div class="nc-card">
-            <label>Tipo</label>
-            <strong>{{ arquivo.tipo|capitalize }}</strong>
-        </div>
-
-        <div class="nc-card">
-            <label>Total de Registros</label>
-            <strong>{{ arquivo.total_registros }}</strong>
-        </div>
-
-        <div class="nc-card">
-            <label>Valor Total</label>
-            <strong>R$ {{ "%.2f"|format(arquivo.total_valor) }}</strong>
-        </div>
-
-        <div class="nc-card">
-            <label>Data de Importação</label>
-            <strong>{{ arquivo.created_at }}</strong>
-        </div>
+        <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-btn nc-btn-outline">← Voltar</a>
     </div>
-
-    <hr>
-
-    <!-- BOTÕES DE VISUALIZAÇÃO -->
-    <div style="margin-bottom:15px;">
-        <button id="btnTable" class="nc-btn-primary">📊 Tabela</button>
-        <button id="btnJson" class="nc-btn-secondary">{ } JSON</button>
-    </div>
-
-    <!-- TABELA (VISÃO PRINCIPAL) -->
-    <div id="viewTable" style="display:block;">
-
-        <h3>📋 Registros</h3>
-
-        {% if registros and registros|length > 0 %}
-
-        <div class="nc-table-wrapper">
+    
+    {% if registros %}
+        <div class="nc-table-container" style="overflow-x: auto;">
             <table class="nc-table">
                 <thead>
                     <tr>
-                        {% for col in registros[0].keys() %}
-                        <th>{{ col }}</th>
-                        {% endfor %}
+                        {% if registros[0] %}
+                            {% for key in registros[0].keys() %}
+                                <th scope="col">{{ key | title }}</th>
+                            {% endfor %}
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
-                    {% for row in registros[:200] %}
+                    {% for registro in registros[:100] %}
                     <tr>
-                        {% for col, val in row.items() %}
-                        <td>{{ val }}</td>
+                        {% for valor in registro.values() %}
+                            <td>{{ valor if valor else "—" }}</td>
                         {% endfor %}
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
-        {% if registros|length > 200 %}
-        <p style="color:#888; margin-top:8px;">Mostrando apenas os 200 primeiros registros.</p>
+        
+        {% if registros|length > 100 %}
+        <p class="nc-muted">Mostrando primeiros 100 registros de {{ registros|length }}.</p>
         {% endif %}
-
-        {% else %}
-        <p style="color:#999;">Nenhum registro encontrado neste arquivo.</p>
-        {% endif %}
-    </div>
-
-    <!-- JSON (começa escondido) -->
-    <div id="viewJson" style="display:none;">
-
-        <h3>📎 Conteúdo JSON (limitado a 200 registros)</h3>
-
-        <pre class="nc-json-box">
-{{ registros[:200] | tojson(indent=4) }}
-        </pre>
-
-    </div>
-
-    <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-btn-secondary" style="margin-top:20px;">
-        ⬅️ Voltar
-    </a>
-
+    {% else %}
+        <div class="nc-empty-state">
+            <p>Nenhum registro neste arquivo.</p>
+        </div>
+    {% endif %}
 </section>
-
-<script>
-document.getElementById("btnTable").addEventListener("click", () => {
-    document.getElementById("viewTable").style.display = "block";
-    document.getElementById("viewJson").style.display = "none";
-});
-
-document.getElementById("btnJson").addEventListener("click", () => {
-    document.getElementById("viewTable").style.display = "none";
-    document.getElementById("viewJson").style.display = "block";
-});
-</script>
-
-<style>
-.nc-card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 15px;
-}
-
-.nc-card {
-    background: #fff;
-    padding: 12px 15px;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    border: 1px solid #eee;
-}
-
-.nc-card label {
-    font-size: 13px;
-    color: #666;
-}
-
-.nc-table-wrapper {
-    overflow-x: auto;
-    background: #fff;
-    border-radius: 10px;
-    border: 1px solid #ddd;
-}
-
-.nc-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-}
-
-.nc-table th {
-    background: #0048a8;
-    color: #fff;
-    padding: 10px;
-    text-align: left;
-}
-
-.nc-table td {
-    padding: 8px;
-    border-bottom: 1px solid #eee;
-}
-
-.nc-json-box {
-    background: #1e1e1e;
-    color: #c0ffc0;
-    padding: 15px;
-    border-radius: 8px;
-    max-height: 500px;
-    overflow: auto;
-    font-size: 13px;
-}
-</style>
-
 {% endblock %}
