@@ -1,39 +1,70 @@
 {% extends "base.html" %}
+
+{% block title %}Master - Empresas - NousCard{% endblock %}
+
 {% block content %}
-
-<h1>Empresas</h1>
-
-<div class="nc-section">
-    <a href="{{ url_for('master.empresa_nova') }}" class="nc-btn-primary" style="width:auto;">
-        ➕ Criar nova empresa
-    </a>
-</div>
-
-<div class="nc-section">
-    <table class="nc-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Empresa</th>
-                <th>Criada em</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for emp in empresas %}
-            <tr>
-                <td>{{ emp.id }}</td>
-                <td>{{ emp.nome }}</td>
-                <td>{{ emp.criado_em }}</td>
-                <td>
-                    <a class="nc-btn-table" href="{{ url_for('master.empresa_ver', empresa_id=emp.id) }}">
-                        👁 Ver
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
+<section class="nc-section">
+    <div class="nc-section-header">
+        <div>
+            <h2>🏢 Master - Gerenciar Empresas</h2>
+            {% if empresas and empresas.total %}
+            <p class="nc-section-subtitle">{{ empresas.total }} empresa(s) cadastrada(s)</p>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('master.empresa_nova') }}" class="nc-btn nc-btn-primary">+ Nova Empresa</a>
+    </div>
+    
+    {% if empresas and empresas.items %}
+        <table class="nc-table" role="table" aria-label="Lista de empresas">
+            <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas gerenciadas pelo master.</caption>
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Nome</th>
+                    <th scope="col">Admin</th>
+                    <th scope="col">Criada em</th>
+                    <th scope="col" class="nc-sr-only">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in empresas.items %}
+                <tr>
+                    <td>{{ e.id }}</td>
+                    <td><strong>{{ e.nome | e }}</strong></td>
+                    <td>{{ e.usuarios[0].email if e.usuarios else "—" }}</td>
+                    <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "-" }}</td>
+                    <td class="nc-table-actions">
+                        <a href="{{ url_for('master.empresa_ver', empresa_id=e.id) }}" 
+                           class="nc-btn nc-btn-sm nc-btn-outline"
+                           aria-label="Ver empresa {{ e.nome | e }}">
+                            <span aria-hidden="true">👁️</span>
+                            <span class="nc-sr-only">Ver</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if empresas.pages > 1 %}
+        <nav class="nc-pagination" role="navigation" aria-label="Paginação">
+            {% if empresas.has_prev %}
+            <a href="?page={{ empresas.prev_num }}" class="nc-btn nc-btn-sm" aria-label="Página anterior">← Anterior</a>
+            {% endif %}
+            <span class="nc-page-info">Página {{ empresas.page }} de {{ empresas.pages }}</span>
+            {% if empresas.has_next %}
+            <a href="?page={{ empresas.next_num }}" class="nc-btn nc-btn-sm" aria-label="Próxima página">Próxima →</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+        
+    {% else %}
+        <div class="nc-empty-state" role="status">
+            <span aria-hidden="true">🏢</span>
+            <h3>Nenhuma empresa cadastrada</h3>
+            <p>Comece criando a primeira empresa.</p>
+            <a href="{{ url_for('master.empresa_nova') }}" class="nc-btn nc-btn-primary">+ Nova Empresa</a>
+        </div>
+    {% endif %}
+</section>
 {% endblock %}
