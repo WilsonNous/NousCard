@@ -1,16 +1,25 @@
 {% extends "base.html" %}
 
+{% block title %}Conciliação - NousCard{% endblock %}
+
 {% block content %}
 <section class="nc-section">
-    <h2>Conciliação</h2>
-    <p>Depois de importar seus arquivos, execute a conciliação para ver se está tudo certo com seus recebíveis.</p>
-
-    <button id="btnConciliar" class="nc-btn-primary">Executar conciliação</button>
-
-    <div id="conciliacaoResumo" class="nc-conc-resumo"></div>
+    <h2>✔️ Conciliação</h2>
+    <p>Execute a conciliação automática entre vendas e recebimentos.</p>
+    
+    <div class="nc-conciliacao-actions">
+        <button type="button" id="btn-executar-conciliacao" class="nc-btn nc-btn-primary">
+            🚀 Executar Conciliação
+        </button>
+    </div>
+    
+    <div id="conciliacao-result" class="nc-conciliacao-result" role="status" aria-live="polite"></div>
+    
+    <div id="conciliacao-progress" class="nc-progress" style="display:none;" role="progressbar">
+        <div class="nc-progress-bar"></div>
+        <span class="nc-progress-text">Processando...</span>
+    </div>
 </section>
 
-<!-- ===================== JS de Conciliação ===================== -->
-<script src="{{ url_for('static', filename='js/operacoes.js') }}"></script>
-
+<script src="{{ url_for('static', filename='js/conciliacao.js') }}" defer></script>
 {% endblock %}
