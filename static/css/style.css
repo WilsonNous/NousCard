@@ -1,4 +1,43 @@
 /* ============================================================
+   VARIÁVEIS GLOBAIS (ROOT)
+============================================================ */
+:root {
+    /* Cores Primárias */
+    --primary: #1877f2;
+    --primary-dark: #0d5bd4;
+    --primary-light: #e7f1ff;
+    
+    /* Cores de Texto */
+    --text: #1a1a2e;
+    --text-muted: #5a6275;
+    --white: #ffffff;
+    
+    /* Cores Neutras */
+    --gray: #dee2e6;
+    --gray-light: #f8f9fa;
+    --gray-dark: #5a6275;
+    
+    /* Cores de Status/KPI */
+    --kpi-red: #dc3545;
+    --kpi-yellow: #ffc107;
+    --kpi-green: #28a745;
+    --kpi-blue: #17a2b8;
+    
+    /* Sombras e Bordas */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
+    --border-radius: 8px;
+    
+    /* Espaçamento */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+}
+
+/* ============================================================
    ACESSIBILIDADE
 ============================================================ */
 
@@ -782,4 +821,228 @@ textarea:focus-visible,
         font-size: 0.9em;
         color: #666;
     }
+}
+/* ============================================================
+   LAYOUT BASE
+============================================================ */
+.nc-body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-light);
+    color: var(--text);
+    line-height: 1.5;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Topbar */
+.nc-topbar {
+    background: var(--white);
+    border-bottom: 1px solid var(--gray);
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+}
+
+.nc-logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.nc-topbar-nav {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.nc-topbar-item {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: background 0.2s;
+}
+
+.nc-topbar-item:hover,
+.nc-topbar-item.active {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.nc-topbar-item.logout {
+    color: var(--kpi-red);
+}
+
+/* Conteúdo Principal */
+.nc-content {
+    flex: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    width: 100%;
+}
+
+/* Seções */
+.nc-section {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.nc-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: var(--text);
+}
+
+.nc-subtitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: var(--text);
+}
+
+/* Status do Usuário */
+.nc-user-status {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray);
+    font-size: 0.95rem;
+}
+
+.nc-user-status .label {
+    color: var(--text-muted);
+    margin-right: 0.25rem;
+}
+
+.nc-user-status .role {
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.role.master { background: var(--kpi-blue); color: white; }
+.role.admin { background: var(--kpi-green); color: white; }
+.role.user { background: var(--gray); color: var(--text); }
+
+/* Ações do Dashboard */
+.nc-dashboard-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Grid de KPIs */
+.nc-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.nc-kpi-card {
+    background: var(--white);
+    border: 1px solid var(--gray);
+    border-radius: var(--border-radius);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.nc-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+}
+
+.kpi-icon {
+    font-size: 1.75rem;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+
+.kpi-blue { background: var(--primary-light); }
+.kpi-green { background: rgba(40, 167, 69, 0.15); }
+.kpi-yellow { background: rgba(255, 193, 7, 0.15); }
+.kpi-red { background: rgba(220, 53, 69, 0.15); }
+
+.kpi-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.kpi-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.kpi-value[data-loading="true"] {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+/* Grid de Adquirentes */
+.nc-acq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+/* Gráficos */
+.nc-graphs-container {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    min-height: 300px;
+}
+
+/* Footer */
+.nc-footer {
+    background: var(--white);
+    border-top: 1px solid var(--gray);
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.nc-footer a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.nc-footer a:hover {
+    text-decoration: underline;
 }
