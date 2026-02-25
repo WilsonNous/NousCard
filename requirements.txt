@@ -9,10 +9,10 @@ MarkupSafe==2.1.3
 click==8.1.7
 
 # ============================================================
-# BANCO DE DADOS
+# BANCO DE DADOS (VERSÕES ESTÁVEIS 1.4.x)
 # ============================================================
-Flask-SQLAlchemy==3.1.1
-SQLAlchemy==2.0.23
+Flask-SQLAlchemy==3.0.5  # Compatível com SQLAlchemy 1.4
+SQLAlchemy==1.4.50       # Última versão estável da série 1.4 (LTS)
 PyMySQL==1.1.0
 python-dotenv==1.0.1
 Flask-Migrate==4.0.5
@@ -36,7 +36,7 @@ redis==5.0.1
 # PARSE DE ARQUIVOS
 # ============================================================
 openpyxl==3.1.2
-ofxparse==0.21  # ← Versão PyPI (compatível com Render)
+ofxparse==0.21
 python-magic==0.4.27
 chardet==5.2.0
 python-dateutil==2.8.2
