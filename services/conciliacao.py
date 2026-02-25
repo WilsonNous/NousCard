@@ -1,6 +1,11 @@
+# ============================================================
+#  CONCILIAÇÃO • NousCard (PRODUÇÃO)
+#  Compatível com SQLAlchemy 1.4.x + Python 3.11
+# ============================================================
+
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from sqlalchemy.orm import lazyload
 from sqlalchemy.exc import SQLAlchemyError
 from models import db, MovAdquirente, MovBanco, Conciliacao, LogAuditoria
@@ -19,19 +24,29 @@ TIMEOUT_SEGUNDOS = 25
 # ============================================================
 # UTILITÁRIOS
 # ============================================================
+
 def datas_compatíveis(data_prevista, data_banco):
+    """Verifica se datas estão dentro da tolerância configurada"""
     if not data_prevista or not data_banco:
         return False
     return abs((data_prevista - data_banco).days) <= TOLERANCIA_DIAS
 
+
 def valores_compatíveis(valor1, valor2, tolerancia=TOLERANCIA_CENTAVOS):
-    """Compara valores monetários com tolerância para centavos"""
+    """
+    Compara valores monetários com tolerância para centavos.
+    Usa Decimal para precisão financeira.
+    """
     v1 = Decimal(str(valor1 or 0))
     v2 = Decimal(str(valor2 or 0))
     return abs(v1 - v2) <= tolerancia
 
+
 def valores_iguais(valor1, valor2):
-    """Comparação exata para match perfeito"""
+    """
+    Comparação exata para match perfeito.
+    Usa Decimal para evitar erros de float.
+    """
     v1 = Decimal(str(valor1 or 0))
     v2 = Decimal(str(valor2 or 0))
     return v1 == v2
@@ -39,18 +54,28 @@ def valores_iguais(valor1, valor2):
 # ============================================================
 # MATCH EXATO E PARCIAL
 # ============================================================
+
 def tentar_matching(venda, recebimentos_disponiveis):
-    """Tenta encontrar recebimento compatível com esta venda"""
+    """
+    Tenta encontrar recebimento compatível com esta venda.
     
+    Prioridade:
+    1. Match exato (valor igual + data compatível)
+    2. Match com tolerância de centavos
+    3. Match parcial (recebimento menor que venda)
+    
+    Returns:
+        List[Tuple] ou None
+    """
     valor_liq = Decimal(str(venda.valor_liquido or 0))
     data_prevista = venda.data_prevista_pagamento
     
-    # Match exato primeiro (prioridade)
+    # Match exato primeiro (prioridade máxima)
     for r in recebimentos_disponiveis:
         if valores_iguais(r.valor, valor_liq) and datas_compatíveis(data_prevista, r.data_movimento):
             return [(venda, r, valor_liq)]
     
-    # Match com tolerância
+    # Match com tolerância de centavos
     for r in recebimentos_disponiveis:
         if valores_compatíveis(r.valor, valor_liq) and datas_compatíveis(data_prevista, r.data_movimento):
             return [(venda, r, Decimal(str(r.valor)))]
@@ -66,9 +91,15 @@ def tentar_matching(venda, recebimentos_disponiveis):
 # ============================================================
 # MULTIVENDA
 # ============================================================
+
 def tentar_multivenda(recebimento, vendas_disponiveis):
-    """Tenta combinar múltiplas vendas com um recebimento"""
+    """
+    Tenta combinar múltiplas vendas com um único recebimento.
+    Usa heurística greedy com ordenação por valor (maior primeiro).
     
+    Returns:
+        List[Tuple] de vínculos ou None
+    """
     total = Decimal(str(recebimento.valor))
     acumulado = Decimal("0")
     vinculos = []
@@ -95,9 +126,16 @@ def tentar_multivenda(recebimento, vendas_disponiveis):
 # ============================================================
 # SALVAR CONCILIAÇÃO
 # ============================================================
+
 def registrar_conciliacao(vinculos, empresa_id, usuario_id=None):
-    """Registra conciliações no banco com validação de duplicatas"""
+    """
+    Registra conciliações no banco com validação de duplicatas.
     
+    Args:
+        vinculos: Lista de tuplas (venda, recebimento, valor)
+        empresa_id: ID da empresa
+        usuario_id: ID do usuário (para auditoria)
+    """
     for venda, recebimento, valor in vinculos:
         
         # Verificar se já existe conciliação para este par
@@ -110,6 +148,7 @@ def registrar_conciliacao(vinculos, empresa_id, usuario_id=None):
             logger.warning(f"Conciliação duplicada ignorada: venda={venda.id}, recebimento={recebimento.id}")
             continue
         
+        # Criar registro de conciliação
         conc = Conciliacao(
             empresa_id=empresa_id,
             mov_adquirente_id=venda.id,
@@ -142,10 +181,24 @@ def registrar_conciliacao(vinculos, empresa_id, usuario_id=None):
 # ============================================================
 # FUNÇÃO PRINCIPAL
 # ============================================================
+
 def executar_conciliacao(empresa_id, usuario_id=None):
     """
     Executa conciliação automática para uma empresa.
-    Retorna estatísticas do processamento.
+    
+    Fluxo:
+    1. Carrega vendas pendentes e recebimentos não conciliados
+    2. Tenta match individual por NSU/data/valor
+    3. Tenta match multivenda (várias vendas → um recebimento)
+    4. Salva conciliações e atualiza status
+    5. Retorna estatísticas do processamento
+    
+    Args:
+        empresa_id: ID da empresa para conciliar
+        usuario_id: ID do usuário (opcional, para auditoria)
+    
+    Returns:
+        Dict com estatísticas da conciliação
     """
     
     inicio = time.time()
@@ -181,7 +234,9 @@ def executar_conciliacao(empresa_id, usuario_id=None):
             "creditos_sem_origem": 0
         }
         
-        # MATCH INDIVIDUAL
+        # ============================================================
+        # FASE 1: MATCH INDIVIDUAL
+        # ============================================================
         for venda in vendas:
             # Timeout check
             if time.time() - inicio > TIMEOUT_SEGUNDOS:
@@ -208,7 +263,9 @@ def executar_conciliacao(empresa_id, usuario_id=None):
                 else:
                     resultado["parciais"] += 1
         
-        # MULTIVENDA
+        # ============================================================
+        # FASE 2: MULTIVENDA
+        # ============================================================
         pend_vendas = [v for v in vendas if v.status_conciliacao == "pendente"]
         pend_receb_ids = recebimentos_disponiveis
         
@@ -231,14 +288,32 @@ def executar_conciliacao(empresa_id, usuario_id=None):
         # Commit único (transação)
         db.session.commit()
         
-        # Contagem final
+        # ============================================================
+        # CONTAGEM FINAL (CORRIGIDO: filter() para operadores)
+        # ============================================================
+        
+        # Contar vendas pendentes (igualdade → filter_by)
         resultado["nao_conciliados"] = MovAdquirente.query.filter_by(
-            empresa_id=empresa_id, status_conciliacao="pendente"
+            empresa_id=empresa_id,
+            status_conciliacao="pendente"
         ).count()
         
-        resultado["creditos_sem_origem"] = MovBanco.query.filter_by(
-            empresa_id=empresa_id, conciliado=False, valor>0
+        # Contar créditos sem origem (operador > → filter com and_)
+        # ✅ CORRETO: filter() permite operadores de comparação
+        resultado["creditos_sem_origem"] = MovBanco.query.filter(
+            and_(
+                MovBanco.empresa_id == empresa_id,
+                MovBanco.conciliado == False,
+                MovBanco.valor > 0
+            )
         ).count()
+        
+        # Alternativa equivalente (sem and_):
+        # resultado["creditos_sem_origem"] = MovBanco.query.filter(
+        #     MovBanco.empresa_id == empresa_id,
+        #     MovBanco.conciliado == False,
+        #     MovBanco.valor > 0
+        # ).count()
         
         duracao = time.time() - inicio
         logger.info(f"Conciliação concluída: {duracao:.2f}s, empresa={empresa_id}, resultado={resultado}")
