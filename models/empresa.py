@@ -1,4 +1,5 @@
-from .base import db, BaseMixin
+# models/empresa.py
+from models.base import db, BaseMixin
 from datetime import datetime, timezone
 import os
 from cryptography.fernet import Fernet
@@ -12,21 +13,76 @@ class Empresa(db.Model, BaseMixin):
     _email_encrypted = db.Column("email", db.String(255), nullable=True)
     telefone = db.Column(db.String(30), nullable=True)
 
-    # Relacionamentos padronizados
-    contas_bancarias = db.relationship("ContaBancaria", back_populates="empresa", lazy=True)
-    contratos = db.relationship("ContratoTaxa", back_populates="empresa", lazy=True)
-    movimentos_adquirente = db.relationship("MovAdquirente", back_populates="empresa", lazy=True)
-    movimentos_banco = db.relationship("MovBanco", back_populates="empresa", lazy=True)
-    conciliacoes = db.relationship("Conciliacao", back_populates="empresa", lazy=True)
-    usuarios = db.relationship("Usuario", back_populates="empresa", lazy=True)
-    arquivos_importados = db.relationship("ArquivoImportado", back_populates="empresa", lazy=True)
-
-    __table_args__ = (
-        db.Index('idx_empresa_nome', 'nome'),
-        db.Index('idx_empresa_ativo', 'ativo'),
+    # ============================================================
+    # RELACIONAMENTOS (com back_populates CORRETOS)
+    # ============================================================
+    
+    # Usuários da empresa
+    usuarios = db.relationship(
+        "Usuario",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # Contas bancárias
+    contas_bancarias = db.relationship(
+        "ContaBancaria",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # Adquirentes/contratos
+    contratos = db.relationship(
+        "ContratoTaxa",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # Movimentos
+    movimentos_adquirente = db.relationship(
+        "MovAdquirente",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    movimentos_banco = db.relationship(
+        "MovBanco",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # Conciliações
+    conciliacoes = db.relationship(
+        "Conciliacao",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # Arquivos importados
+    arquivos_importados = db.relationship(
+        "ArquivoImportado",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # Logs de auditoria
+    logs_auditoria = db.relationship(
+        "LogAuditoria",
+        back_populates="empresa",
+        lazy=True,
+        cascade="all, delete-orphan"
     )
 
-    # Criptografia de dados sensíveis
+    # ============================================================
+    # CRIPTOGRAFIA DE DADOS SENSÍVEIS
+    # ============================================================
+    
     @property
     def documento(self):
         if self._documento_encrypted and os.getenv("ENCRYPTION_KEY"):
@@ -69,5 +125,9 @@ class Empresa(db.Model, BaseMixin):
         else:
             self._email_encrypted = value
 
+    # ============================================================
+    # REPRESENTAÇÃO
+    # ============================================================
+    
     def __repr__(self):
         return f"<Empresa {self.nome}>"
