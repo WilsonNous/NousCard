@@ -74,13 +74,16 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
         foreign_keys=[empresa_id]
     )
     
-    # ✅ Arquivos importados por este usuário
-    arquivos_importados = db.relationship(
-        "ArquivoImportado",
-        back_populates="usuario",
-        lazy="dynamic",
-        cascade="all, delete-orphan"
-    )
+    # ⚠️ ARQUIVOS IMPORTADOS: COMENTADO para evitar conflito com ArquivoImportado minimalista
+    # Para acessar arquivos de um usuário, use query direta:
+    # ArquivoImportado.query.filter_by(usuario_id=usuario.id).all()
+    #
+    # arquivos_importados = db.relationship(
+    #     "ArquivoImportado",
+    #     back_populates="usuario",
+    #     lazy="dynamic",
+    #     cascade="all, delete-orphan"
+    # )
     
     # ✅ Logs de auditoria deste usuário
     logs_auditoria = db.relationship(
@@ -90,7 +93,7 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
         cascade="all, delete-orphan"
     )
     
-    # ✅ Conciliações manuais realizadas por este usuário (NOVO - corrige o erro)
+    # ✅ Conciliações manuais realizadas por este usuário
     conciliacoes = db.relationship(
         "Conciliacao",
         back_populates="usuario",  # ✅ Deve bater com Conciliacao.usuario.back_populates
