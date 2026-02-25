@@ -1,27 +1,51 @@
 {% extends "base.html" %}
+
+{% block title %}Novo Usuário - {{ empresa.nome }} - Master - NousCard{% endblock %}
+
 {% block content %}
-
-<h1>Novo usuário — {{ empresa.nome }}</h1>
-
-<div class="nc-section">
-    <form method="POST" class="nc-form">
-
-        <label>Nome</label>
-        <input type="text" name="nome" required>
-
-        <label>E-mail</label>
-        <input type="email" name="email" required>
-
-        <label>Senha</label>
-        <input type="password" name="senha" required>
-
-        <label>
-            <input type="checkbox" name="admin">
-            Tornar administrador
-        </label>
-
-        <button type="submit" class="nc-btn-primary">Criar usuário</button>
+<section class="nc-section">
+    <h2>👤 Criar Novo Usuário</h2>
+    <p class="nc-subtitle">Empresa: <strong>{{ empresa.nome | e }}</strong></p>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="nc-flash-messages" role="status" aria-live="polite">
+            {% for category, message in messages %}
+            <div class="nc-flash nc-flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+    
+    <form method="POST" class="nc-form" novalidate>
+        <div class="nc-form-group">
+            <label for="nome" class="nc-form-label">Nome Completo *</label>
+            <input type="text" id="nome" name="nome" required maxlength="120" autocomplete="name">
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="email" class="nc-form-label">E-mail *</label>
+            <input type="email" id="email" name="email" required maxlength="150" autocomplete="username">
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="senha" class="nc-form-label">Senha *</label>
+            <input type="password" id="senha" name="senha" required minlength="8" autocomplete="new-password">
+            <span class="nc-form-hint">Mínimo 8 caracteres, com letra maiúscula, minúscula e número</span>
+        </div>
+        
+        <div class="nc-form-group nc-form-group-checkbox">
+            <div class="nc-checkbox-wrapper">
+                <input type="checkbox" id="admin" name="admin" value="1">
+                <label for="admin" class="nc-checkbox-label">Administrador</label>
+            </div>
+            <span class="nc-form-hint">Marcado: pode gerenciar usuários desta empresa</span>
+        </div>
+        
+        <div class="nc-form-actions">
+            <button type="submit" class="nc-btn nc-btn-primary">Criar Usuário</button>
+            <a href="{{ url_for('master.empresa_ver', empresa_id=empresa.id) }}" class="nc-btn nc-btn-outline">Cancelar</a>
+        </div>
     </form>
-</div>
-
+</section>
 {% endblock %}
