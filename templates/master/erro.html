@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Erro - NousCard{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <div class="nc-error-page">
+        <span aria-hidden="true" style="font-size: 4rem;">⚠️</span>
+        <h1>Ops! Algo deu errado</h1>
+        <p>{{ mensagem or "Ocorreu um erro inesperado. Tente novamente." }}</p>
+        <div class="nc-error-actions">
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-btn nc-btn-primary">Voltar ao Dashboard</a>
+            <a href="javascript:history.back()" class="nc-btn nc-btn-outline">Voltar</a>
+        </div>
+    </div>
+</section>
+{% endblock %}
