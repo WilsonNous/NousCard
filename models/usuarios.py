@@ -67,26 +67,33 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
     # ============================================================
     
     # ✅ Empresa: back_populates deve bater com Empresa.usuarios
-    # lazy="select" evita eager loading que pode causar circular deps
     empresa = db.relationship(
         "Empresa",
         back_populates="usuarios",  # ✅ Deve existir em Empresa
-        lazy="select",  # ✅ Carrega sob demanda (evita N+1 e circular deps)
-        foreign_keys=[empresa_id]  # ✅ Explicita qual FK usar se houver múltiplos
+        lazy="select",
+        foreign_keys=[empresa_id]
     )
     
-    # Arquivos importados por este usuário
+    # ✅ Arquivos importados por este usuário
     arquivos_importados = db.relationship(
         "ArquivoImportado",
-        back_populates="usuario",  # ✅ Deve existir em ArquivoImportado
-        lazy="dynamic",  # ✅ Retorna query, não lista (bom para paginação)
+        back_populates="usuario",
+        lazy="dynamic",
         cascade="all, delete-orphan"
     )
     
-    # Logs de auditoria deste usuário
+    # ✅ Logs de auditoria deste usuário
     logs_auditoria = db.relationship(
         "LogAuditoria",
-        back_populates="usuario",  # ✅ Deve existir em LogAuditoria
+        back_populates="usuario",
+        lazy="dynamic",
+        cascade="all, delete-orphan"
+    )
+    
+    # ✅ Conciliações manuais realizadas por este usuário (NOVO - corrige o erro)
+    conciliacoes = db.relationship(
+        "Conciliacao",
+        back_populates="usuario",  # ✅ Deve bater com Conciliacao.usuario.back_populates
         lazy="dynamic",
         cascade="all, delete-orphan"
     )
