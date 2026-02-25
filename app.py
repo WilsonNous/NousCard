@@ -1,21 +1,22 @@
 # ============================================================
 #  APP • NousCard (PRODUÇÃO)
-#  Compatível com: SQLAlchemy 1.4.50 + Flask-SQLAlchemy 3.0.5 + Python 3.11
+#  Compatível com SQLAlchemy 1.4.x + Flask-SQLAlchemy 3.0.x
+#  Garantindo instância única do db
 # ============================================================
 
 from flask import Flask, g, request, redirect, url_for, session
 from config import Config
-from models.base import db, init_db, cleanup_session  # ✅ Importa helpers
+from models.base import db, init_db, cleanup_session  # ✅ ÚNICO import do db
 from routes import register_blueprints
 from datetime import datetime, timezone
 from flask_migrate import Migrate
-from flask_login import LoginManager, current_user
+from flask_login import LoginManager
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 import sys
 
-# Sentry (import condicional para evitar erro se não instalado)
+# Sentry (import condicional)
 try:
     import sentry_sdk
     from sentry_sdk.integrations.flask import FlaskIntegration
@@ -24,11 +25,19 @@ except ImportError:
     SENTRY_AVAILABLE = False
 
 
-def create_app():
-    """Factory pattern para criar a aplicação Flask"""
+# Flag para garantir inicialização única
+_db_initialized = False
+
+
+def create_app(config_class=Config):
+    """
+    Factory pattern para criar a aplicação Flask.
+    Garante que db.init_app() seja chamado apenas uma vez.
+    """
+    global _db_initialized
     
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
 
     # ---------------------------------------------------------
     # SENTRY (MONITORAMENTO DE ERROS - PRODUÇÃO)
@@ -40,22 +49,24 @@ def create_app():
                 integrations=[FlaskIntegration()],
                 traces_sample_rate=0.1,
                 environment=os.getenv("FLASK_ENV", "production"),
-                send_default_pii=False  # Não enviar dados pessoais
+                send_default_pii=False
             )
             app.logger.info("Sentry initialized")
         except Exception as e:
             app.logger.warning(f"Sentry init failed: {str(e)}")
 
     # ---------------------------------------------------------
-    # BANCO DE DADOS (SQLAlchemy 1.4 + Flask-SQLAlchemy 3.0)
+    # BANCO DE DADOS (INICIALIZAÇÃO ÚNICA)
     # ---------------------------------------------------------
-    db.init_app(app)
     
-    # Inicializar com helper (cria tabelas em dev, migrações em prod)
-    init_db(app)
+    # ✅ GARANTIR: db.init_app() chamado apenas uma vez
+    if not _db_initialized:
+        db.init_app(app)
+        _db_initialized = True
     
     # Flask-Migrate para versionamento de schema
-    migrate = Migrate(app, db, render_as_batch=True)  # ✅ render_as_batch para SQLite compat
+    # ✅ Passar o app para Migrate após db.init_app()
+    migrate = Migrate(app, db, render_as_batch=True)
 
     # ---------------------------------------------------------
     # FLASK-LOGIN (AUTENTICAÇÃO DE USUÁRIOS)
@@ -70,8 +81,8 @@ def create_app():
     def load_user(user_id):
         """Carrega usuário pelo ID para Flask-Login"""
         try:
+            # Import dentro da função para evitar circular import
             from models import Usuario
-            # SQLAlchemy 1.4: .get() retorna None se não encontrar (não lança erro)
             return Usuario.query.get(int(user_id))
         except Exception as e:
             app.logger.error(f"Erro ao carregar usuário {user_id}: {str(e)}")
@@ -101,7 +112,7 @@ def create_app():
         """Variáveis globais úteis para templates"""
         return {
             "current_year": datetime.now(timezone.utc).year,
-            "app_version": "1.0.0",  # Útil para cache busting
+            "app_version": "1.0.0",
         }
 
     # ---------------------------------------------------------
@@ -113,7 +124,6 @@ def create_app():
         db_status = "fail"
         
         try:
-            # SQLAlchemy 1.4: usar text() para queries raw
             from sqlalchemy import text
             result = db.session.execute(text("SELECT 1"))
             if result.scalar() == 1:
@@ -139,7 +149,6 @@ def create_app():
     @app.before_request
     def force_https():
         """Redireciona HTTP → HTTPS em produção"""
-        # Não redirecionar em desenvolvimento ou para health check
         if os.getenv("FLASK_ENV") != "production":
             return None
         
@@ -159,24 +168,17 @@ def create_app():
     def add_security_headers(response):
         """Adiciona headers de segurança em todas as respostas"""
         
-        # Prevenir MIME type sniffing
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        
-        # Prevenir clickjacking
         response.headers['X-Frame-Options'] = 'DENY'
-        
-        # XSS protection (ainda útil em browsers antigos)
         response.headers['X-XSS-Protection'] = '1; mode=block'
-        
-        # Controlar referer em links externos
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
-        # Content Security Policy (CSP) - ajustar conforme necessidade
+        # CSP ajustado para permitir CDN do Chart.js
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
+            "img-src 'self' https: data:; "
             "font-src 'self' data:; "
             "connect-src 'self';"
         )
@@ -194,20 +196,17 @@ def create_app():
     # ---------------------------------------------------------
     if not app.debug and os.getenv("FLASK_ENV") == "production":
         
-        # Criar diretório de logs se não existir
         log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
         if not os.path.exists(log_dir):
             try:
                 os.makedirs(log_dir)
             except OSError:
-                # Fallback para /tmp se não tiver permissão
                 log_dir = '/tmp/nouscard-logs'
                 os.makedirs(log_dir, exist_ok=True)
         
-        # Handler para arquivo com rotação
         file_handler = RotatingFileHandler(
             os.path.join(log_dir, 'nouscard.log'),
-            maxBytes=10 * 1024 * 1024,  # 10MB
+            maxBytes=10 * 1024 * 1024,
             backupCount=5,
             encoding='utf-8'
         )
@@ -217,15 +216,11 @@ def create_app():
         file_handler.setLevel(logging.INFO)
         app.logger.addHandler(file_handler)
         
-        # Handler para console (útil para logs do Render)
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(logging.Formatter(
-            '%(levelname)s: %(message)s'
-        ))
+        console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
         console_handler.setLevel(logging.INFO)
         app.logger.addHandler(console_handler)
         
-        # Nível global de logging
         app.logger.setLevel(logging.INFO)
         app.logger.info("=== NousCard startup ===")
         app.logger.info(f"Environment: {os.getenv('FLASK_ENV')}")
@@ -237,7 +232,6 @@ def create_app():
     @app.teardown_appcontext
     def shutdown_session(exception=None):
         """Remove sessão do banco para prevenir vazamento de conexões"""
-        # Usar helper do base.py (ou manter lógica inline)
         cleanup_session(exception)
 
     # ---------------------------------------------------------
@@ -249,16 +243,19 @@ def create_app():
         """Handler para erro 404"""
         if request.path.startswith('/api/'):
             return {"error": "Recurso não encontrado", "status": 404}, 404
+        # Import tardio para evitar circular import
+        from flask import render_template
         return render_template("erro.html", mensagem="Página não encontrada."), 404
 
     @app.errorhandler(500)
     def internal_error(error):
         """Handler para erro 500"""
-        db.session.rollback()  # Garantir rollback em caso de erro
+        db.session.rollback()
         app.logger.error(f"Internal error: {str(error)}")
         
         if request.path.startswith('/api/'):
             return {"error": "Erro interno do servidor", "status": 500}, 500
+        from flask import render_template
         return render_template("erro.html", mensagem="Ocorreu um erro interno. Tente novamente."), 500
 
     @app.errorhandler(403)
@@ -266,6 +263,7 @@ def create_app():
         """Handler para erro 403"""
         if request.path.startswith('/api/'):
             return {"error": "Acesso negado", "status": 403}, 403
+        from flask import render_template
         return render_template("erro.html", mensagem="Acesso negado."), 403
 
     # ---------------------------------------------------------
@@ -274,19 +272,16 @@ def create_app():
     @app.shell_context_processor
     def make_shell_context():
         """Variáveis disponíveis no flask shell"""
-        return {
-            'db': db,
-            'Usuario': None,  # Será importado dinamicamente
-            'Empresa': None,
-        }
+        return {'db': db}
 
     return app
 
 
 # ============================================================
-# INSTÂNCIA DA APLICAÇÃO
+# INSTÂNCIA DA APLICAÇÃO (PARA GUNICORN)
 # ============================================================
 
+# ✅ Criar app apenas uma vez no módulo global
 app = create_app()
 
 
@@ -295,11 +290,9 @@ app = create_app()
 # ============================================================
 
 if __name__ == "__main__":
-    # Apenas para desenvolvimento local
     print("🚀 Iniciando NousCard em modo desenvolvimento...")
     print(f"📍 Acesse: http://localhost:5000")
     
-    # Desabilitar reload para evitar problemas com SQLAlchemy
     app.run(
         debug=True,
         host="127.0.0.1",
