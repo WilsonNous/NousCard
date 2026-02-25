@@ -1,41 +1,70 @@
 {% extends "base.html" %}
+
+{% block title %}{{ empresa.nome }} - Master - NousCard{% endblock %}
+
 {% block content %}
-
-<h1>Empresa: {{ empresa.nome }}</h1>
-
-<div class="nc-section">
-    <a href="{{ url_for('master.usuario_novo', empresa_id=empresa.id) }}"
-       class="nc-btn-primary" style="width:auto;">
-       ➕ Novo usuário
-    </a>
-</div>
-
-<div class="nc-section">
-    <h2>Usuários da empresa</h2>
-
-    <table class="nc-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nome</th>
-                <th>Email</th>
-                <th>Admin</th>
-                <th>Criado em</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for u in usuarios %}
-            <tr>
-                <td>{{ u.id }}</td>
-                <td>{{ u.nome }}</td>
-                <td>{{ u.email }}</td>
-                <td>{% if u.admin %}✔{% else %}—{% endif %}</td>
-                <td>{{ u.criado_em }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
+<section class="nc-section">
+    <div class="nc-section-header">
+        <div>
+            <h2>🏢 {{ empresa.nome | e }}</h2>
+            <p class="nc-subtitle">ID: {{ empresa.id }} • Criada em: {{ empresa.criado_em.strftime("%d/%m/%Y") if empresa.criado_em else "—" }}</p>
+        </div>
+        <div class="nc-actions">
+            <a href="{{ url_for('master.usuario_novo', empresa_id=empresa.id) }}" class="nc-btn nc-btn-primary">+ Novo Usuário</a>
+            <a href="{{ url_for('master.empresas_listar') }}" class="nc-btn nc-btn-outline">← Voltar</a>
+        </div>
+    </div>
+    
+    <h3>Usuários ({{ usuarios|length }})</h3>
+    
+    {% if usuarios %}
+        <table class="nc-table">
+            <thead>
+                <tr>
+                    <th scope="col">Nome</th>
+                    <th scope="col">E-mail</th>
+                    <th scope="col">Admin</th>
+                    <th scope="col">Criado em</th>
+                    <th scope="col" class="nc-sr-only">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td>{{ u.nome | e }}</td>
+                    <td>{{ u.email | e }}</td>
+                    <td>{{ "Sim" if u.admin else "Não" }}</td>
+                    <td>{{ u.criado_em.strftime("%d/%m/%Y") if u.criado_em else "-" }}</td>
+                    <td class="nc-table-actions">
+                        {% if u.id != session.get('usuario_id') %}
+                        <form method="POST" action="{{ url_for('master.usuario_remover', empresa_id=empresa.id, user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Remover usuário {{ u.email | e }}?')">
+                            <button type="submit" class="nc-btn nc-btn-sm nc-btn-danger" aria-label="Remover usuário">
+                                <span aria-hidden="true">🗑️</span>
+                                <span class="nc-sr-only">Remover</span>
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="nc-badge nc-badge-locked" title="Não pode remover a si mesmo">🔒</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="nc-empty-state">
+            <p>Nenhum usuário cadastrado nesta empresa.</p>
+        </div>
+    {% endif %}
+    
+    <div class="nc-section-divider"></div>
+    
+    <h3 class="nc-danger-zone">⚠️ Zona de Perigo</h3>
+    <div class="nc-danger-zone-content">
+        <p>Excluir esta empresa removerá permanentemente todos os dados associados.</p>
+        <form method="POST" action="{{ url_for('master.empresa_remover', empresa_id=empresa.id) }}" onsubmit="return confirm('⚠️ ATENÇÃO: Esta ação não pode ser desfeita. Excluir empresa {{ empresa.nome | e }}?')">
+            <button type="submit" class="nc-btn nc-btn-danger">🗑️ Excluir Empresa</button>
+        </form>
+    </div>
+</section>
 {% endblock %}
