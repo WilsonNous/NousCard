@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if contrato else 'Novo' }} Contrato - NousCard{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <h2>{{ 'Editar' if contrato else 'Novo' }} Contrato de Taxas</h2>
+    
+    <form method="POST" class="nc-form">
+        <div class="nc-form-group">
+            <label for="adquirente_id" class="nc-form-label">Adquirente *</label>
+            <select id="adquirente_id" name="adquirente_id" required>
+                <option value="">Selecione...</option>
+                {% for a in adquirentes %}
+                <option value="{{ a.id }}" {% if contrato and contrato.adquirente_id == a.id %}selected{% endif %}>{{ a.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="bandeira" class="nc-form-label">Bandeira</label>
+            <select id="bandeira" name="bandeira">
+                <option value="">Todas</option>
+                <option value="Visa" {% if contrato and contrato.bandeira == 'Visa' %}selected{% endif %}>Visa</option>
+                <option value="Mastercard" {% if contrato and contrato.bandeira == 'Mastercard' %}selected{% endif %}>Mastercard</option>
+                <option value="Elo" {% if contrato and contrato.bandeira == 'Elo' %}selected{% endif %}>Elo</option>
+                <option value="Amex" {% if contrato and contrato.bandeira == 'Amex' %}selected{% endif %}>Amex</option>
+            </select>
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="produto" class="nc-form-label">Produto</label>
+            <select id="produto" name="produto">
+                <option value="">Todos</option>
+                <option value="Débito" {% if contrato and contrato.produto == 'Débito' %}selected{% endif %}>Débito</option>
+                <option value="Crédito" {% if contrato and contrato.produto == 'Crédito' %}selected{% endif %}>Crédito</option>
+                <option value="PIX" {% if contrato and contrato.produto == 'PIX' %}selected{% endif %}>PIX</option>
+            </select>
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="taxa_percentual" class="nc-form-label">Taxa Percentual (%)</label>
+            <input type="number" step="0.01" id="taxa_percentual" name="taxa_percentual" value="{{ contrato.taxa_percentual if contrato else '' }}">
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="tarifa_fixa" class="nc-form-label">Tarifa Fixa (R$)</label>
+            <input type="number" step="0.01" id="tarifa_fixa" name="tarifa_fixa" value="{{ contrato.tarifa_fixa if contrato else '' }}">
+        </div>
+        
+        <div class="nc-form-actions">
+            <button type="submit" class="nc-btn nc-btn-primary">Salvar</button>
+            <a href="{{ url_for('contrato.listar_contratos') }}" class="nc-btn nc-btn-outline">Cancelar</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
