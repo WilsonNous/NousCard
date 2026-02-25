@@ -1,46 +1,59 @@
 {% extends "base.html" %}
+
+{% block title %}Arquivos Importados - NousCard{% endblock %}
+
 {% block content %}
-
 <section class="nc-section">
-    <h2 class="nc-title">Arquivos Importados</h2>
-    <p>Aqui você encontra todos os arquivos já enviados e processados pelo sistema.</p>
-
-    {% if arquivos|length == 0 %}
-        <p>Nenhum arquivo importado ainda.</p>
-    {% else %}
-
-    <div class="nc-table-container">
+    <h2>📂 Arquivos Importados</h2>
+    
+    {% if arquivos and arquivos.arquivos %}
         <table class="nc-table">
             <thead>
                 <tr>
-                    <th>Arquivo</th>
-                    <th>Tipo</th>
-                    <th>Registros</th>
-                    <th>Valor Total</th>
-                    <th>Hash</th>
-                    <th>Data Importação</th>
+                    <th scope="col">Arquivo</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Registros</th>
+                    <th scope="col">Valor Total</th>
+                    <th scope="col">Data</th>
+                    <th scope="col">Ações</th>
                 </tr>
             </thead>
             <tbody>
-                {% for a in arquivos %}
+                {% for arquivo in arquivos.arquivos %}
                 <tr>
+                    <td>{{ arquivo.nome_arquivo }}</td>
+                    <td>{{ arquivo.tipo | title }}</td>
+                    <td>{{ arquivo.total_registros }}</td>
+                    <td>R$ {{ arquivo.total_valor }}</td>
+                    <td>{{ arquivo.created_at }}</td>
                     <td>
-                       <a href="{{ url_for('operacoes.arquivo_detalhe_page', arquivo_id=a.id) }}">
-                           {{ a.nome_arquivo }}
-                       </a>
+                        <a href="{{ url_for('operacoes.arquivo_detalhe_page', arquivo_id=arquivo.id) }}" class="nc-btn nc-btn-sm">
+                            👁️ Ver
+                        </a>
                     </td>
-                    <td>{{ a.tipo|capitalize }}</td>
-                    <td>{{ a.total_registros }}</td>
-                    <td>R$ {{ "%.2f"|format(a.total_valor) }}</td>
-                    <td class="hash-col">{{ a.hash }}</td>
-                    <td>{{ a.created_at }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-    </div>
-
+        
+        {% if arquivos.pages > 1 %}
+        <nav class="nc-pagination">
+            {% if arquivos.page > 1 %}
+            <a href="?page={{ arquivos.page - 1 }}" class="nc-btn nc-btn-sm">← Anterior</a>
+            {% endif %}
+            <span>Página {{ arquivos.page }} de {{ arquivos.pages }}</span>
+            {% if arquivos.page < arquivos.pages %}
+            <a href="?page={{ arquivos.page + 1 }}" class="nc-btn nc-btn-sm">Próxima →</a>
+            {% endif %}
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="nc-empty-state">
+            <span aria-hidden="true">📭</span>
+            <h3>Nenhum arquivo importado</h3>
+            <p>Comece importando seus arquivos de vendas e recebimentos.</p>
+            <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn nc-btn-primary">⬆️ Importar Arquivos</a>
+        </div>
     {% endif %}
 </section>
-
 {% endblock %}
