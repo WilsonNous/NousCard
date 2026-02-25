@@ -1,42 +1,55 @@
 {% extends "base.html" %}
+
+{% block title %}Visão Detalhada - NousCard{% endblock %}
+
 {% block content %}
-
 <section class="nc-section">
-    <h2 class="nc-title">📅 Visão Detalhada — Linha por Linha</h2>
-    <p class="nc-subtitle">Resumo diário por adquirente, liquidação e status.</p>
-
-    <div id="detalhadoContainer">
-        <p>Carregando dados...</p>
+    <div class="nc-section-header">
+        <div>
+            <h2 class="nc-title">📅 Visão Detalhada — Linha por Linha</h2>
+            <p class="nc-subtitle">Resumo diário por adquirente, liquidação e status.</p>
+        </div>
+        <div class="nc-header-actions">
+            <button type="button" id="btn-refresh" class="nc-btn-icon" aria-label="Atualizar dados">🔄</button>
+            <small class="nc-last-update">Última atualização: <time id="lastUpdateTime"></time></small>
+        </div>
+    </div>
+    
+    <div class="nc-table-controls">
+        <div class="nc-filters">
+            <label for="filtro-data">
+                <span class="nc-sr-only">Filtrar por data</span>
+                <input type="date" id="filtro-data" aria-label="Filtrar por data">
+            </label>
+            <label for="filtro-status">
+                <span class="nc-sr-only">Filtrar por status</span>
+                <select id="filtro-status" aria-label="Filtrar por status">
+                    <option value="">Todos os status</option>
+                    <option value="conciliado">Conciliado</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="parcial">Parcial</option>
+                </select>
+            </label>
+        </div>
+        
+        <div class="nc-table-actions">
+            <button type="button" id="btn-export-csv" class="nc-btn nc-btn-secondary">📥 Exportar CSV</button>
+        </div>
+    </div>
+    
+    <div id="detalhadoContainer" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando dados de detalhamento">
+        <div class="nc-loading">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Carregando dados...</span>
+        </div>
+    </div>
+    
+    <div class="nc-pagination" role="navigation" aria-label="Paginação da tabela" style="display:none;" id="paginationContainer">
+        <button type="button" id="btn-prev" aria-label="Página anterior" disabled>← Anterior</button>
+        <span class="nc-page-info" id="pageInfo">Página 1 de 1</span>
+        <button type="button" id="btn-next" aria-label="Próxima página">Próxima →</button>
     </div>
 </section>
 
-<script src="{{ url_for('static', filename='js/detalhado.js') }}"></script>
-
-<style>
-.detalhado-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
-
-.detalhado-table th {
-    background: #0048a8;
-    color: #fff;
-    padding: 8px;
-}
-
-.detalhado-table td {
-    padding: 6px;
-    border-bottom: 1px solid #ddd;
-}
-
-.status-ok { color: #008000; font-weight: bold; }
-.status-pendente { color: #cc0000; font-weight: bold; }
-.status-parcial { color: #d87d00; font-weight: bold; }
-
-@media(max-width: 768px) {
-    .detalhado-table { font-size: 12px; }
-}
-</style>
-
+<script src="{{ url_for('static', filename='js/detalhado.js') }}" defer></script>
 {% endblock %}
