@@ -2,128 +2,124 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Criar conta - NousCard</title>
-
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
-    <style>
-        body.nc-login-body {
-            margin: 0;
-            padding: 0;
-            font-family: "Inter", Arial, sans-serif;
-            background: #eef2f7;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .nc-login-box {
-            width: 360px;
-            background: #fff;
-            padding: 34px 28px;
-            border-radius: 14px;
-            box-shadow: 0 4px 14px rgba(0,0,0,.08);
-            text-align: center;
-            animation: fadeIn .4s ease-out;
-        }
-
-        .nc-login-box h2 {
-            margin-bottom: 20px;
-            color: #1877f2; /* azul NousCard */
-            font-size: 24px;
-        }
-
-        .nc-login-box input {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 14px;
-            border-radius: 8px;
-            border: 1px solid #d0d7e1;
-            font-size: 15px;
-        }
-
-        .nc-login-box input:focus {
-            outline: none;
-            border-color: #1877f2;
-            box-shadow: 0 0 0 2px rgba(24,119,242,0.15);
-        }
-
-        .nc-btn-primary {
-            width: 100%;
-            padding: 12px;
-            background: #1877f2;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .nc-btn-primary:hover {
-            background: #0f63d1;
-        }
-
-        .nc-login-box p {
-            margin-top: 16px;
-            font-size: 14px;
-            color: #444;
-        }
-
-        .nc-login-box a {
-            color: #1877f2;
-            font-weight: 500;
-            text-decoration: none;
-        }
-
-        .nc-login-box a:hover {
-            text-decoration: underline;
-        }
-
-        .nc-error {
-            padding: 10px;
-            margin-bottom: 15px;
-            background: #ffe5e5;
-            border: 1px solid #ffb3b3;
-            color: #cf0000;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
 </head>
 
 <body class="nc-login-body">
-
-<div class="nc-login-box">
-
-    <h2>Criar empresa</h2>
-
-    {% if error %}
-        <p class="nc-error">{{ error }}</p>
-    {% endif %}
-
-    <form method="POST">
-        <input type="text" name="empresa" placeholder="Nome da empresa" required>
-        <input type="text" name="nome" placeholder="Seu nome" required>
-        <input type="email" name="email" placeholder="Seu e-mail" autocomplete="username" required>
-        <input type="password" name="senha" placeholder="Senha" autocomplete="new-password" required>
-
-        <button type="submit" class="nc-btn-primary">Criar conta</button>
-    </form>
-
-    <p>
-        Já tem acesso?
-        <a href="{{ url_for('auth.login_page') }}">Entrar</a>
-    </p>
-
-</div>
-
+    <div class="nc-login-box" role="main">
+        <h1 class="nc-sr-only">Criar conta - NousCard</h1>
+        <h2 aria-hidden="true">Criar empresa</h2>
+        
+        {% if error %}
+        <div class="nc-error" id="registro-erro" role="alert" aria-live="assertive">
+            <span aria-hidden="true">❌</span>
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST" action="{{ url_for('auth.registrar') }}" aria-describedby="{% if error %}registro-erro{% endif %}" novalidate>
+            <div class="nc-form-group">
+                <label for="empresa" class="nc-sr-only">Nome da empresa</label>
+                <input 
+                    type="text" 
+                    id="empresa" 
+                    name="empresa" 
+                    placeholder="Nome da empresa" 
+                    required
+                    aria-required="true"
+                    autocomplete="organization"
+                    maxlength="150"
+                    autofocus
+                >
+            </div>
+            
+            <div class="nc-form-group">
+                <label for="nome" class="nc-sr-only">Seu nome completo</label>
+                <input 
+                    type="text" 
+                    id="nome" 
+                    name="nome" 
+                    placeholder="Seu nome" 
+                    required
+                    aria-required="true"
+                    autocomplete="name"
+                    maxlength="120"
+                >
+            </div>
+            
+            <div class="nc-form-group">
+                <label for="email" class="nc-sr-only">Seu e-mail</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    placeholder="Seu e-mail" 
+                    autocomplete="username" 
+                    required
+                    aria-required="true"
+                    maxlength="150"
+                >
+            </div>
+            
+            <div class="nc-form-group">
+                <label for="senha" class="nc-sr-only">Senha</label>
+                <input 
+                    type="password" 
+                    id="senha" 
+                    name="senha" 
+                    placeholder="Senha" 
+                    autocomplete="new-password" 
+                    required
+                    aria-required="true"
+                    aria-describedby="senha-requisitos"
+                    minlength="8"
+                >
+                <div id="senha-requisitos" class="nc-password-requirements" aria-live="polite">
+                    <small>A senha deve ter:</small>
+                    <ul>
+                        <li id="req-length">⚪ Mínimo 8 caracteres</li>
+                        <li id="req-upper">⚪ Uma letra maiúscula</li>
+                        <li id="req-lower">⚪ Uma letra minúscula</li>
+                        <li id="req-number">⚪ Um número</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="nc-form-group nc-form-group-checkbox">
+                <div class="nc-checkbox-wrapper">
+                    <input 
+                        type="checkbox" 
+                        id="termos" 
+                        name="termos" 
+                        required
+                        aria-describedby="termos-hint"
+                    >
+                    <label for="termos" class="nc-checkbox-label">
+                        Concordo com os Termos de Uso e Política de Privacidade
+                    </label>
+                </div>
+                <small id="termos-hint" class="nc-form-hint">
+                    🔒 Seus dados financeiros são criptografados e usados apenas para conciliação.
+                </small>
+            </div>
+            
+            <button type="submit" class="nc-btn-primary" id="btn-registrar">
+                <span class="btn-text">📝 Criar conta</span>
+                <span class="btn-loading" style="display:none;">
+                    <span class="spinner" aria-hidden="true"></span> Criando conta...
+                </span>
+            </button>
+        </form>
+        
+        <p class="nc-login-register">
+            Já tem acesso?
+            <a href="{{ url_for('auth.login_page') }}">Entrar</a>
+        </p>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/registrar.js') }}" defer></script>
 </body>
 </html>
