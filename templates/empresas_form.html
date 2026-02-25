@@ -1,41 +1,89 @@
 {% extends "base.html" %}
+
+{% block title %}{{ 'Editar empresa' if empresa else 'Nova empresa' }} - NousCard{% endblock %}
+
 {% block content %}
-
 <section class="nc-section">
-    <h2>{{ 'Editar empresa' if empresa else 'Nova empresa' }}</h2>
-
-    <form method="post" class="nc-form">
-        <div>
-            <label for="nome">Nome da empresa</label>
-            <input type="text" id="nome" name="nome"
-                   value="{{ empresa.nome if empresa else '' }}" required>
-        </div>
-
-        <div>
-            <label for="documento">CNPJ / Documento</label>
-            <input type="text" id="documento" name="documento"
-                   value="{{ empresa.documento if empresa else '' }}">
-        </div>
-
-        {% if empresa %}
-        <div>
-            <label>
-                <input type="checkbox" name="ativa" value="1"
-                       {% if empresa.ativa %}checked{% endif %}>
-                Empresa ativa
-            </label>
+    <h2>
+        <span aria-hidden="true">🏢</span>
+        {{ 'Editar empresa' if empresa else 'Nova empresa' }}
+    </h2>
+    
+    {% if empresa %}
+    <p class="nc-form-subtitle">Editando: <strong>{{ empresa.nome | e }}</strong> (ID: {{ empresa.id }})</p>
+    {% endif %}
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="nc-flash-messages" role="status" aria-live="polite">
+            {% for category, message in messages %}
+            <div class="nc-flash nc-flash-{{ category }}">
+                <span aria-hidden="true">{% if category == 'success' %}✅{% elif category == 'error' %}❌{% else %}ℹ️{% endif %}</span>
+                {{ message }}
+            </div>
+            {% endfor %}
         </div>
         {% endif %}
-
+    {% endwith %}
+    
+    <form method="post" class="nc-form" id="form-empresa" novalidate>
+        <div class="nc-form-group">
+            <label for="nome" class="nc-form-label">
+                Nome da empresa
+                <span class="nc-required" aria-hidden="true">*</span>
+                <span class="nc-sr-only">(campo obrigatório)</span>
+            </label>
+            <input 
+                type="text" 
+                id="nome" 
+                name="nome"
+                value="{{ empresa.nome if empresa else '' }}"
+                required
+                aria-required="true"
+                aria-invalid="{% if erros and 'nome' in erros %}true{% else %}false{% endif %}"
+                autocomplete="organization"
+                maxlength="150"
+            >
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="documento" class="nc-form-label">CNPJ / Documento</label>
+            <input 
+                type="text" 
+                id="documento" 
+                name="documento"
+                value="{{ empresa.documento if empresa else '' }}"
+                placeholder="00.000.000/0000-00"
+                maxlength="18"
+            >
+            <span class="nc-form-hint">Opcional, mas recomendado para relatórios fiscais</span>
+        </div>
+        
+        {% if empresa %}
+        <div class="nc-form-group nc-form-group-checkbox">
+            <div class="nc-checkbox-wrapper">
+                <input 
+                    type="checkbox" 
+                    id="ativa" 
+                    name="ativa" 
+                    value="1"
+                    {% if empresa.ativo %}checked{% endif %}
+                >
+                <label for="ativa" class="nc-checkbox-label">Empresa ativa</label>
+            </div>
+            <span class="nc-form-hint">Desmarcar bloqueará o acesso de todos os usuários vinculados</span>
+        </div>
+        {% endif %}
+        
         <div class="nc-form-actions">
-            <button type="submit" class="nc-btn nc-btn-outline">
-                Salvar
+            <button type="submit" class="nc-btn nc-btn-primary" id="btn-salvar">
+                <span class="btn-text">💾 Salvar</span>
+                <span class="btn-loading" style="display:none;">Salvando...</span>
             </button>
-            <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-btn">
-                Voltar
-            </a>
+            <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-btn nc-btn-outline">← Voltar</a>
         </div>
     </form>
 </section>
 
+<script src="{{ url_for('static', filename='js/empresas.js') }}" defer></script>
 {% endblock %}
