@@ -63,13 +63,16 @@ class Empresa(db.Model, BaseMixin):
         cascade="all, delete-orphan"
     )
     
-    # Arquivos importados
-    arquivos_importados = db.relationship(
-        "ArquivoImportado",
-        back_populates="empresa",
-        lazy=True,
-        cascade="all, delete-orphan"
-    )
+    # ⚠️ ARQUIVOS IMPORTADOS: COMENTADO para evitar conflito com ArquivoImportado minimalista
+    # Se precisar acessar arquivos de uma empresa, use query direta:
+    # ArquivoImportado.query.filter_by(empresa_id=empresa.id).all()
+    #
+    # arquivos_importados = db.relationship(
+    #     "ArquivoImportado",
+    #     back_populates="empresa",  # ← Isso causa conflito se ArquivoImportado não tiver relationship
+    #     lazy=True,
+    #     cascade="all, delete-orphan"
+    # )
     
     # Logs de auditoria
     logs_auditoria = db.relationship(
