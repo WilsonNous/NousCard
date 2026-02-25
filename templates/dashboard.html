@@ -1,319 +1,127 @@
 {% extends "base.html" %}
 
+{% block title %}Dashboard - NousCard{% endblock %}
+
 {% block content %}
+<section class="nc-section">
+    <h2 class="nc-title">Olá, {{ usuario.nome | e }} 👋</h2>
 
-<section class="nc-section nc-section-compact">
-    <h2 class="nc-title nc-title-sm">Olá, {{ usuario.nome }} 👋</h2>
-
-    <div class="nc-user-status nc-user-status-sm">
+    <div class="nc-user-status">
         <div>
             <span class="label">Acesso:</span>
-            {% if session.get('is_master') %}
+            {% if is_master %}
                 <span class="role master">MASTER</span>
-            {% elif session.get('is_admin') %}
+            {% elif is_admin %}
                 <span class="role admin">ADMINISTRADOR</span>
             {% else %}
                 <span class="role user">Usuário</span>
             {% endif %}
         </div>
-
         <div>
             <span class="label">Empresa:</span>
-            {% if session.get('is_master') %}
-                — (usuário MASTER sem vínculo)
+            {% if is_master %}
+                <span>(MASTER)</span>
             {% else %}
-                {{ usuario.empresa_nome }}
+                {{ usuario.empresa_nome | e if usuario.empresa_nome else "—" }}
             {% endif %}
         </div>
     </div>
 
-    <div class="nc-dashboard-actions nc-dashboard-actions-sm">
-        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary nc-btn-sm">⬆️ Importar Arquivos</a>
-        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary nc-btn-sm">✔️ Conciliação</a>
+    <div class="nc-dashboard-actions">
+        <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn-primary">⬆️ Importar Arquivos</a>
+        <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn-secondary">✔️ Conciliação</a>
     </div>
 </section>
 
-<section class="nc-section nc-section-compact">
-    <h2 class="nc-subtitle nc-subtitle-sm">Visão Geral</h2>
+<section class="nc-section">
+    <h2 class="nc-subtitle">Visão Geral</h2>
 
-    <div class="nc-kpis nc-kpis-sm">
-
-        <div class="nc-kpi-card kpi-click" data-acao="vendas">
-            <div class="kpi-icon kpi-blue">🛍️</div>
+    <div class="nc-kpis">
+        <button type="button" class="nc-kpi-card kpi-click" data-acao="vendas" aria-label="Ver detalhamento de vendas">
+            <div class="kpi-icon kpi-blue" aria-hidden="true">🛍️</div>
             <div class="kpi-info">
                 <div class="kpi-label">Total Vendas</div>
-                <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
+                <div class="kpi-value kpi-value-vendas" data-loading="true">
+                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
+                </div>
             </div>
-        </div>
+        </button>
 
-        <div class="nc-kpi-card kpi-click" data-acao="recebidos">
-            <div class="kpi-icon kpi-green">💸</div>
+        <button type="button" class="nc-kpi-card kpi-click" data-acao="recebidos" aria-label="Ver detalhamento de recebimentos">
+            <div class="kpi-icon kpi-green" aria-hidden="true">💸</div>
             <div class="kpi-info">
                 <div class="kpi-label">Total Recebido</div>
-                <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+                <div class="kpi-value kpi-value-recebido" data-loading="true">
+                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
+                </div>
             </div>
-        </div>
+        </button>
 
-        <div class="nc-kpi-card kpi-click" data-acao="diferencas">
-            <div class="kpi-icon kpi-yellow">⚠️</div>
+        <button type="button" class="nc-kpi-card kpi-click" data-acao="diferencas" aria-label="Ver detalhamento de diferenças">
+            <div class="kpi-icon kpi-yellow" aria-hidden="true">⚠️</div>
             <div class="kpi-info">
                 <div class="kpi-label">Diferença</div>
-                <div class="kpi-value kpi-value-diferenca">0,00</div>
+                <div class="kpi-value kpi-value-diferenca" data-loading="true">
+                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
+                </div>
             </div>
-        </div>
+        </button>
 
         <div class="nc-kpi-card">
-            <div class="kpi-icon kpi-red">🔔</div>
+            <div class="kpi-icon kpi-red" aria-hidden="true">🔔</div>
             <div class="kpi-info">
                 <div class="kpi-label">Alertas</div>
                 <div class="kpi-value kpi-value-alertas">0</div>
             </div>
         </div>
-
     </div>
+    
+    <div id="dashboard-error" class="nc-error" role="alert" style="display:none;"></div>
 </section>
 
-<!-- ============================================================
-     ADQUIRENTES
-============================================================ -->
-<section class="nc-section nc-section-compact">
+<section class="nc-section">
     <div class="nc-header-row">
-        <h2 class="nc-subtitle nc-subtitle-sm">Totais por Adquirente</h2>
+        <h2 class="nc-subtitle">Totais por Adquirente</h2>
         <small class="nc-muted">Clique na adquirente ou no KPI para ver o detalhamento.</small>
     </div>
     <div id="acqContainer" class="nc-acq-grid"></div>
 </section>
 
-<!-- ============================================================
-     GRÁFICOS
-============================================================ -->
-<section class="nc-section nc-section-compact">
-    <h2 class="nc-subtitle nc-subtitle-sm">Gráfico de Vendas x Recebido</h2>
-    <div class="nc-graphs-container nc-graphs-sm">
+<section class="nc-section">
+    <h2 class="nc-subtitle">Gráfico de Vendas x Recebido</h2>
+    <div class="nc-graphs-container">
         <canvas id="graficoVendasRecebidos"></canvas>
     </div>
 </section>
 
-<section class="nc-section nc-section-compact">
-    <h2 class="nc-subtitle nc-subtitle-sm">Vendas por Bandeira</h2>
-    <div class="nc-graphs-container nc-graphs-sm">
+<section class="nc-section">
+    <h2 class="nc-subtitle">Vendas por Bandeira</h2>
+    <div class="nc-graphs-container">
         <canvas id="graficoBandeiras"></canvas>
     </div>
 </section>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 
-<!-- ============================================================
-     MODAL DE DETALHAMENTO
-============================================================ -->
-<div id="modalDetalhe" class="nc-modal" style="display:none;">
-    <div class="nc-modal-backdrop" onclick="fecharModal()"></div>
+<!-- MODAL DE DETALHAMENTO -->
+<div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <div class="nc-modal-backdrop"></div>
     <div class="nc-modal-content">
         <div class="nc-modal-header">
             <h3 id="modalTitulo"></h3>
-            <button type="button" class="nc-modal-close" onclick="fecharModal()">✕</button>
+            <button type="button" class="nc-modal-close" aria-label="Fechar modal">✕</button>
         </div>
         <div class="nc-modal-body">
-            <table id="modalTabela" class="nc-table nc-table-sm"></table>
+            <div class="table-container">
+                <table id="modalTabela" class="nc-table">
+                </table>
+            </div>
+            <div id="modal-empty" class="nc-empty-state" style="display:none;">Nenhum dado para exibir.</div>
         </div>
         <div class="nc-modal-footer">
-            <button type="button" class="nc-btn-secondary nc-btn-sm" onclick="fecharModal()">Fechar</button>
+            <button type="button" class="nc-btn-secondary" onclick="fecharModal()">Fechar</button>
         </div>
     </div>
 </div>
-
-<style>
-    /* Compactar layout (~40%) só no dashboard */
-    .nc-section-compact {
-        padding: 12px 18px;
-    }
-
-    .nc-title-sm {
-        font-size: 1.3rem;
-        margin-bottom: 6px;
-    }
-
-    .nc-subtitle-sm {
-        font-size: 1.0rem;
-        margin-bottom: 8px;
-    }
-
-    .nc-user-status-sm {
-        font-size: 0.85rem;
-        gap: 8px;
-    }
-
-    .nc-dashboard-actions-sm .nc-btn-primary,
-    .nc-dashboard-actions-sm .nc-btn-secondary,
-    .nc-btn-sm {
-        padding: 6px 10px;
-        font-size: 0.82rem;
-    }
-
-    .nc-kpis-sm .nc-kpi-card {
-        padding: 8px 10px;
-    }
-
-    .kpi-label {
-        font-size: 0.78rem;
-    }
-
-    .kpi-value {
-        font-size: 1.05rem;
-    }
-
-    .nc-graphs-sm canvas {
-        max-height: 260px;
-    }
-
-    .nc-acq-grid {
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-
-    .nc-acq-card {
-        background: #fff;
-        padding: 10px 12px;
-        border-radius: 12px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        border: 1px solid #eee;
-        text-align: left;
-        transition: 0.18s;
-        cursor: pointer;
-        font-size: 0.86rem;
-    }
-
-    .nc-acq-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    }
-
-    .nc-acq-header {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 6px;
-    }
-
-    .nc-acq-icon {
-        width: 20px;
-        height: 20px;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.9rem;
-    }
-
-    .nc-acq-label {
-        font-weight: 600;
-        font-size: 0.78rem;
-    }
-
-    .nc-acq-values {
-        font-size: 0.8rem;
-        line-height: 1.3;
-    }
-
-    .nc-acq-values strong {
-        display: block;
-    }
-
-    /* Cores por adquirente */
-    .acq-cielo .nc-acq-icon { background: #0071ce22; color: #0071ce; }
-    .acq-rede .nc-acq-icon { background: #ff660022; color: #ff6600; }
-    .acq-getnet .nc-acq-icon { background: #cc000022; color: #cc0000; }
-    .acq-stone .nc-acq-icon { background: #0fa96822; color: #0fa968; }
-    .acq-outros .nc-acq-icon { background: #5551; color: #555; }
-
-    /* KPIs clicáveis */
-    .kpi-click {
-        cursor: pointer;
-    }
-    .kpi-click:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    }
-
-    .nc-header-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 10px;
-    }
-    .nc-muted {
-        color: #777;
-        font-size: 0.75rem;
-    }
-
-    /* MODAL */
-    .nc-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 999;
-    }
-    .nc-modal-backdrop {
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.45);
-    }
-    .nc-modal-content {
-        position: relative;
-        max-width: 1000px;
-        width: 96%;
-        max-height: 80vh;
-        margin: 40px auto;
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-        display: flex;
-        flex-direction: column;
-    }
-    .nc-modal-header,
-    .nc-modal-footer {
-        padding: 10px 14px;
-        border-bottom: 1px solid #eee;
-    }
-    .nc-modal-footer {
-        border-top: 1px solid #eee;
-        border-bottom: none;
-        text-align: right;
-    }
-    .nc-modal-body {
-        padding: 10px 14px;
-        overflow: auto;
-    }
-    .nc-modal-header h3 {
-        margin: 0;
-        font-size: 1rem;
-    }
-    .nc-modal-close {
-        border: none;
-        background: transparent;
-        font-size: 1rem;
-        cursor: pointer;
-    }
-
-    .nc-table-sm {
-        font-size: 0.8rem;
-    }
-    .nc-table-sm th,
-    .nc-table-sm td {
-        padding: 6px 8px;
-        white-space: nowrap;
-    }
-
-    @media (max-width: 768px) {
-        .nc-modal-content {
-            margin: 20px auto;
-            max-height: 85vh;
-        }
-        .nc-graphs-sm canvas {
-            max-height: 220px;
-        }
-    }
-</style>
-
 {% endblock %}
