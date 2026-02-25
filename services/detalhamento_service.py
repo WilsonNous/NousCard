@@ -1,76 +1,56 @@
-from models import MovAdquirente, MovBanco, Conciliacao, Adquirente
-from sqlalchemy.orm import joinedload
-from datetime import timedelta
+from models import db, MovAdquirente, MovBanco, Adquirente
+from sqlalchemy import func
+from datetime import datetime
+from decimal import Decimal
+import logging
 
+logger = logging.getLogger(__name__)
 
-def gerar_detalhamento(empresa_id):
-    # Carrega vendas com conciliações e adquirentes
-    vendas = (
-        MovAdquirente.query
-        .filter_by(empresa_id=empresa_id)
-        .options(
-            joinedload(MovAdquirente.conciliacoes).joinedload(Conciliacao.mov_banco),
-            joinedload(MovAdquirente.adquirente_rel)
-        )
-        .all()
+def gerar_detalhamento(empresa_id, data_inicio=None, data_fim=None, adquirente_id=None, status=None):
+    """Gera detalhamento linha por linha"""
+    
+    # Query base
+    query = db.session.query(
+        MovAdquirente.data_venda,
+        Adquirente.nome.label('adquirente'),
+        func.sum(MovAdquirente.valor_bruto).label('vendas'),
+        func.sum(MovBanco.valor).label('recebido'),
+        func.sum(MovAdquirente.valor_bruto - MovBanco.valor).label('diferenca'),
+        MovAdquirente.status_conciliacao.label('status')
+    ).join(
+        Adquirente, MovAdquirente.adquirente_id == Adquirente.id
+    ).outerjoin(
+        MovBanco, MovAdquirente.id == MovBanco.id
+    ).filter(
+        MovAdquirente.empresa_id == empresa_id
     )
-
-    recebimentos = MovBanco.query.filter_by(empresa_id=empresa_id).all()
-
-    linhas = []
-
-    # -------------------------------
-    # DETALHAMENTO POR VENDA
-    # -------------------------------
-    for v in vendas:
-        adquirente = v.adquirente_rel.nome if hasattr(v, "adquirente_rel") and v.adquirente_rel else "-"
-
-        data_prevista = v.data_prevista_pagamento.strftime("%Y-%m-%d") if v.data_prevista_pagamento else "-"
-
-        # Prepara estrutura de saída
-        linha = {
-            "venda_id": v.id,
-            "data_venda": v.data_venda.strftime("%Y-%m-%d") if v.data_venda else "-",
-            "adquirente": adquirente,
-            "bandeira": v.bandeira or "-",
-            "produto": v.produto or "-",
-
-            "valor_liquido": float(v.valor_liquido or 0),
-            "valor_conciliado": float(v.valor_conciliado or 0),
-            "faltante": float(v.valor_liquido) - float(v.valor_conciliado or 0),
-
-            "previsao_pagamento": data_prevista,
-
-            "recebimentos": [],
-            "status": v.status_conciliacao,
-        }
-
-        # Adiciona detalhes dos recebimentos
-        for c in v.conciliacoes:
-            r = c.mov_banco
-            linha["recebimentos"].append({
-                "mov_banco_id": r.id,
-                "data": r.data_movimento.strftime("%Y-%m-%d"),
-                "banco": r.banco or "-",
-                "valor": float(c.valor_conciliado or 0),
-            })
-
-        linhas.append(linha)
-
-    # -------------------------------
-    # RECEBIMENTOS SEM ORIGEM
-    # -------------------------------
-    creditos_sem_origem = []
-    for r in recebimentos:
-        if not r.conciliacoes:
-            creditos_sem_origem.append({
-                "mov_banco_id": r.id,
-                "data_movimento": r.data_movimento.strftime("%Y-%m-%d"),
-                "valor": float(r.valor or 0),
-                "descricao": r.historico or "-",
-            })
-
-    return {
-        "vendas": linhas,
-        "creditos_sem_origem": creditos_sem_origem
-    }
+    
+    # Filtros
+    if data_inicio:
+        query = query.filter(MovAdquirente.data_venda >= data_inicio)
+    if data_fim:
+        query = query.filter(MovAdquirente.data_venda <= data_fim)
+    if adquirente_id:
+        query = query.filter(MovAdquirente.adquirente_id == adquirente_id)
+    if status:
+        query = query.filter(MovAdquirente.status_conciliacao == status)
+    
+    # Agrupar por data e adquirente
+    query = query.group_by(
+        MovAdquirente.data_venda,
+        Adquirente.nome,
+        MovAdquirente.status_conciliacao
+    ).order_by(
+        MovAdquirente.data_venda.desc()
+    )
+    
+    resultados = query.all()
+    
+    return [{
+        "data": r.data_venda.strftime("%d/%m/%Y") if r.data_venda else "",
+        "adquirente": r.adquirente,
+        "vendas": str(r.vendas or 0),
+        "recebido": str(r.recebido or 0),
+        "diferenca": str(r.diferenca or 0),
+        "status": r.status
+    } for r in resultados]
