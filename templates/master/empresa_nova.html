@@ -1,24 +1,47 @@
 {% extends "base.html" %}
+
+{% block title %}Nova Empresa - Master - NousCard{% endblock %}
+
 {% block content %}
-
-<h1>Criar nova empresa</h1>
-
-<div class="nc-section">
-    <form method="POST" class="nc-form">
-        <label>Nome da empresa</label>
-        <input type="text" name="nome" required>
-
-        <label>E-mail do administrador</label>
-        <input type="email" name="email" required>
-
-        <label>Nome do administrador</label>
-        <input type="text" name="admin_nome" required>
-
-        <label>Senha inicial</label>
-        <input type="password" name="senha" required>
-
-        <button type="submit" class="nc-btn-primary">Salvar empresa</button>
+<section class="nc-section">
+    <h2>🏢 Criar Nova Empresa (Master)</h2>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="nc-flash-messages" role="status" aria-live="polite">
+            {% for category, message in messages %}
+            <div class="nc-flash nc-flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+    
+    <form method="POST" class="nc-form" novalidate>
+        <div class="nc-form-group">
+            <label for="nome" class="nc-form-label">Nome da Empresa *</label>
+            <input type="text" id="nome" name="nome" required maxlength="150" autocomplete="organization">
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="admin_nome" class="nc-form-label">Nome do Administrador *</label>
+            <input type="text" id="admin_nome" name="admin_nome" required maxlength="120" autocomplete="name">
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="email" class="nc-form-label">E-mail do Administrador *</label>
+            <input type="email" id="email" name="email" required maxlength="150" autocomplete="username">
+        </div>
+        
+        <div class="nc-form-group">
+            <label for="senha" class="nc-form-label">Senha *</label>
+            <input type="password" id="senha" name="senha" required minlength="8" autocomplete="new-password">
+            <span class="nc-form-hint">Mínimo 8 caracteres, com letra maiúscula, minúscula e número</span>
+        </div>
+        
+        <div class="nc-form-actions">
+            <button type="submit" class="nc-btn nc-btn-primary">Criar Empresa</button>
+            <a href="{{ url_for('master.empresas_listar') }}" class="nc-btn nc-btn-outline">Cancelar</a>
+        </div>
     </form>
-</div>
-
+</section>
 {% endblock %}
