@@ -36,7 +36,7 @@ redis==5.0.1
 # PARSE DE ARQUIVOS
 # ============================================================
 openpyxl==3.1.2
-ofxparse @ git+https://github.com/beancount/ofxparse.git@master
+ofxparse==0.21  # ← Versão PyPI (compatível com Render)
 python-magic==0.4.27
 chardet==5.2.0
 python-dateutil==2.8.2
