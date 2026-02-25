@@ -1,10 +1,12 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, session, g
 from utils.auth_middleware import login_required, empresa_required
 from services.importer import process_uploaded_files
 from services.importer_db import listar_arquivos_importados, buscar_arquivo_por_id
+import logging
+
+logger = logging.getLogger(__name__)
 
 operacoes_bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
-
 
 # ============================================================
 # Tela de IMPORTAÇÃO (GET)
@@ -15,7 +17,6 @@ operacoes_bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
 def importar_page():
     return render_template("importar.html")
 
-
 # ============================================================
 # Upload com salvamento no banco
 # ============================================================
@@ -23,13 +24,12 @@ def importar_page():
 @login_required
 @empresa_required
 def upload_arquivos():
-
     files = request.files.getlist("files")
     if not files:
         return jsonify({"ok": False, "message": "Nenhum arquivo enviado."}), 400
 
-    empresa_id = session.get("empresa_id")
-    usuario_id = session.get("usuario_id")
+    empresa_id = g.user.empresa_id
+    usuario_id = g.user.id
 
     resultados = process_uploaded_files(files, empresa_id, usuario_id)
 
@@ -52,7 +52,6 @@ def upload_arquivos():
 
     return jsonify(resumo)
 
-
 # ============================================================
 # Tela de CONCILIAÇÃO (GET)
 # ============================================================
@@ -62,7 +61,6 @@ def upload_arquivos():
 def conciliar_page():
     return render_template("conciliacao.html")
 
-
 # ============================================================
 # Tela: Arquivos Importados
 # ============================================================
@@ -70,11 +68,11 @@ def conciliar_page():
 @login_required
 @empresa_required
 def arquivos_importados_page():
-    empresa_id = session.get("empresa_id")
-
-    arquivos = listar_arquivos_importados(empresa_id)
+    empresa_id = g.user.empresa_id
+    page = request.args.get('page', 1, type=int)
+    
+    arquivos = listar_arquivos_importados(empresa_id, page=page, per_page=20)
     return render_template("arquivos_importados.html", arquivos=arquivos)
-
 
 # ============================================================
 # Tela: Detalhamento do Arquivo
@@ -85,8 +83,7 @@ def arquivos_importados_page():
 def arquivo_detalhe_page(arquivo_id):
     import json
 
-    empresa_id = session.get("empresa_id")
-
+    empresa_id = g.user.empresa_id
     arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
 
     if not arquivo:
@@ -97,7 +94,7 @@ def arquivo_detalhe_page(arquivo_id):
 
     # Converter JSON armazenado
     try:
-        registros = json.loads(arquivo["conteudo_json"])
+        registros = json.loads(arquivo["conteudo_json"]) if arquivo["conteudo_json"] else []
     except Exception:
         registros = []
 
@@ -107,21 +104,19 @@ def arquivo_detalhe_page(arquivo_id):
         registros=registros
     )
 
-
 # ============================================================
-# API: Executar Conciliação   (AJUSTADO)
+# API: Executar Conciliação
 # ============================================================
 @operacoes_bp.route("/api/processar_conciliacao", methods=["POST"])
 @login_required
 @empresa_required
 def conciliar_api():
-    empresa_id = session.get("empresa_id")
+    empresa_id = g.user.empresa_id
 
     try:
-        # nome correto do arquivo
         from services.conciliacao import executar_conciliacao
 
-        resultado = executar_conciliacao(empresa_id)
+        resultado = executar_conciliacao(empresa_id, usuario_id=g.user.id)
 
         return jsonify({
             "ok": True,
@@ -130,12 +125,11 @@ def conciliar_api():
         })
 
     except Exception as e:
-        print("Erro na conciliação:", e)
+        logger.error(f"Erro na conciliação: {str(e)}")
         return jsonify({
             "ok": False,
             "message": "Erro ao processar conciliação."
         }), 500
-
 
 # ============================================================
 # Telas / API: Detalhamento
@@ -146,12 +140,11 @@ def conciliar_api():
 def detalhado_page():
     return render_template("detalhado.html")
 
-
 @operacoes_bp.route("/api/detalhado", methods=["GET"])
 @login_required
 @empresa_required
 def detalhado_api():
-    empresa_id = session.get("empresa_id")
+    empresa_id = g.user.empresa_id
 
     try:
         from services.detalhamento_service import gerar_detalhamento
@@ -160,5 +153,5 @@ def detalhado_api():
         return jsonify({"ok": True, "dados": data})
 
     except Exception as e:
-        print("Erro ao gerar detalhamento:", e)
+        logger.error(f"Erro ao gerar detalhamento: {str(e)}")
         return jsonify({"ok": False, "message": "Erro ao gerar relatório detalhado."}), 500
