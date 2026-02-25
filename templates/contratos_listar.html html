@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Contratos de Taxas - NousCard{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <div class="nc-section-header">
+        <h2>📜 Contratos de Taxas</h2>
+        <a href="{{ url_for('contrato.novo_contrato') }}" class="nc-btn nc-btn-primary">+ Novo Contrato</a>
+    </div>
+    
+    {% if contratos %}
+        <table class="nc-table">
+            <thead>
+                <tr>
+                    <th scope="col">Adquirente</th>
+                    <th scope="col">Bandeira</th>
+                    <th scope="col">Produto</th>
+                    <th scope="col">Taxa %</th>
+                    <th scope="col">Tarifa Fixa</th>
+                    <th scope="col">Vigência</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in contratos %}
+                <tr>
+                    <td>{{ c.adquirente.nome if c.adquirente else "—" }}</td>
+                    <td>{{ c.bandeira or "—" }}</td>
+                    <td>{{ c.produto or "—" }}</td>
+                    <td>{{ c.taxa_percentual }}%</td>
+                    <td>R$ {{ c.tarifa_fixa or "0,00" }}</td>
+                    <td>{{ c.vigencia_inicio.strftime("%d/%m/%Y") if c.vigencia_inicio else "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="nc-empty-state">
+            <span aria-hidden="true">📜</span>
+            <h3>Nenhum contrato cadastrado</h3>
+            <p>Cadastre as taxas das suas adquirentes para cálculo preciso.</p>
+            <a href="{{ url_for('contrato.novo_contrato') }}" class="nc-btn nc-btn-primary">+ Novo Contrato</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}
