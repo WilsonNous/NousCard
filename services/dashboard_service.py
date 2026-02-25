@@ -1,101 +1,112 @@
-# services/dashboard_service.py
-from collections import defaultdict
-import json
+from models import db, MovAdquirente, MovBanco, Adquirente
+from sqlalchemy import func
+from datetime import datetime, timedelta
+from decimal import Decimal
+import logging
 
-from services.importer_db import listar_arquivos_importados, buscar_arquivo_por_id
+logger = logging.getLogger(__name__)
 
-
-def calcular_kpis(empresa_id: int):
-    """
-    Calcula KPIs gerais do dashboard e monta:
-      - totais de vendas / recebidos / diferença
-      - totais por adquirente
-      - detalhamento de vendas e recebimentos (linha a linha)
-    """
-
-    # Lista resumida de arquivos da empresa
-    arquivos = listar_arquivos_importados(empresa_id)
-
-    total_vendas = 0.0
-    total_recebido = 0.0
-
-    # Totais por adquirente
-    vendas_acq = defaultdict(float)
-    receb_acq = defaultdict(float)
-
-    # Detalhamento linha a linha
-    detalhamento_vendas = []
-    detalhamento_recebidos = []
-
-    for arq in arquivos:
-        # Busca o arquivo com registros já decodificados
-        detalhado = buscar_arquivo_por_id(arq["id"], empresa_id)
-        if not detalhado:
-            continue
-
-        tipo = detalhado.get("tipo", "desconhecido")
-        registros = detalhado.get("registros", [])
-
-        for row in registros:
-            adquirente = (row.get("adquirente") or "Outros").strip() or "Outros"
-            valor = float(row.get("valor", 0) or 0)
-            data = row.get("data", "") or ""
-            desc = row.get("descricao", "") or ""
-            banco = row.get("banco", "") or ""
-            previsao = row.get("previsao", "") or ""
-            data_receb = row.get("data_recebimento", "") or ""
-
-            if tipo == "venda":
-                total_vendas += valor
-                vendas_acq[adquirente] += valor
-
-                detalhamento_vendas.append({
-                    "data": data,
-                    "adquirente": adquirente,
-                    "descricao": desc,
-                    "valor": valor,
-                    "previsao": previsao,
-                    "banco": banco,
-                    "data_recebimento": data_receb,
-                    "tipo": "venda",
-                })
-
-            elif tipo == "recebimento":
-                total_recebido += valor
-                receb_acq[adquirente] += valor
-
-                detalhamento_recebidos.append({
-                    "data": data,
-                    "adquirente": adquirente,
-                    "descricao": desc,
-                    "valor": valor,
-                    "previsao": previsao,
-                    "banco": banco,
-                    "data_recebimento": data_receb,
-                    "tipo": "recebimento",
-                })
-
+def calcular_kpis(empresa_id, periodo='mes', data_inicio=None, data_fim=None):
+    """Calcula KPIs do dashboard"""
+    
+    # Definir período
+    hoje = datetime.now().date()
+    
+    if periodo == 'personalizado' and data_inicio and data_fim:
+        inicio = datetime.strptime(data_inicio, "%Y-%m-%d").date()
+        fim = datetime.strptime(data_fim, "%Y-%m-%d").date()
+    elif periodo == 'semana':
+        inicio = hoje - timedelta(days=7)
+        fim = hoje
+    elif periodo == 'ano':
+        inicio = hoje.replace(month=1, day=1)
+        fim = hoje
+    else:  # mes
+        inicio = hoje.replace(day=1)
+        fim = hoje
+    
+    # Total Vendas
+    total_vendas = db.session.query(
+        func.sum(MovAdquirente.valor_bruto)
+    ).filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.data_venda >= inicio,
+        MovAdquirente.data_venda <= fim
+    ).scalar() or Decimal("0")
+    
+    # Total Recebido
+    total_recebido = db.session.query(
+        func.sum(MovBanco.valor)
+    ).filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.data_movimento >= inicio,
+        MovBanco.data_movimento <= fim,
+        MovBanco.conciliado == True
+    ).scalar() or Decimal("0")
+    
+    # Diferença
     diferenca = total_vendas - total_recebido
-
-    # Monta mapa final por adquirente
-    acquirers = {}
-    for acq in set(list(vendas_acq.keys()) + list(receb_acq.keys())):
-        v = vendas_acq.get(acq, 0.0)
-        r = receb_acq.get(acq, 0.0)
-        acquirers[acq] = {
-            "vendas": round(v, 2),
-            "recebidos": round(r, 2),
-            "diferenca": round(v - r, 2),
-        }
-
+    
+    # Totais por Adquirente
+    adquirentes = db.session.query(
+        Adquirente.nome,
+        func.sum(MovAdquirente.valor_bruto).label('total_vendas'),
+        func.sum(MovAdquirente.valor_liquido).label('total_liquido')
+    ).join(
+        MovAdquirente, Adquirente.id == MovAdquirente.adquirente_id
+    ).filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.data_venda >= inicio
+    ).group_by(Adquirente.nome).all()
+    
+    # Vendas por Bandeira
+    bandeiras = db.session.query(
+        MovAdquirente.bandeira,
+        func.count().label('quantidade'),
+        func.sum(MovAdquirente.valor_bruto).label('total')
+    ).filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.data_venda >= inicio
+    ).group_by(MovAdquirente.bandeira).all()
+    
     return {
-        "total_vendas": round(total_vendas, 2),
-        "total_recebido": round(total_recebido, 2),
-        "diferenca": round(diferenca, 2),
-        "alertas": 0,  # mais pra frente podemos calcular
-        "acquirers": acquirers,
-        "detalhamento": {
-            "vendas": detalhamento_vendas,
-            "recebidos": detalhamento_recebidos,
+        "periodo": {
+            "inicio": inicio.strftime("%d/%m/%Y"),
+            "fim": fim.strftime("%d/%m/%Y")
         },
+        "total_vendas": str(total_vendas),
+        "total_recebido": str(total_recebido),
+        "diferenca": str(diferenca),
+        "adquirentes": [{
+            "nome": a.nome,
+            "total_vendas": str(a.total_vendas or 0),
+            "total_liquido": str(a.total_liquido or 0)
+        } for a in adquirentes],
+        "bandeiras": [{
+            "bandeira": b.bandeira or "Não identificada",
+            "quantidade": b.quantidade,
+            "total": str(b.total or 0)
+        } for b in bandeiras]
+    }
+
+def tem_dados_cadastrados(empresa_id):
+    """Verifica se empresa já tem dados"""
+    from models import MovAdquirente
+    return MovAdquirente.query.filter_by(empresa_id=empresa_id).count() > 0
+
+def calcular_resumo_rapido(empresa_id):
+    """Resumo rápido para header (cacheável)"""
+    hoje = datetime.now().date()
+    inicio_mes = hoje.replace(day=1)
+    
+    vendas_mes = db.session.query(
+        func.sum(MovAdquirente.valor_bruto)
+    ).filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.data_venda >= inicio_mes
+    ).scalar() or Decimal("0")
+    
+    return {
+        "vendas_mes": str(vendas_mes),
+        "atualizado_em": datetime.now().isoformat()
     }
