@@ -4,41 +4,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NousCard</title>
-
+    <title>{% block title %}NousCard{% endblock %}</title>
+    
+    <!-- SEO e Social -->
+    <meta name="description" content="NousCard: Conciliação simples de cartões para micro e pequenas empresas">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+    
+    <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block extra_head %}{% endblock %}
 </head>
 
 <body class="nc-body">
-
+    
+    <!-- Skip Link para Acessibilidade -->
+    <a href="#main-content" class="skip-link">Pular para o conteúdo</a>
+    
     <!-- ===================== TOPBAR ===================== -->
-    <header class="nc-topbar">
+    <header class="nc-topbar" role="banner">
         <div class="nc-topbar-left">
-            NousCard
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-logo" aria-label="NousCard - Página inicial">
+                NousCard
+            </a>
         </div>
-
-        <nav class="nc-topbar-nav">
-            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-topbar-item">📊 Dashboard</a>
-            <a href="{{ url_for('operacoes.importar_page') }}" class="nc-topbar-item">⬆️ Importar</a>
-            <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-nav-item">📂 Arquivos Importados</a>
-            <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-topbar-item">✔️ Conciliação</a>
-            {% if session.get('is_master') %}
-                <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-topbar-item">🏢 Empresas</a>
+        
+        <nav class="nc-topbar-nav" role="navigation" aria-label="Navegação principal">
+            <a href="{{ url_for('dashboard.dashboard') }}" 
+               class="nc-topbar-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
+               aria-label="Ir para Dashboard"
+               {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}>
+                📊 Dashboard
+            </a>
+            <a href="{{ url_for('operacoes.importar_page') }}" 
+               class="nc-topbar-item {% if request.endpoint == 'operacoes.importar_page' %}active{% endif %}"
+               aria-label="Importar arquivos">
+                ⬆️ Importar
+            </a>
+            <a href="{{ url_for('operacoes.arquivos_importados_page') }}" 
+               class="nc-topbar-item {% if request.endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
+               aria-label="Ver arquivos importados">
+                📂 Arquivos
+            </a>
+            <a href="{{ url_for('operacoes.conciliar_page') }}" 
+               class="nc-topbar-item {% if request.endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
+               aria-label="Executar conciliação">
+                ✔️ Conciliação
+            </a>
+            
+            {% if is_master %}
+                <a href="{{ url_for('empresas.listar_empresas') }}" 
+                   class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}"
+                   aria-label="Gerenciar empresas (admin)">
+                    🏢 Empresas
+                </a>
             {% endif %}
-            <a href="{{ url_for('auth.logout') }}" class="nc-topbar-item logout">🚪 Sair</a>
+            
+            <a href="{{ url_for('auth.logout') }}" 
+               class="nc-topbar-item logout"
+               aria-label="Sair da conta">
+                🚪 Sair
+            </a>
         </nav>
     </header>
-
+    
     <!-- ===================== CONTEÚDO ===================== -->
-    <main class="nc-content">
+    <main id="main-content" class="nc-content" role="main" tabindex="-1">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="nc-flash-messages" role="alert" aria-live="polite">
+                    {% for category, message in messages %}
+                        <div class="nc-flash nc-flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
         {% block content %}{% endblock %}
     </main>
-
+    
     <!-- ===================== RODAPÉ ===================== -->
-    <footer class="nc-footer">
+    <footer class="nc-footer" role="contentinfo">
         NousCard © {{ current_year }} — Desenvolvido por <strong>Nous Tecnologia</strong> •
-        <a href="mailto:contato@noustecnologia.com.br">contato@noustecnologia.com.br</a>
+        <a href="mailto:contato@noustecnologia.com.br" aria-label="Enviar email para Nous Tecnologia">Fale Conosco</a>
     </footer>
-
+    
+    <!-- Scripts Globais -->
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+    
+    {% block extra_scripts %}{% endblock %}
+    
 </body>
 </html>
