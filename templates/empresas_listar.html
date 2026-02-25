@@ -1,44 +1,88 @@
 {% extends "base.html" %}
+
+{% block title %}Gerenciar Empresas - NousCard{% endblock %}
+
 {% block content %}
-
 <section class="nc-section">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h2>Empresas</h2>
-        <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-outline">
-            + Nova empresa
-        </a>
-    </div>
-
-    {% if empresas %}
-        <table class="nc-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nome</th>
-                    <th>Documento</th>
-                    <th>Ativa</th>
-                    <th>Criada em</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for e in empresas %}
-                    <tr>
-                        <td>{{ e.id }}</td>
-                        <td>{{ e.nome }}</td>
-                        <td>{{ e.documento or "-" }}</td>
-                        <td>{{ "Sim" if e.ativa else "Não" }}</td>
-                        <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "-" }}</td>
-                        <td>
-                            <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}">Editar</a>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if not is_master %}
+        <div class="nc-access-denied" role="alert">
+            <span aria-hidden="true">🔒</span>
+            <h2>Acesso Restrito</h2>
+            <p>Esta página é acessível apenas para usuários MASTER.</p>
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-btn nc-btn-primary">Voltar ao dashboard</a>
+        </div>
     {% else %}
-        <p>Nenhuma empresa cadastrada ainda.</p>
+        <div class="nc-section-header">
+            <div>
+                <h2>🏢 Empresas</h2>
+                {% if empresas and empresas.total %}
+                <p class="nc-section-subtitle">{{ empresas.total }} empresa(s) cadastrada(s)</p>
+                {% endif %}
+            </div>
+            <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
+        </div>
+        
+        {% if empresas and empresas.items %}
+            <table class="nc-table" role="table" aria-label="Lista de empresas cadastradas">
+                <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas cadastradas.</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Nome</th>
+                        <th scope="col">Documento</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Criada em</th>
+                        <th scope="col" class="nc-sr-only">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in empresas.items %}
+                        <tr class="{% if e.id == session.get('empresa_id') %}nc-row-current{% endif %}">
+                            <td>{{ e.id }}</td>
+                            <td><strong>{{ e.nome | e }}</strong></td>
+                            <td>{{ e.documento | e if e.documento else "-" }}</td>
+                            <td>
+                                <span class="nc-status nc-status-{{ 'active' if e.ativo else 'inactive' }}">
+                                    <span aria-hidden="true">{{ "✅" if e.ativo else "⏸️" }}</span>
+                                    {{ "Sim" if e.ativo else "Não" }}
+                                </span>
+                            </td>
+                            <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "-" }}</td>
+                            <td class="nc-table-actions">
+                                <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}" 
+                                   class="nc-btn nc-btn-sm nc-btn-outline"
+                                   aria-label="Editar empresa {{ e.nome | e }}">
+                                    <span aria-hidden="true">✏️</span>
+                                    <span class="nc-sr-only">Editar</span>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if empresas.pages > 1 %}
+            <nav class="nc-pagination" role="navigation" aria-label="Paginação de empresas">
+                {% if empresas.has_prev %}
+                <a href="?page={{ empresas.prev_num }}" class="nc-btn nc-btn-sm" aria-label="Página anterior">← Anterior</a>
+                {% endif %}
+                
+                <span class="nc-page-info" aria-current="page">Página {{ empresas.page }} de {{ empresas.pages }}</span>
+                
+                {% if empresas.has_next %}
+                <a href="?page={{ empresas.next_num }}" class="nc-btn nc-btn-sm" aria-label="Próxima página">Próxima →</a>
+                {% endif %}
+            </nav>
+            {% endif %}
+            
+        {% else %}
+            <div class="nc-empty-state" role="status">
+                <span aria-hidden="true">🏢</span>
+                <h3>Nenhuma empresa cadastrada</h3>
+                <p>Comece cadastrando a primeira empresa do sistema.</p>
+                <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
+            </div>
+        {% endif %}
     {% endif %}
 </section>
-
 {% endblock %}
