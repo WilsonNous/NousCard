@@ -65,7 +65,7 @@
 <section class="nc-section">
     <h2 class="nc-subtitle">Gráfico de Vendas x Recebido</h2>
     <div class="nc-graphs-container">
-        <canvas id="graficoVendasRecebidos"></canvas>
+        <canvas id="graficoVendasRecebidos" role="img" aria-label="Gráfico de barras comparando vendas e recebimentos"></canvas>
     </div>
 </section>
 
@@ -73,11 +73,12 @@
 <section class="nc-section">
     <h2 class="nc-subtitle">Vendas por Bandeira</h2>
     <div class="nc-graphs-container">
-        <canvas id="graficoBandeiras"></canvas>
+        <canvas id="graficoBandeiras" role="img" aria-label="Gráfico de rosca mostrando distribuição de vendas por bandeira"></canvas>
     </div>
 </section>
 
 <!-- Scripts -->
+<!-- ✅ CORREÇÃO: Remover espaços extras na URL do Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 
@@ -90,11 +91,12 @@
             <button type="button" class="nc-modal-close" aria-label="Fechar modal">✕</button>
         </div>
         <div class="nc-modal-body">
+            <!-- ✅ CORREÇÃO: Container com scroll horizontal apenas se necessário -->
             <div class="table-container">
-                <table id="modalTabela" class="nc-table">
+                <table id="modalTabela" class="nc-table" role="table" aria-label="Tabela de detalhamento">
                 </table>
             </div>
-            <div id="modal-empty" class="nc-empty-state" style="display:none;">Nenhum dado para exibir.</div>
+            <div id="modal-empty" class="nc-empty-state" style="display:none;" role="status">Nenhum dado para exibir.</div>
         </div>
         <div class="nc-modal-footer">
             <button type="button" class="nc-btn-secondary" onclick="fecharModal()">Fechar</button>
