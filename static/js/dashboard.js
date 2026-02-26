@@ -1,5 +1,5 @@
 // ============================================================
-//  DASHBOARD • NousCard Premium (VERSÃO SEGURA)
+//  DASHBOARD • NousCard Premium (VERSÃO SEGURA E CORRIGIDA)
 // ============================================================
 
 let ultimoKpis = null;
@@ -11,9 +11,6 @@ let kpiInterval = null;
 // UTILITÁRIOS SEGUROS
 // ============================================================
 
-/**
- * Escapa HTML para prevenir XSS
- */
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
     const map = {
@@ -26,9 +23,6 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
-/**
- * Formata moeda com precisão (usa string para evitar float errors)
- */
 function formatCurrency(value) {
     const num = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(num)) return 'R$ 0,00';
@@ -39,9 +33,6 @@ function formatCurrency(value) {
     }).format(num);
 }
 
-/**
- * Obtém token CSRF do meta tag ou input
- */
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content ||
            document.querySelector('input[name="csrf_token"]')?.value ||
@@ -53,7 +44,7 @@ function getCsrfToken() {
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Elementos do DOM
+    // Elementos do DOM com verificação de segurança
     const kpiVendas = document.querySelector(".kpi-value-vendas");
     const kpiRecebido = document.querySelector(".kpi-value-recebido");
     const kpiDiferenca = document.querySelector(".kpi-value-diferenca");
@@ -68,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Mostrar loading se for a primeira carga
         const kpiElements = document.querySelectorAll('.kpi-value[data-loading="true"]');
         kpiElements.forEach(el => {
-            el.innerHTML = '<span class="loading-spinner" aria-label="Carregando">⏳</span>';
+            if (el) el.innerHTML = '<span class="loading-spinner" aria-label="Carregando">⏳</span>';
         });
 
         try {
@@ -92,15 +83,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
             ultimoKpis = data.kpis;
 
-            // Atualizar UI
+            // Atualizar UI com verificações de segurança
             atualizarKPIs(data.kpis, { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas });
             atualizarAcquirers(data.kpis.acquirers || {}, acqContainer);
             
-            if (ctxGrafico) atualizarGraficoVendas(data.kpis, ctxGrafico);
-            if (ctxBandeiras) atualizarGraficoBandeiras(data.kpis.acquirers || {}, ctxBandeiras);
+            // ✅ CORREÇÃO: Verificar se canvas existe antes de renderizar gráfico
+            if (ctxGrafico && window.Chart) {
+                atualizarGraficoVendas(data.kpis, ctxGrafico);
+            }
+            // ✅ CORREÇÃO: Usar dados de bandeiras (não acquirers) para gráfico de bandeiras
+            if (ctxBandeiras && window.Chart) {
+                atualizarGraficoBandeiras(data.kpis.bandeiras || {}, ctxBandeiras);
+            }
 
             // Esconder erro se existir
-            if (dashboardError) dashboardError.style.display = 'none';
+            if (dashboardError) {
+                dashboardError.style.display = 'none';
+                dashboardError.textContent = '';
+            }
 
         } catch (err) {
             console.error("Erro ao carregar KPIs:", err);
@@ -175,7 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
             card.dataset.acq = nome;
             card.setAttribute('aria-label', `Ver detalhamento de ${escapeHtml(nome)}`);
 
-            // Criar conteúdo com textContent (seguro contra XSS)
             const header = document.createElement("div");
             header.className = "nc-acq-header";
             
@@ -198,11 +197,12 @@ document.addEventListener("DOMContentLoaded", () => {
             vendas.textContent = `Vendas: ${formatCurrency(acq.vendas || 0)}`;
             
             const recebido = document.createElement("span");
-            recebido.innerHTML = `<br>Recebido: ${formatCurrency(acq.recebidos || 0)}`;
+            recebido.textContent = `\nRecebido: ${formatCurrency(acq.recebidos || 0)}`;
             
             const diff = document.createElement("span");
             const diffVal = parseFloat(acq.diferenca || 0);
-            diff.innerHTML = `<br>Diferença: <span style="color:${diffVal >= 0 ? '#008000' : '#cc0000'}">${formatCurrency(diffVal)}</span>`;
+            diff.textContent = `\nDiferença: ${formatCurrency(diffVal)}`;
+            if (diffVal < 0) diff.style.color = '#cc0000';
             
             values.appendChild(vendas);
             values.appendChild(recebido);
@@ -231,97 +231,134 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ================== GRÁFICO VENDAS x RECEBIDO ==================
     function atualizarGraficoVendas(kpis, ctx) {
-        if (!ctx || !Chart) return;
+        // ✅ CORREÇÃO: Verificar se Chart.js está carregado
+        if (!ctx || !window.Chart) {
+            console.warn('⚠️ Chart.js não carregado ou canvas não encontrado');
+            return;
+        }
 
-        if (graficoVendas) graficoVendas.destroy();
+        if (graficoVendas) {
+            graficoVendas.destroy();
+            graficoVendas = null;
+        }
 
         const vendas = parseFloat(kpis.total_vendas) || 0;
         const recebido = parseFloat(kpis.total_recebido) || 0;
 
-        graficoVendas = new Chart(ctx, {
-            type: "bar",
-            data: {
-                labels: ["Vendas", "Recebido"],
-                datasets: [{
-                    label: "Valores",
-                    data: [vendas, recebido],
-                    backgroundColor: ["#1877f2", "#3cb371"],
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => formatCurrency(context.parsed.y)
-                        }
-                    }
+        try {
+            graficoVendas = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: ["Vendas", "Recebido"],
+                    datasets: [{
+                        label: "Valores",
+                        data: [vendas, recebido],
+                        backgroundColor: ["#1877f2", "#3cb371"],
+                        borderRadius: 6
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: (value) => formatCurrency(value)
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // ================== GRÁFICO BANDEIRAS ==================
-    function atualizarGraficoBandeiras(acquirers, ctx) {
-        if (!ctx || !Chart) return;
-
-        const labels = Object.keys(acquirers || {});
-        if (!labels.length) {
-            ctx.parentElement.innerHTML = '<p class="nc-empty-state">Sem dados para exibir.</p>';
-            return;
-        }
-
-        const valores = labels.map(l => parseFloat(acquirers[l].vendas) || 0);
-
-        if (graficoBandeiras) graficoBandeiras.destroy();
-
-        graficoBandeiras = new Chart(ctx, {
-            type: "doughnut",
-            data: {
-                labels,
-                datasets: [{
-                    label: "Vendas por Adquirente",
-                    data: valores,
-                    borderWidth: 2,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { 
-                        position: "bottom",
-                        labels: {
-                            generateLabels: (chart) => {
-                                const data = chart.data;
-                                return data.labels.map((label, i) => ({
-                                    text: `${label}: ${formatCurrency(data.datasets[0].data[i])}`,
-                                    fillStyle: chart.data.datasets[0].backgroundColor[i],
-                                    index: i
-                                }));
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => formatCurrency(context.parsed.y)
                             }
                         }
                     },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => formatCurrency(context.parsed)
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => formatCurrency(value)
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        } catch (err) {
+            console.error('Erro ao criar gráfico de vendas:', err);
+        }
+    }
+
+    // ================== GRÁFICO BANDEIRAS ==================
+    function atualizarGraficoBandeiras(bandeiras, ctx) {
+        // ✅ CORREÇÃO CRÍTICA: Verificar se elementos existem antes de usar
+        if (!ctx || !window.Chart) {
+            console.warn('⚠️ Chart.js não carregado ou canvas não encontrado para gráfico de bandeiras');
+            return;
+        }
+
+        // ✅ CORREÇÃO: Verificar se o parent element existe antes de modificar innerHTML
+        const container = ctx.parentElement;
+        if (!container) {
+            console.warn('⚠️ Container do gráfico de bandeiras não encontrado');
+            return;
+        }
+
+        const labels = Object.keys(bandeiras || {});
+        
+        // Se não houver dados, mostrar mensagem amigável (sem quebrar)
+        if (!labels.length) {
+            container.innerHTML = '<p class="nc-empty-state" style="text-align:center;color:var(--gray-dark);padding:2rem">Sem dados para exibir</p>';
+            return;
+        }
+
+        const valores = labels.map(l => parseFloat(bandeiras[l].vendas) || 0);
+
+        // Destruir gráfico anterior se existir
+        if (graficoBandeiras) {
+            graficoBandeiras.destroy();
+            graficoBandeiras = null;
+        }
+
+        try {
+            graficoBandeiras = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Vendas por Bandeira",
+                        data: valores,
+                        backgroundColor: ["#1877f2", "#42b72a", "#f0c808", "#dc3545", "#6f42c1", "#fd7e14", "#20c997", "#e83e8c"],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: "bottom",
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                generateLabels: (chart) => {
+                                    const data = chart.data;
+                                    return data.labels.map((label, i) => ({
+                                        text: `${label}: ${formatCurrency(data.datasets[0].data[i])}`,
+                                        fillStyle: chart.data.datasets[0].backgroundColor[i],
+                                        index: i
+                                    }));
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => formatCurrency(context.parsed)
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error('Erro ao criar gráfico de bandeiras:', err);
+            // Fallback: mostrar mensagem de erro amigável
+            container.innerHTML = '<p class="nc-error" style="padding:1rem">Erro ao renderizar gráfico. Tente recarregar a página.</p>';
+        }
     }
 
     // ================== MODAL SEGURO E ACESSÍVEL ==================
@@ -338,9 +375,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const tabela = document.getElementById("modalTabela");
         const modalEmpty = document.getElementById("modal-empty");
 
-        if (!modal || !tituloEl || !tabela) return;
+        if (!modal || !tituloEl || !tabela) {
+            console.warn('⚠️ Elementos do modal não encontrados');
+            return;
+        }
 
-        // Escapar título
+        // Escapar título com segurança
         tituloEl.textContent = titulo;
 
         // Limpar tabela
@@ -351,11 +391,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!linhas || !linhas.length) {
             if (modalEmpty) {
                 modalEmpty.style.display = 'block';
-                tabela.parentElement.style.display = 'none';
+                if (tabela.parentElement) tabela.parentElement.style.display = 'none';
             }
         } else {
             if (modalEmpty) modalEmpty.style.display = 'none';
-            tabela.parentElement.style.display = 'block';
+            if (tabela.parentElement) tabela.parentElement.style.display = 'block';
 
             // Criar thead
             const thead = document.createElement('thead');
@@ -378,7 +418,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 [l.data, l.adquirente, l.descricao, l.valor, l.previsao, l.banco, l.data_recebimento, l.tipo].forEach(val => {
                     const td = document.createElement('td');
-                    // Formatar valor monetário se for campo de valor
                     if (val !== undefined && val !== null) {
                         td.textContent = typeof val === 'number' ? formatCurrency(val) : String(val);
                     } else {
@@ -408,6 +447,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const focusable = modal.querySelectorAll(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
         );
+        if (!focusable.length) return;
+        
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
 
@@ -443,12 +484,6 @@ document.addEventListener("DOMContentLoaded", () => {
             modal.removeEventListener('keydown', modal._focusTrapHandler);
             delete modal._focusTrapHandler;
         }
-        
-        // Restaurar foco no elemento que abriu o modal
-        const lastFocused = document.activeElement;
-        if (lastFocused && lastFocused !== document.body) {
-            // Opcional: guardar referência do elemento que abriu
-        }
     };
 
     // ================== CLIQUES NOS KPIs ==================
@@ -473,7 +508,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Clear interval anterior se existir (hot reload)
     if (kpiInterval) clearInterval(kpiInterval);
     
-    kpiInterval = setInterval(carregarKPIs, 30000); // 30 segundos (menos agressivo)
+    kpiInterval = setInterval(carregarKPIs, 30000); // 30 segundos
 
     // ================== CLEANUP NO UNLOAD ==================
     window.addEventListener('beforeunload', () => {
