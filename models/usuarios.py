@@ -245,6 +245,13 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
             return True  # Master acessa todas
         return self.empresa_id == empresa_id
 
+    @property
+    def empresa_nome(self):
+        """Retorna o nome da empresa vinculada (ou None se master)"""
+        if self.empresa:
+            return self.empresa.nome
+        return None
+    
     # ============================================================
     # Flask-Login: OVERRIDES
     # ============================================================
