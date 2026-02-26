@@ -9,8 +9,8 @@
     <!-- SEO e Social -->
     <meta name="description" content="NousCard: Conciliação simples de cartões para micro e pequenas empresas">
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+    <!-- Favicon (com fallback para evitar 404) -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" onerror="this.style.display='none'">
     
     <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -73,35 +73,33 @@
     <!-- ===================== CONTEÚDO ===================== -->
     <main id="main-content" class="nc-content" role="main" tabindex="-1">
         
-        <!-- ✅ NOVO: Barra de Status do Usuário (adicionar após flash messages) -->
+        <!-- ✅ Barra de Status do Usuário -->
         {% if usuario %}
-        <div class="nc-user-status-bar" style="background:var(--gray-light);padding:0.75rem 1rem;margin-bottom:1rem;border-radius:8px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;font-size:0.9rem;">
-            <div>
+        <div class="nc-user-status-bar">
+            <div class="nc-user-info">
                 <strong>👤 {{ usuario.nome | e }}</strong>
-                <span style="color:var(--gray-dark);margin-left:0.5rem;">
-                    {% if is_master %}
-                        <span style="background:var(--primary);color:white;padding:2px 8px;border-radius:4px;font-size:0.8rem;">MASTER</span>
-                    {% elif usuario.admin %}
-                        <span style="background:var(--kpi-green);color:white;padding:2px 8px;border-radius:4px;font-size:0.8rem;">ADMIN</span>
-                    {% else %}
-                        <span style="background:var(--gray);color:var(--text);padding:2px 8px;border-radius:4px;font-size:0.8rem;">Usuário</span>
-                    {% endif %}
+                <span class="nc-user-badge {% if is_master %}nc-badge-master{% elif usuario.admin %}nc-badge-admin{% else %}nc-badge-user{% endif %}">
+                    {% if is_master %}MASTER{% elif usuario.admin %}ADMIN{% else %}Usuário{% endif %}
                 </span>
             </div>
-            <div style="border-left:1px solid var(--gray);padding-left:1rem;">
-                <span style="color:var(--gray-dark);">Empresa:</span>
-                {% if is_master %}
-                    <strong style="margin-left:0.25rem;">(Todas)</strong>
-                {% elif usuario.empresa and usuario.empresa.nome %}
-                    <strong style="margin-left:0.25rem;">{{ usuario.empresa.nome | e }}</strong>
-                {% elif empresa_nome %}
-                    <strong style="margin-left:0.25rem;">{{ empresa_nome | e }}</strong>
-                {% else %}
-                    <strong style="margin-left:0.25rem;color:var(--kpi-red);">Não vinculada</strong>
-                {% endif %}
+            
+            <div class="nc-user-company">
+                <span class="nc-label">Empresa:</span>
+                <strong class="nc-value">
+                    {% if is_master %}
+                        (Todas)
+                    {% elif usuario.empresa and usuario.empresa.nome %}
+                        {{ usuario.empresa.nome | e }}
+                    {% elif empresa_nome %}
+                        {{ empresa_nome | e }}
+                    {% else %}
+                        <span class="nc-warning">Não vinculada</span>
+                    {% endif %}
+                </strong>
             </div>
+            
             {% if usuario.ultimo_login %}
-            <div style="margin-left:auto;color:var(--gray-dark);font-size:0.85rem;">
+            <div class="nc-user-last-login">
                 Último acesso: {{ usuario.ultimo_login.strftime('%d/%m/%Y %H:%M') }}
             </div>
             {% endif %}
@@ -109,6 +107,7 @@
         {% endif %}
         <!-- ✅ FIM: Barra de Status do Usuário -->
         
+        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="nc-flash-messages" role="alert" aria-live="polite">
@@ -119,6 +118,7 @@
             {% endif %}
         {% endwith %}
         
+        <!-- Conteúdo da Página -->
         {% block content %}{% endblock %}
     </main>
     
