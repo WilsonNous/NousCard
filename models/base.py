@@ -33,6 +33,7 @@ class TimestampMixin:
     def atualizado_em(cls):
         return db.Column(
             db.DateTime(timezone=True),
+            default=lambda: datetime.now(timezone.utc),  # ✅ CORREÇÃO: valor inicial
             onupdate=lambda: datetime.now(timezone.utc),
             nullable=True,
             index=True
