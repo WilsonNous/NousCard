@@ -1,5 +1,5 @@
 // ============================================================
-//  DASHBOARD • NousCard Premium (VERSÃO SEGURA E CORRIGIDA)
+//  DASHBOARD • NousCard Premium (VERSÃO FINAL RESPONSIVA)
 // ============================================================
 
 let ultimoKpis = null;
@@ -237,6 +237,13 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // ✅ CORREÇÃO: Garantir que o container tenha dimensões válidas
+        const container = ctx.parentElement;
+        if (!container || container.offsetWidth === 0) {
+            console.warn('⚠️ Container do gráfico sem dimensões válidas');
+            return;
+        }
+
         if (graficoVendas) {
             graficoVendas.destroy();
             graficoVendas = null;
@@ -260,6 +267,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 10, right: 10, bottom: 10, left: 10 }
+                    },
                     plugins: { 
                         legend: { display: false },
                         tooltip: {
@@ -272,7 +282,16 @@ document.addEventListener("DOMContentLoaded", () => {
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                callback: (value) => formatCurrency(value)
+                                callback: (value) => formatCurrency(value),
+                                maxTicksLimit: 5  // Evita labels demais em mobile
+                            },
+                            afterFit: (scale) => { scale.width = 60; }  // Largura fixa para eixo Y
+                        },
+                        x: {
+                            ticks: {
+                                autoSkip: true,
+                                maxRotation: 45,
+                                minRotation: 0
                             }
                         }
                     }
@@ -291,10 +310,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // ✅ CORREÇÃO: Verificar se o parent element existe antes de modificar innerHTML
+        // ✅ CORREÇÃO: Verificar se o parent element existe e tem dimensões
         const container = ctx.parentElement;
-        if (!container) {
-            console.warn('⚠️ Container do gráfico de bandeiras não encontrado');
+        if (!container || container.offsetWidth === 0) {
+            console.warn('⚠️ Container do gráfico de bandeiras não encontrado ou sem dimensões');
             return;
         }
 
@@ -306,7 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const valores = labels.map(l => parseFloat(bandeiras[l].vendas) || 0);
+        const valores = labels.map(l => parseFloat(bandeiras[l]?.vendas) || 0);
 
         // Destruir gráfico anterior se existir
         if (graficoBandeiras) {
@@ -330,12 +349,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 10, right: 10, bottom: 10, left: 10 }
+                    },
                     plugins: {
                         legend: { 
                             position: "bottom",
                             labels: {
                                 padding: 15,
                                 usePointStyle: true,
+                                boxWidth: 12,  // Ícones menores em mobile
+                                font: { size: 11 },  // Fonte menor em mobile
                                 generateLabels: (chart) => {
                                     const data = chart.data;
                                     return data.labels.map((label, i) => ({
@@ -357,7 +381,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
             console.error('Erro ao criar gráfico de bandeiras:', err);
             // Fallback: mostrar mensagem de erro amigável
-            container.innerHTML = '<p class="nc-error" style="padding:1rem">Erro ao renderizar gráfico. Tente recarregar a página.</p>';
+            if (container) {
+                container.innerHTML = '<p class="nc-error" style="padding:1rem">Erro ao renderizar gráfico. Tente recarregar a página.</p>';
+            }
         }
     }
 
@@ -502,6 +528,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // ================== REDIMENSIONAR GRÁFICOS AO REDIMENSIONAR JANELA ==================
+    // ✅ NOVO: Atualizar gráficos quando a janela for redimensionada (para responsividade)
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            // Redraw charts se existirem e se houver dados
+            if (graficoVendas && ultimoKpis) {
+                atualizarGraficoVendas(ultimoKpis, ctxGrafico);
+            }
+            if (graficoBandeiras && ultimoKpis?.bandeiras) {
+                atualizarGraficoBandeiras(ultimoKpis.bandeiras, ctxBandeiras);
+            }
+        }, 250); // Debounce de 250ms para performance
+    });
+
     // ================== INICIAR LOOP DE ATUALIZAÇÃO ==================
     carregarKPIs();
     
@@ -515,5 +557,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (kpiInterval) clearInterval(kpiInterval);
         if (graficoVendas) graficoVendas.destroy();
         if (graficoBandeiras) graficoBandeiras.destroy();
+        clearTimeout(resizeTimeout);
     });
 });
