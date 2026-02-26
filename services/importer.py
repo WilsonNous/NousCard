@@ -32,7 +32,7 @@ COLUNAS_VENDA = ['valor_bruto', 'data_venda', 'nsu']
 COLUNAS_RECEBIMENTO = ['valor', 'data_movimento', 'documento']
 
 # ============================================================
-# UTILITÁRIOS DE NORMALIZAÇÃO (NOVO)
+# UTILITÁRIOS DE NORMALIZAÇÃO (NOVO - CRÍTICO)
 # ============================================================
 def normalizar_chave(key):
     """Remove BOM, espaços e normaliza case para comparação de chaves"""
