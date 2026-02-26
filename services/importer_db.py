@@ -147,7 +147,7 @@ def listar_arquivos_importados(empresa_id: int, page=1, per_page=50):
         "arquivos": [{
             "id": a.id,
             "nome_arquivo": a.nome_arquivo,
-            "tipo": a.tipo,
+            "tipo":a.tipo_arquivo,
             "hash": a.hash_arquivo,
             "total_registros": a.total_registros,
             "total_valor": str(a.total_valor),
