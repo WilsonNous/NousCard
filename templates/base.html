@@ -72,6 +72,43 @@
     
     <!-- ===================== CONTEÚDO ===================== -->
     <main id="main-content" class="nc-content" role="main" tabindex="-1">
+        
+        <!-- ✅ NOVO: Barra de Status do Usuário (adicionar após flash messages) -->
+        {% if usuario %}
+        <div class="nc-user-status-bar" style="background:var(--gray-light);padding:0.75rem 1rem;margin-bottom:1rem;border-radius:8px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;font-size:0.9rem;">
+            <div>
+                <strong>👤 {{ usuario.nome | e }}</strong>
+                <span style="color:var(--gray-dark);margin-left:0.5rem;">
+                    {% if is_master %}
+                        <span style="background:var(--primary);color:white;padding:2px 8px;border-radius:4px;font-size:0.8rem;">MASTER</span>
+                    {% elif usuario.admin %}
+                        <span style="background:var(--kpi-green);color:white;padding:2px 8px;border-radius:4px;font-size:0.8rem;">ADMIN</span>
+                    {% else %}
+                        <span style="background:var(--gray);color:var(--text);padding:2px 8px;border-radius:4px;font-size:0.8rem;">Usuário</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div style="border-left:1px solid var(--gray);padding-left:1rem;">
+                <span style="color:var(--gray-dark);">Empresa:</span>
+                {% if is_master %}
+                    <strong style="margin-left:0.25rem;">(Todas)</strong>
+                {% elif usuario.empresa and usuario.empresa.nome %}
+                    <strong style="margin-left:0.25rem;">{{ usuario.empresa.nome | e }}</strong>
+                {% elif empresa_nome %}
+                    <strong style="margin-left:0.25rem;">{{ empresa_nome | e }}</strong>
+                {% else %}
+                    <strong style="margin-left:0.25rem;color:var(--kpi-red);">Não vinculada</strong>
+                {% endif %}
+            </div>
+            {% if usuario.ultimo_login %}
+            <div style="margin-left:auto;color:var(--gray-dark);font-size:0.85rem;">
+                Último acesso: {{ usuario.ultimo_login.strftime('%d/%m/%Y %H:%M') }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        <!-- ✅ FIM: Barra de Status do Usuário -->
+        
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="nc-flash-messages" role="alert" aria-live="polite">
