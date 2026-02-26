@@ -1,4 +1,46 @@
 /* ============================================================
+   PREVENIR SCROLL HORIZONTAL (GLOBAL) - NOVO
+============================================================ */
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;  /* ← CRÍTICO: esconde overflow horizontal */
+    margin: 0;
+    padding: 0;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+/* Garantir que imagens, canvases e SVGs não estoure o container */
+img, canvas, svg, video, embed, object {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Containers principais */
+.nc-body, .nc-content, .nc-section {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+/* Ajuste para topbar e footer */
+.nc-topbar, .nc-footer {
+    width: 100%;
+    max-width: 100vw;
+}
+
+/* Tabelas com scroll horizontal apenas se necessário */
+.table-container, .nc-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================================
    VARIÁVEIS GLOBAIS (ROOT)
 ============================================================ */
 :root {
@@ -43,7 +85,7 @@
 
 /* Contraste melhorado */
 :root {
-    --gray-dark: #5a6275;  /* Contraste 7:1 com branco */
+    --gray-dark: #5a6275;
     --gray-light: #e9ecef;
 }
 
@@ -732,97 +774,6 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   RESPONSIVIDADE
-============================================================ */
-
-@media (max-width: 768px) {
-    .nc-topbar {
-        padding: 0 15px;
-        height: auto;
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-    
-    .nc-topbar-nav {
-        width: 100%;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 10px;
-        padding: 10px 0;
-    }
-    
-    .nc-content {
-        padding: 0 15px;
-        margin: 20px auto;
-    }
-    
-    .nc-section {
-        padding: 20px;
-    }
-    
-    .nc-kpis {
-        grid-template-columns: 1fr;
-    }
-    
-    .nc-table {
-        font-size: 0.875rem;
-    }
-    
-    .nc-table th,
-    .nc-table td {
-        padding: 8px;
-    }
-    
-    .nc-modal-content {
-        margin: 10px;
-        max-height: 95vh;
-    }
-    
-    .nc-modal-body {
-        padding: 1rem;
-    }
-}
-
-/* ============================================================
-   IMPRESSÃO
-============================================================ */
-
-@media print {
-    .nc-topbar,
-    .nc-footer,
-    .nc-btn,
-    .nc-modal-backdrop {
-        display: none !important;
-    }
-    
-    .nc-content {
-        max-width: 100%;
-        margin: 0;
-        padding: 0;
-    }
-    
-    .nc-section {
-        box-shadow: none;
-        border: 1px solid #ccc;
-        page-break-inside: avoid;
-    }
-    
-    .nc-table {
-        font-size: 10pt;
-    }
-    
-    a {
-        text-decoration: none;
-        color: #000;
-    }
-    
-    a[href]::after {
-        content: " (" attr(href) ")";
-        font-size: 0.9em;
-        color: #666;
-    }
-}
-/* ============================================================
    LAYOUT BASE
 ============================================================ */
 .nc-body {
@@ -953,9 +904,10 @@ textarea:focus-visible,
 /* Grid de KPIs */
 .nc-kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 1rem;
     margin: 1rem 0;
+    width: 100%;
 }
 
 .nc-kpi-card {
@@ -968,6 +920,8 @@ textarea:focus-visible,
     gap: 1rem;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+    min-width: 0;
 }
 
 .nc-kpi-card:hover {
@@ -984,6 +938,7 @@ textarea:focus-visible,
     align-items: center;
     justify-content: center;
     border-radius: 12px;
+    flex-shrink: 0;
 }
 
 .kpi-blue { background: var(--primary-light); }
@@ -1006,6 +961,7 @@ textarea:focus-visible,
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--text);
+    word-break: break-word;
 }
 
 .kpi-value[data-loading="true"] {
@@ -1016,16 +972,32 @@ textarea:focus-visible,
 /* Grid de Adquirentes */
 .nc-acq-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 0.75rem;
+    width: 100%;
 }
 
-/* Gráficos */
+.nc-acq-card {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Gráficos - RESPONSIVOS */
 .nc-graphs-container {
     background: var(--white);
     border-radius: var(--border-radius);
     padding: 1rem;
     min-height: 300px;
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.nc-graphs-container canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100%;
 }
 
 /* Footer */
@@ -1060,6 +1032,8 @@ textarea:focus-visible,
     gap: 1rem;
     flex-wrap: wrap;
     font-size: 0.9rem;
+    width: 100%;
+    max-width: 100%;
 }
 
 .nc-user-info {
@@ -1116,20 +1090,188 @@ textarea:focus-visible,
     font-size: 0.85rem;
 }
 
-/* Responsivo para mobile */
+/* ============================================================
+   RESPONSIVIDADE COMPLETA
+============================================================ */
+
+/* Tablet e Mobile */
+@media (max-width: 1024px) {
+    .nc-content {
+        padding: 1.5rem;
+    }
+    
+    .nc-section {
+        padding: 1.25rem;
+    }
+    
+    .nc-kpis {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
+    /* Topbar em mobile */
+    .nc-topbar {
+        padding: 0.5rem 1rem;
+        height: auto;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .nc-topbar-nav {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        padding: 0.5rem 0;
+    }
+    
+    .nc-topbar-item {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Conteúdo */
+    .nc-content {
+        padding: 1rem;
+    }
+    
+    .nc-section {
+        padding: 1rem;
+    }
+    
+    /* Barra de status do usuário */
     .nc-user-status-bar {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.5rem;
+        padding: 0.75rem;
     }
     
     .nc-user-company {
         border-left: none;
         padding-left: 0;
+        border-top: 1px solid var(--gray);
+        padding-top: 0.5rem;
+        width: 100%;
     }
     
     .nc-user-last-login {
         margin-left: 0;
+        width: 100%;
+        text-align: right;
+        font-size: 0.8rem;
+    }
+    
+    /* KPIs em mobile */
+    .nc-kpis {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .nc-kpi-card {
+        padding: 1rem;
+    }
+    
+    .kpi-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.5rem;
+    }
+    
+    .kpi-value {
+        font-size: 1.25rem;
+    }
+    
+    /* Cards de adquirentes */
+    .nc-acq-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    
+    /* Gráficos em mobile */
+    .nc-graphs-container {
+        min-height: 280px;
+        padding: 0.75rem;
+    }
+    
+    /* Modal em mobile */
+    .nc-modal-content {
+        margin: 0.5rem;
+        max-height: 95vh;
+    }
+    
+    .nc-modal-body {
+        padding: 1rem;
+    }
+    
+    /* Tabelas */
+    .nc-table {
+        font-size: 0.85rem;
+    }
+    
+    .nc-table th,
+    .nc-table td {
+        padding: 0.5rem;
+    }
+}
+
+/* Mobile muito pequeno */
+@media (max-width: 480px) {
+    .nc-kpis {
+        grid-template-columns: 1fr;
+    }
+    
+    .nc-graphs-container {
+        min-height: 250px;
+    }
+    
+    .nc-topbar-item {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .nc-section {
+        padding: 0.75rem;
+    }
+}
+
+/* ============================================================
+   IMPRESSÃO
+============================================================ */
+
+@media print {
+    .nc-topbar,
+    .nc-footer,
+    .nc-btn,
+    .nc-modal-backdrop {
+        display: none !important;
+    }
+    
+    .nc-content {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    
+    .nc-section {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+    }
+    
+    .nc-table {
+        font-size: 10pt;
+    }
+    
+    a {
+        text-decoration: none;
+        color: #000;
+    }
+    
+    a[href]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.9em;
+        color: #666;
     }
 }
