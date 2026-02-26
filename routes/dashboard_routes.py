@@ -19,7 +19,7 @@ def dashboard():
     usuario = g.user
     empresa_id = usuario.empresa_id
     
-    # Garantir que empresa_nome esteja disponível
+    # ✅ Garantir que empresa_nome esteja disponível
     empresa_nome = usuario.empresa.nome if usuario.empresa else None
     
     # Log de acesso (auditoria)
@@ -37,6 +37,7 @@ def dashboard():
         db.session.commit()
     except Exception as e:
         logger.error(f"Erro ao logar acesso ao dashboard: {str(e)}")
+        db.session.rollback()  # ✅ Garantir rollback em caso de erro
     
     # Verificar se empresa tem dados cadastrados (onboarding)
     try:
@@ -47,10 +48,11 @@ def dashboard():
     except Exception as e:
         logger.warning(f"Não foi possível verificar dados: {str(e)}")
     
-    # Preparar contexto para o template
+    # ✅ Preparar contexto para o template (COM empresa_nome)
     contexto = {
         "usuario": usuario,
         "empresa_id": empresa_id,
+        "empresa_nome": empresa_nome,  # ✅ PASSAR EXPLICITAMENTE PARA O TEMPLATE
         "is_admin": usuario.admin,
         "is_master": usuario.master,
         "current_year": datetime.now().year,
