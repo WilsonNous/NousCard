@@ -32,6 +32,29 @@ COLUNAS_VENDA = ['valor_bruto', 'data_venda', 'nsu']
 COLUNAS_RECEBIMENTO = ['valor', 'data_movimento', 'documento']
 
 # ============================================================
+# UTILITÁRIOS DE NORMALIZAÇÃO (NOVO)
+# ============================================================
+def normalizar_chave(key):
+    """Remove BOM, espaços e normaliza case para comparação de chaves"""
+    if not isinstance(key, str):
+        return key
+    return key.strip().replace('\ufeff', '').lower()
+
+def normalizar_registro(registro):
+    """Normaliza todas as chaves de um dicionário de registro"""
+    if not isinstance(registro, dict):
+        return registro
+    return {
+        normalizar_chave(key): value
+        for key, value in registro.items()
+        if key and isinstance(key, str)
+    }
+
+def normalizar_registros(registros):
+    """Normaliza uma lista de registros"""
+    return [normalizar_registro(r) for r in registros]
+
+# ============================================================
 # VALIDAÇÕES
 # ============================================================
 def validar_tamanho_arquivo(file_storage):
@@ -41,6 +64,7 @@ def validar_tamanho_arquivo(file_storage):
     return size <= MAX_FILE_SIZE, size
 
 def validar_registros(registros, tipo):
+    """Valida registros com comparação tolerante de chaves"""
     if not registros or len(registros) == 0:
         return False, "Arquivo vazio"
     
@@ -50,13 +74,17 @@ def validar_registros(registros, tipo):
     primeira_linha = registros[0] if isinstance(registros[0], dict) else {}
     colunas = COLUNAS_VENDA if tipo == "venda" else COLUNAS_RECEBIMENTO
     
+    # ✅ CORREÇÃO: Usar conjunto de chaves normalizadas para comparação
+    chaves_disponiveis = {normalizar_chave(k) for k in primeira_linha.keys() if isinstance(k, str)}
+    
     for col in colunas:
-        if col not in primeira_linha:
+        if normalizar_chave(col) not in chaves_disponiveis:
             return False, f"Coluna ausente: {col}"
     
     return True, "OK"
 
 def identificar_tipo_por_conteudo(registros, nome_arquivo):
+    """Identifica tipo do arquivo com comparação tolerante de chaves"""
     # Primeiro tenta por nome (fallback rápido)
     nome = nome_arquivo.lower()
     if "receb" in nome or "extrato" in nome or "ofx" in nome:
@@ -70,8 +98,11 @@ def identificar_tipo_por_conteudo(registros, nome_arquivo):
     
     primeira_linha = registros[0] if isinstance(registros[0], dict) else {}
     
-    match_venda = sum(1 for col in COLUNAS_VENDA if col in primeira_linha)
-    match_receb = sum(1 for col in COLUNAS_RECEBIMENTO if col in primeira_linha)
+    # ✅ CORREÇÃO: Usar chaves normalizadas para comparação
+    chaves = {normalizar_chave(k) for k in primeira_linha.keys() if isinstance(k, str)}
+    
+    match_venda = sum(1 for col in COLUNAS_VENDA if normalizar_chave(col) in chaves)
+    match_receb = sum(1 for col in COLUNAS_RECEBIMENTO if normalizar_chave(col) in chaves)
     
     if match_venda > match_receb:
         return "venda"
@@ -116,6 +147,10 @@ def process_file(file_storage):
                 "erro": "Formato não suportado"
             }
         
+        # ✅ CORREÇÃO CRÍTICA: Normalizar chaves após o parse
+        # Remove BOM, espaços extras e normaliza case para evitar falsos negativos
+        registros = normalizar_registros(registros)
+        
     except Exception as e:
         logger.error(f"Erro ao parsear arquivo {nome}: {str(e)}")
         return {
@@ -124,7 +159,7 @@ def process_file(file_storage):
             "erro": f"Erro ao processar: {str(e)}"
         }
     
-    # Identificar tipo
+    # Identificar tipo (agora com chaves normalizadas)
     tipo = identificar_tipo_por_conteudo(registros, nome)
     if tipo == "desconhecido":
         return {
@@ -133,7 +168,7 @@ def process_file(file_storage):
             "erro": "Não foi possível identificar o tipo do arquivo"
         }
     
-    # Validar registros
+    # Validar registros (agora com comparação tolerante)
     valido, msg = validar_registros(registros, tipo)
     if not valido:
         return {
