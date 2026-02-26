@@ -231,6 +231,13 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
         """Nome para exibição na UI (fallback para email)"""
         return self.nome or self.email.split('@')[0]
     
+    @property
+    def empresa_nome(self):
+        """Retorna o nome da empresa vinculada (ou None se master)"""
+        if self.empresa:
+            return self.empresa.nome
+        return None
+    
     def pode_acessar_empresa(self, empresa_id: int) -> bool:
         """
         Verifica se usuário pode acessar uma empresa específica.
@@ -245,13 +252,6 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
             return True  # Master acessa todas
         return self.empresa_id == empresa_id
 
-    @property
-    def empresa_nome(self):
-        """Retorna o nome da empresa vinculada (ou None se master)"""
-        if self.empresa:
-            return self.empresa.nome
-        return None
-    
     # ============================================================
     # Flask-Login: OVERRIDES
     # ============================================================
@@ -298,7 +298,8 @@ class Usuario(db.Model, UserMixin, TimestampMixin, SoftDeleteMixin):
             "admin": self.admin,
             "master": self.master,
             "empresa_id": self.empresa_id,
-            "empresa_nome": self.empresa.nome if self.empresa else None,
+            # ✅ CORREÇÃO: Usar propriedade empresa_nome para consistência
+            "empresa_nome": self.empresa_nome,
             "ultimo_login": self.ultimo_login.isoformat() if self.ultimo_login else None,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None,
             "ativo": getattr(self, 'ativo', True),
