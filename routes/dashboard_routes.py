@@ -19,6 +19,9 @@ def dashboard():
     usuario = g.user
     empresa_id = usuario.empresa_id
     
+    # Garantir que empresa_nome esteja disponível
+    empresa_nome = usuario.empresa.nome if usuario.empresa else None
+    
     # Log de acesso (auditoria)
     try:
         from models import LogAuditoria, db
