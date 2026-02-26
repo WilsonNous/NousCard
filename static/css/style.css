@@ -1046,3 +1046,90 @@ textarea:focus-visible,
 .nc-footer a:hover {
     text-decoration: underline;
 }
+
+/* ============================================================
+   BARRA DE STATUS DO USUÁRIO
+============================================================ */
+.nc-user-status-bar {
+    background: var(--gray-light);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
+}
+
+.nc-user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.nc-user-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.nc-badge-master {
+    background: var(--primary);
+    color: white;
+}
+
+.nc-badge-admin {
+    background: var(--kpi-green);
+    color: white;
+}
+
+.nc-badge-user {
+    background: var(--gray);
+    color: var(--text);
+}
+
+.nc-user-company {
+    border-left: 1px solid var(--gray);
+    padding-left: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.nc-label {
+    color: var(--gray-dark);
+}
+
+.nc-value {
+    font-weight: 600;
+}
+
+.nc-warning {
+    color: var(--kpi-red);
+}
+
+.nc-user-last-login {
+    margin-left: auto;
+    color: var(--gray-dark);
+    font-size: 0.85rem;
+}
+
+/* Responsivo para mobile */
+@media (max-width: 768px) {
+    .nc-user-status-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .nc-user-company {
+        border-left: none;
+        padding-left: 0;
+    }
+    
+    .nc-user-last-login {
+        margin-left: 0;
+    }
+}
