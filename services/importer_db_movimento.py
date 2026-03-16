@@ -55,46 +55,40 @@ def to_int(valor, default=None):
 # ============================================================
 # VALIDAÇÕES INTELIGENTES
 # ============================================================
+
 def validar_adquirente(valor, empresa_id=None):
     """
     Valida adquirente por ID numérico OU por nome (string).
-    
-    Args:
-        valor: ID numérico OU nome da adquirente (ex: "Cielo", "Rede")
-        empresa_id: Opcional, para filtrar por empresa se necessário
-    
-    Returns:
-        int: ID da adquirente se encontrado, None caso contrário
     """
     if not valor:
         return None
     
     # ✅ Se for número, tenta buscar por ID
-    if isinstance(valor, (int,)) or (isinstance(valor, str) and valor.strip().isdigit()):
+    if isinstance(valor, (int,)) or (isinstance(valor, str) and str(valor).strip().isdigit()):
         adquirente = Adquirente.query.filter_by(id=int(valor)).first()
         if adquirente:
             return adquirente.id
     
-    # ✅ Se for string, tenta buscar por nome (case-insensitive, tolerante a espaços)
+    # ✅ Se for string, tenta buscar por nome (case-insensitive)
     if isinstance(valor, str):
         nome_normalizado = valor.strip().lower()
         
-        # Tenta match exato primeiro
+        # Match exato
         adquirente = Adquirente.query.filter(
             func.lower(Adquirente.nome) == nome_normalizado
         ).first()
         if adquirente:
             return adquirente.id
         
-        # Tenta match parcial (contém)
+        # Match parcial (contém)
         adquirente = Adquirente.query.filter(
             func.lower(Adquirente.nome).contains(nome_normalizado)
         ).first()
         if adquirente:
             return adquirente.id
         
-        # Log para debug (remover após teste)
-        logger.warning(f"⚠️ Adquirente não encontrado: '{valor}' (normalizado: '{nome_normalizado}')")
+        # Debug log (remover após teste)
+        logger.warning(f"⚠️ Adquirente não encontrado: '{valor}'")
     
     return None
 
@@ -153,6 +147,8 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                     
                     # ✅ CORREÇÃO: Validar adquirente por nome OU ID
                     # Tenta primeiro adquirente_id (numérico), depois adquirente (nome)
+                    adquirente_valor = r.get("adquirente_id") or r.get("adquirente")
+                    # Por esta versão flexível:
                     adquirente_valor = r.get("adquirente_id") or r.get("adquirente")
                     adquirente_id = validar_adquirente(adquirente_valor, empresa_id)
                     
