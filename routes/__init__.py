@@ -1,3 +1,5 @@
+# routes/__init__.py - VERSÃO CORRIGIDA
+
 from .dashboard_routes import dashboard_bp
 from .contrato_routes import contrato_bp
 from .assistant_routes import assistant_bp
@@ -6,7 +8,7 @@ from .empresas_routes import empresas_bp
 from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
 from .dashboard_api import dashboard_api
-from .conciliacao_api import bp_conc
+from .conciliacao_api import bp_con
 
 
 def register_blueprints(app):
@@ -21,9 +23,9 @@ def register_blueprints(app):
     app.register_blueprint(auth_bp, url_prefix='/auth')
     
     # ---------------------------------------------------------
-    # INTERFACE PRINCIPAL
+    # INTERFACE PRINCIPAL (SEM url_prefix para rotas raiz)
     # ---------------------------------------------------------
-    app.register_blueprint(dashboard_bp, url_prefix='/')
+    app.register_blueprint(dashboard_bp)  # ← ✅ SEM url_prefix!
     
     # ---------------------------------------------------------
     # MÓDULOS DE NEGÓCIO
