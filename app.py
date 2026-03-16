@@ -186,6 +186,7 @@ def create_app(config_class=Config):
             "img-src 'self' https: data:; "
             "font-src 'self' data:; "
             "connect-src 'self';"
+            "connect-src 'self' https://cdn.jsdelivr.net;"
         )
         
         # Prevenir caching de páginas sensíveis
