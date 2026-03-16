@@ -1,7 +1,7 @@
-# services/dashboard_service.py - VERSÃO CORRIGIDA
+# services/dashboard_service.py - VERSÃO 100% CORRIGIDA
 
 from models import db, MovAdquirente, MovBanco, Adquirente
-from sqlalchemy import func, or_
+from sqlalchemy import func, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
@@ -13,77 +13,64 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
     Calcula KPIs do dashboard.
     
     ✅ periodos suportados:
-        - 'todos': Mostra TODOS os dados (sem filtro de data) ← NOVO
+        - 'todos': Mostra TODOS os dados (sem filtro de data)
         - 'personalizado': Filtra por data_inicio e data_fim
         - 'semana': Últimos 7 dias
-        - 'mes': Mês atual (padrão antigo)
+        - 'mes': Mês atual
         - 'ano': Ano atual
     """
     
     hoje = datetime.now().date()
     
-    # ✅ CORREÇÃO: Definir datas com suporte a 'todos'
+    # ✅ Definir datas com suporte a 'todos'
     if periodo == 'todos':
-        # Sem filtro de data - mostra tudo
         inicio = None
         fim = None
     elif periodo == 'personalizado' and data_inicio and data_fim:
-        inicio = datetime.strptime(data_inicio, "%Y-%m-%d").date()
-        fim = datetime.strptime(data_fim, "%Y-%m-%d").date()
+        try:
+            inicio = datetime.strptime(data_inicio, "%Y-%m-%d").date()
+            fim = datetime.strptime(data_fim, "%Y-%m-%d").date()
+        except ValueError as e:
+            logger.error(f"❌ Data inválida: inicio={data_inicio}, fim={data_fim}, erro={e}")
+            raise ValueError("Formato de data inválido. Use YYYY-MM-DD.")
     elif periodo == 'semana':
         inicio = hoje - timedelta(days=7)
         fim = hoje
     elif periodo == 'ano':
         inicio = hoje.replace(month=1, day=1)
         fim = hoje
-    else:  # mes (padrão antigo)
+    else:  # mes (padrão)
         inicio = hoje.replace(day=1)
         fim = hoje
     
-    # ✅ Função auxiliar para aplicar filtro de data (trata NULLs)
+    # ✅ Função auxiliar SEGURA para aplicar filtro de data
     def aplicar_filtro_data(query, campo_data, inicio, fim):
-        """Aplica filtro de data opcional, tratando NULLs"""
+        """Aplica filtro de data opcional de forma segura"""
+        # Se não há filtro, retorna query original
         if inicio is None and fim is None:
-            # Sem filtro - retorna query original
             return query
-        if inicio and fim:
-            # Filtro completo: inclui registros com data no período OU data NULL (opcional)
-            return query.filter(
-                or_(
-                    campo_data.between(inicio, fim),
-                    campo_data == None  # ← Incluir NULLs? Remova se não quiser
-                )
-            )
-        if inicio:
-            return query.filter(
-                or_(
-                    campo_data >= inicio,
-                    campo_data == None
-                )
-            )
-        if fim:
-            return query.filter(
-                or_(
-                    campo_data <= fim,
-                    campo_data == None
-                )
-            )
-        return query
+        
+        # Constrói condições individualmente
+        condicoes = [MovAdquirente.empresa_id == empresa_id]  # Sempre filtra por empresa
+        
+        if inicio is not None:
+            condicoes.append(campo_data >= inicio)
+        if fim is not None:
+            condicoes.append(campo_data <= fim)
+        
+        # Aplica todas as condições com and_()
+        return query.filter(and_(*condicoes))
     
-    # ✅ Total Vendas (com filtro opcional)
-    query_vendas = db.session.query(
-        func.sum(MovAdquirente.valor_bruto)
-    ).filter(
+    # ✅ Total Vendas (query segura)
+    query_vendas = db.session.query(func.sum(MovAdquirente.valor_bruto)).filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.ativo == True  # ← Garantir que só conta ativos
+        MovAdquirente.ativo == True
     )
     query_vendas = aplicar_filtro_data(query_vendas, MovAdquirente.data_venda, inicio, fim)
     total_vendas = query_vendas.scalar() or Decimal("0")
     
-    # ✅ Total Recebido (com filtro opcional)
-    query_recebido = db.session.query(
-        func.sum(MovBanco.valor)
-    ).filter(
+    # ✅ Total Recebido (query segura)
+    query_recebido = db.session.query(func.sum(MovBanco.valor)).filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.conciliado == True,
         MovBanco.ativo == True
@@ -94,7 +81,7 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
     # ✅ Diferença
     diferenca = total_vendas - total_recebido
     
-    # ✅ Totais por Adquirente (com filtro opcional)
+    # ✅ Totais por Adquirente (query segura)
     query_adq = db.session.query(
         Adquirente.nome,
         func.sum(MovAdquirente.valor_bruto).label('total_vendas'),
@@ -108,7 +95,7 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
     query_adq = aplicar_filtro_data(query_adq, MovAdquirente.data_venda, inicio, fim)
     adquirentes = query_adq.group_by(Adquirente.nome).all()
     
-    # ✅ Vendas por Bandeira (com filtro opcional)
+    # ✅ Vendas por Bandeira (query segura)
     query_band = db.session.query(
         MovAdquirente.bandeira,
         func.count().label('quantidade'),
@@ -143,15 +130,13 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
 
 def tem_dados_cadastrados(empresa_id):
     """Verifica se empresa já tem dados (ignora filtro de data)"""
-    from models import MovAdquirente
     return MovAdquirente.query.filter_by(
         empresa_id=empresa_id,
         ativo=True
     ).count() > 0
 
 def calcular_resumo_rapido(empresa_id):
-    """Resumo rápido para header (sem filtro de data para ser cacheável)"""
-    # ✅ Sem filtro de data - mostra total acumulado
+    """Resumo rápido para header (sem filtro de data)"""
     vendas_total = db.session.query(
         func.sum(MovAdquirente.valor_bruto)
     ).filter(
