@@ -1,14 +1,13 @@
 // ============================================================
-//  DASHBOARD • NousCard Premium (VERSÃO FINAL COM RETRY)
+//  DASHBOARD • NousCard Premium (VERSÃO FINAL CORRIGIDA)
 // ============================================================
 
-let ultimoKpis = null;
-let graficoVendas = null;
-let graficoBandeiras = null;
-let kpiInterval = null;
-
-// Contador para prevenir spam de warnings (máx 3 tentativas)
-let graficoBandeirasRetryCount = 0;
+// ✅ Expor variáveis globalmente para acesso do inline script
+window.ultimoKpis = null;
+window.graficoVendas = null;
+window.graficoBandeiras = null;
+window.kpiInterval = null;
+window.graficoBandeirasRetryCount = 0;
 const MAX_GRAFICO_RETRY = 3;
 
 // ============================================================
@@ -85,14 +84,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(data.error || 'Erro ao carregar dados');
             }
 
-            ultimoKpis = data.kpis;
+            window.ultimoKpis = data.kpis;
 
             // Resetar contador de retry quando novos dados chegam
-            graficoBandeirasRetryCount = 0;
+            window.graficoBandeirasRetryCount = 0;
 
             // Atualizar UI com verificações de segurança
             atualizarKPIs(data.kpis, { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas });
-            atualizarAcquirers(data.kpis.acquirers || {}, acqContainer);
+            
+            // ✅ CORREÇÃO: API retorna "adquirentes", não "acquirers"
+            atualizarAcquirers(data.kpis.adquirentes || {}, acqContainer);
             
             // Renderizar gráficos se canvas existir e Chart.js estiver carregado
             if (ctxGrafico && window.Chart) {
@@ -119,11 +120,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
             // Manter valores anteriores ou mostrar placeholder
-            if (kpiVendas && !ultimoKpis) {
+            if (kpiVendas && !window.ultimoKpis) {
                 kpiVendas.textContent = '—';
             }
         }
     }
+    
+    // ✅ Expor carregarKPIs globalmente para o inline script
+    window.carregarKPIs = carregarKPIs;
 
     // ================== ATUALIZAR VALORES DOS KPIs ==================
     function atualizarKPIs(kpis, elements) {
@@ -150,6 +154,9 @@ document.addEventListener("DOMContentLoaded", () => {
             kpiAlertas.textContent = kpis.alertas;
         }
     }
+    
+    // ✅ Expor atualizarKPIs globalmente
+    window.atualizarKPIs = atualizarKPIs;
 
     // ================== CARDS DE ADQUIRENTES ==================
     function classFromAcquirer(nome) {
@@ -161,25 +168,23 @@ document.addEventListener("DOMContentLoaded", () => {
         return "acq-outros";
     }
 
-    function atualizarAcquirers(acquirers, container) {
+    function atualizarAcquirers(acquirentes, container) {
         if (!container) return;
 
         container.innerHTML = "";
 
-        const nomes = Object.keys(acquirers || {}).sort();
-
-        if (nomes.length === 0) {
+        // ✅ CORREÇÃO: Parâmetro é "adquirentes" (lista de objetos), não "acquirers" (objeto)
+        if (!adquirentes || !Array.isArray(adquirentes) || adquirentes.length === 0) {
             container.innerHTML = '<p class="nc-empty-state">Nenhuma adquirente encontrada.</p>';
             return;
         }
 
-        nomes.forEach(nome => {
-            const acq = acquirers[nome];
+        adquirentes.forEach(acq => {
             const card = document.createElement("button");
             card.type = "button";
-            card.className = `nc-acq-card acq-click ${classFromAcquirer(nome)}`;
-            card.dataset.acq = nome;
-            card.setAttribute('aria-label', `Ver detalhamento de ${escapeHtml(nome)}`);
+            card.className = `nc-acq-card acq-click ${classFromAcquirer(acq.nome)}`;
+            card.dataset.acq = acq.nome;
+            card.setAttribute('aria-label', `Ver detalhamento de ${escapeHtml(acq.nome)}`);
 
             const header = document.createElement("div");
             header.className = "nc-acq-header";
@@ -191,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const label = document.createElement("div");
             label.className = "nc-acq-label";
-            label.textContent = nome;
+            label.textContent = acq.nome;
             
             header.appendChild(icon);
             header.appendChild(label);
@@ -200,13 +205,13 @@ document.addEventListener("DOMContentLoaded", () => {
             values.className = "nc-acq-values";
             
             const vendas = document.createElement("strong");
-            vendas.textContent = `Vendas: ${formatCurrency(acq.vendas || 0)}`;
+            vendas.textContent = `Vendas: ${formatCurrency(acq.total_vendas || 0)}`;
             
             const recebido = document.createElement("span");
-            recebido.textContent = `\nRecebido: ${formatCurrency(acq.recebidos || 0)}`;
+            recebido.textContent = `\nRecebido: ${formatCurrency(acq.total_liquido || 0)}`;
             
             const diff = document.createElement("span");
-            const diffVal = parseFloat(acq.diferenca || 0);
+            const diffVal = parseFloat((acq.total_vendas || 0) - (acq.total_liquido || 0));
             diff.textContent = `\nDiferença: ${formatCurrency(diffVal)}`;
             if (diffVal < 0) diff.style.color = '#cc0000';
             
@@ -222,9 +227,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Listeners para abrir modal
         container.querySelectorAll(".acq-click").forEach(card => {
             card.addEventListener("click", () => {
-                if (!ultimoKpis) return;
+                if (!window.ultimoKpis) return;
                 const nome = card.dataset.acq;
-                const linhas = (ultimoKpis.detalhamento?.vendas || [])
+                const linhas = (window.ultimoKpis.detalhamento?.vendas || [])
                     .filter(l => (l.adquirente || "Outros") === nome);
 
                 abrirModal(
@@ -234,6 +239,9 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
     }
+    
+    // ✅ Expor atualizarAcquirers globalmente
+    window.atualizarAcquirers = atualizarAcquirers;
 
     // ================== GRÁFICO VENDAS x RECEBIDO ==================
     function atualizarGraficoVendas(kpis, ctx) {
@@ -253,16 +261,16 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        if (graficoVendas) {
-            graficoVendas.destroy();
-            graficoVendas = null;
+        if (window.graficoVendas) {
+            window.graficoVendas.destroy();
+            window.graficoVendas = null;
         }
 
         const vendas = parseFloat(kpis.total_vendas) || 0;
         const recebido = parseFloat(kpis.total_recebido) || 0;
 
         try {
-            graficoVendas = new Chart(ctx, {
+            window.graficoVendas = new Chart(ctx, {
                 type: "bar",
                 data: {
                     labels: ["Vendas", "Recebido"],
@@ -310,6 +318,9 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error('Erro ao criar gráfico de vendas:', err);
         }
     }
+    
+    // ✅ Expor atualizarGraficoVendas globalmente
+    window.atualizarGraficoVendas = atualizarGraficoVendas;
 
     // ================== GRÁFICO BANDEIRAS ==================
     function atualizarGraficoBandeiras(bandeiras, ctx) {
@@ -323,8 +334,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // ✅ CORREÇÃO: Se container não tem dimensões, tentar novamente com requestAnimationFrame
         if (!container || container.offsetWidth === 0) {
             // Prevenir spam: só tenta retry até MAX_GRAFICO_RETRY vezes
-            if (graficoBandeirasRetryCount < MAX_GRAFICO_RETRY) {
-                graficoBandeirasRetryCount++;
+            if (window.graficoBandeirasRetryCount < MAX_GRAFICO_RETRY) {
+                window.graficoBandeirasRetryCount++;
                 requestAnimationFrame(() => {
                     if (container && container.offsetWidth > 0) {
                         atualizarGraficoBandeiras(bandeiras, ctx);
@@ -341,7 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Resetar contador quando gráfico for renderizado com sucesso
-        graficoBandeirasRetryCount = 0;
+        window.graficoBandeirasRetryCount = 0;
 
         const labels = Object.keys(bandeiras || {});
         
@@ -350,15 +361,15 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const valores = labels.map(l => parseFloat(bandeiras[l]?.vendas) || 0);
+        const valores = labels.map(l => parseFloat(bandeiras[l]?.total || bandeiras[l]?.vendas) || 0);
 
-        if (graficoBandeiras) {
-            graficoBandeiras.destroy();
-            graficoBandeiras = null;
+        if (window.graficoBandeiras) {
+            window.graficoBandeiras.destroy();
+            window.graficoBandeiras = null;
         }
 
         try {
-            graficoBandeiras = new Chart(ctx, {
+            window.graficoBandeiras = new Chart(ctx, {
                 type: "doughnut",
                 data: {
                     labels,
@@ -409,6 +420,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     }
+    
+    // ✅ Expor atualizarGraficoBandeiras globalmente
+    window.atualizarGraficoBandeiras = atualizarGraficoBandeiras;
 
     // ================== MODAL SEGURO E ACESSÍVEL ==================
     function criarElementoSeguro(tag, textContent, className = '') {
@@ -526,15 +540,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // ================== CLIQUES NOS KPIs ==================
     document.querySelectorAll(".kpi-click").forEach(card => {
         card.addEventListener("click", () => {
-            if (!ultimoKpis) return;
+            if (!window.ultimoKpis) return;
             const acao = card.dataset.acao;
 
             if (acao === "vendas") {
-                abrirModal("Detalhamento de Vendas", ultimoKpis.detalhamento?.vendas || []);
+                abrirModal("Detalhamento de Vendas", window.ultimoKpis.detalhamento?.vendas || []);
             } else if (acao === "recebidos") {
-                abrirModal("Detalhamento de Recebimentos", ultimoKpis.detalhamento?.recebidos || []);
+                abrirModal("Detalhamento de Recebimentos", window.ultimoKpis.detalhamento?.recebidos || []);
             } else if (acao === "diferencas") {
-                abrirModal("Diferenças (vendas ainda não conciliadas)", ultimoKpis.detalhamento?.vendas || []);
+                abrirModal("Diferenças (vendas ainda não conciliadas)", window.ultimoKpis.detalhamento?.vendas || []);
             }
         });
     });
@@ -544,11 +558,11 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            if (graficoVendas && ultimoKpis) {
-                atualizarGraficoVendas(ultimoKpis, ctxGrafico);
+            if (window.graficoVendas && window.ultimoKpis) {
+                atualizarGraficoVendas(window.ultimoKpis, ctxGrafico);
             }
-            if (graficoBandeiras && ultimoKpis?.bandeiras) {
-                atualizarGraficoBandeiras(ultimoKpis.bandeiras, ctxBandeiras);
+            if (window.graficoBandeiras && window.ultimoKpis?.bandeiras) {
+                atualizarGraficoBandeiras(window.ultimoKpis.bandeiras, ctxBandeiras);
             }
         }, 250);
     });
@@ -556,14 +570,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // ================== INICIAR LOOP DE ATUALIZAÇÃO ==================
     carregarKPIs();
     
-    if (kpiInterval) clearInterval(kpiInterval);
-    kpiInterval = setInterval(carregarKPIs, 30000);
+    if (window.kpiInterval) clearInterval(window.kpiInterval);
+    window.kpiInterval = setInterval(carregarKPIs, 30000);
 
     // ================== CLEANUP NO UNLOAD ==================
     window.addEventListener('beforeunload', () => {
-        if (kpiInterval) clearInterval(kpiInterval);
-        if (graficoVendas) graficoVendas.destroy();
-        if (graficoBandeiras) graficoBandeiras.destroy();
+        if (window.kpiInterval) clearInterval(window.kpiInterval);
+        if (window.graficoVendas) window.graficoVendas.destroy();
+        if (window.graficoBandeiras) window.graficoBandeiras.destroy();
         clearTimeout(resizeTimeout);
     });
 });
