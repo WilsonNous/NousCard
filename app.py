@@ -4,6 +4,8 @@
 #  Garantindo instância única do db
 # ============================================================
 
+# app.py
+from utils.context_processors import inject_global_vars
 from flask import Flask, g, request, redirect, url_for, session
 from config import Config
 from models.base import db, init_db, cleanup_session  # ✅ ÚNICO import do db
