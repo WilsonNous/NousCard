@@ -1,7 +1,8 @@
-# services/importer_db_movimento.py - VERSÃO CORRIGIDA
+# services/importer_db_movimento.py
+# ✅ VERSÃO FINAL CORRIGIDA: to_date() reconhece datetime.date + datetime.datetime
 
 from models import db, MovAdquirente, MovBanco, Adquirente, ContaBancaria
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone  # ← ✅ IMPORTANTE: importar 'date'
 from decimal import Decimal, InvalidOperation
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy import func
@@ -15,41 +16,81 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 100
 
 # ============================================================
-# CONVERTERS SEGUROS
+# CONVERTERS SEGUROS (CORRIGIDOS)
 # ============================================================
+
 def to_date(valor):
-    """Converte valor para date de forma segura"""
+    """
+    Converte valor para date de forma segura.
+    
+    ✅ Suporta:
+        - datetime.date (já é date, retorna direto)
+        - datetime.datetime (converte para date)
+        - str (parseia nos formatos suportados)
+        - None/empty (retorna None)
+    """
     if not valor:
         return None
     
-    if isinstance(valor, (datetime,)):
+    # ✅ Se já for um objeto date (mas não datetime), retorna diretamente
+    # Isso evita que dates do parser sejam convertidos para None
+    if isinstance(valor, date) and not isinstance(valor, datetime):
+        return valor
+    
+    # ✅ Se for datetime, extrai a parte de date
+    if isinstance(valor, datetime):
         return valor.date()
     
+    # ✅ Se for string, tenta parsear em múltiplos formatos
     if isinstance(valor, str):
-        formatos = ["%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S"]
+        valor = valor.strip()  # Remove espaços extras que podem quebrar o parse
+        formatos = [
+            "%Y-%m-%d",           # 2026-02-01 (ISO, mais comum)
+            "%d/%m/%Y",           # 01/02/2026 (formato BR)
+            "%Y-%m-%d %H:%M:%S",  # 2026-02-01 10:30:00 (com hora)
+            "%d/%m/%Y %H:%M:%S",  # 01/02/2026 10:30:00 (BR com hora)
+        ]
         for fmt in formatos:
             try:
                 return datetime.strptime(valor, fmt).date()
-            except:
-                pass
+            except (ValueError, TypeError):
+                continue  # Tenta próximo formato
+        
+        # Se nenhum formato funcionou, loga warning para debug
+        logger.warning(f"⚠️ Não foi possível parsear data: '{valor}'")
+        return None
     
+    # Tipo não suportado
+    logger.warning(f"⚠️ Tipo de data não suportado: {type(valor).__name__} = {valor}")
     return None
+
 
 def to_decimal(valor, default=Decimal("0")):
     """Converte valor para Decimal de forma segura"""
     try:
         if valor is None:
             return default
+        # Se já for Decimal, retorna direto
+        if isinstance(valor, Decimal):
+            return valor
         return Decimal(str(valor))
-    except (InvalidOperation, ValueError, TypeError):
-        logger.warning(f"Valor inválido para Decimal: {valor}")
+    except (InvalidOperation, ValueError, TypeError) as e:
+        logger.warning(f"⚠️ Valor inválido para Decimal: {valor} (erro: {e})")
         return default
+
 
 def to_int(valor, default=None):
     """Converte valor para int de forma segura"""
     try:
-        return int(valor) if valor is not None else default
-    except (ValueError, TypeError):
+        if valor is None:
+            return default
+        if isinstance(valor, str):
+            valor = valor.strip()
+            if not valor:
+                return default
+        return int(valor)
+    except (ValueError, TypeError) as e:
+        logger.warning(f"⚠️ Valor inválido para int: {valor} (erro: {e})")
         return default
 
 # ============================================================
@@ -59,38 +100,49 @@ def to_int(valor, default=None):
 def validar_adquirente(valor, empresa_id=None):
     """
     Valida adquirente por ID numérico OU por nome (string).
+    
+    Args:
+        valor: ID (int) OU nome (str) da adquirente
+        empresa_id: Opcional, para filtrar por empresa se necessário
+    
+    Returns:
+        int: ID da adquirente se encontrado, None caso contrário
     """
     if not valor:
         return None
     
-    # ✅ Se for número, tenta buscar por ID
-    if isinstance(valor, (int,)) or (isinstance(valor, str) and str(valor).strip().isdigit()):
-        adquirente = Adquirente.query.filter_by(id=int(valor)).first()
-        if adquirente:
-            return adquirente.id
+    # ✅ Se for número (int ou string numérica), tenta buscar por ID
+    if isinstance(valor, int) or (isinstance(valor, str) and valor.strip().isdigit()):
+        try:
+            adquirente = Adquirente.query.filter_by(id=int(valor)).first()
+            if adquirente:
+                return adquirente.id
+        except (ValueError, TypeError):
+            pass  # Se não conseguir converter, tenta como nome abaixo
     
-    # ✅ Se for string, tenta buscar por nome (case-insensitive)
+    # ✅ Se for string, tenta buscar por nome (case-insensitive, tolerante a espaços)
     if isinstance(valor, str):
         nome_normalizado = valor.strip().lower()
         
-        # Match exato
+        # Match exato (case-insensitive)
         adquirente = Adquirente.query.filter(
             func.lower(Adquirente.nome) == nome_normalizado
         ).first()
         if adquirente:
             return adquirente.id
         
-        # Match parcial (contém)
+        # Match parcial (contém) - útil para variações como "Cielo Ltda"
         adquirente = Adquirente.query.filter(
             func.lower(Adquirente.nome).contains(nome_normalizado)
         ).first()
         if adquirente:
             return adquirente.id
         
-        # Debug log (remover após teste)
-        logger.warning(f"⚠️ Adquirente não encontrado: '{valor}'")
+        # Debug log para identificar adquirentes não mapeadas
+        logger.warning(f"⚠️ Adquirente não encontrada: '{valor}' (normalizado: '{nome_normalizado}')")
     
     return None
+
 
 def validar_conta_bancaria(conta_id, empresa_id):
     """Valida se conta bancária existe e pertence à empresa"""
@@ -99,27 +151,46 @@ def validar_conta_bancaria(conta_id, empresa_id):
     
     # Se for string numérica, converter para int
     if isinstance(conta_id, str) and conta_id.strip().isdigit():
-        conta_id = int(conta_id.strip())
+        try:
+            conta_id = int(conta_id.strip())
+        except (ValueError, TypeError):
+            return None
     
-    conta = ContaBancaria.query.filter_by(id=int(conta_id), empresa_id=empresa_id).first()
-    return conta.id if conta else None
+    try:
+        conta = ContaBancaria.query.filter_by(id=int(conta_id), empresa_id=empresa_id).first()
+        return conta.id if conta else None
+    except (ValueError, TypeError):
+        return None
+
 
 def verificar_venda_duplicada(empresa_id, nsu, adquirente_id):
-    """Verifica se venda já existe pelo NSU"""
+    """Verifica se venda já existe pelo NSU (evita duplicatas)"""
     if not nsu:
         return False
-    venda = MovAdquirente.query.filter_by(
-        empresa_id=empresa_id,
-        adquirente_id=adquirente_id,
-        nsu=str(nsu)
-    ).first()
-    return venda is not None
+    try:
+        venda = MovAdquirente.query.filter_by(
+            empresa_id=empresa_id,
+            adquirente_id=adquirente_id,
+            nsu=str(nsu).strip()
+        ).first()
+        return venda is not None
+    except Exception:
+        return False  # Em caso de erro, assume não duplicada para não bloquear
 
 # ============================================================
 # SALVAR VENDAS (CORRIGIDO)
 # ============================================================
+
 def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
-    """Salva vendas em batches com validação inteligente de adquirente"""
+    """
+    Salva vendas em batches com validação inteligente.
+    
+    ✅ Features:
+        - Validação de adquirente por nome OU ID
+        - Tratamento seguro de datas (to_date corrigido)
+        - Prevenção de duplicatas por NSU
+        - Logs detalhados para debug
+    """
     
     logger.info(f"🔍 Início importação vendas: empresa={empresa_id}, registros={len(registros)}")
     
@@ -139,16 +210,13 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
             
             for r in batch:
                 try:
-                    # Validar dados obrigatórios
+                    # 🔹 Validar dados obrigatórios
                     valor_bruto = to_decimal(r.get("valor_bruto"))
                     if valor_bruto <= 0:
                         estatisticas["invalidos"] += 1
                         continue
                     
-                    # ✅ CORREÇÃO: Validar adquirente por nome OU ID
-                    # Tenta primeiro adquirente_id (numérico), depois adquirente (nome)
-                    adquirente_valor = r.get("adquirente_id") or r.get("adquirente")
-                    # Por esta versão flexível:
+                    # 🔹 Validar adquirente (flexível: nome OU ID)
                     adquirente_valor = r.get("adquirente_id") or r.get("adquirente")
                     adquirente_id = validar_adquirente(adquirente_valor, empresa_id)
                     
@@ -157,28 +225,38 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                         estatisticas["falhas"] += 1
                         continue
                     
-                    # Verificar duplicata
+                    # 🔹 Verificar duplicata por NSU
                     if verificar_venda_duplicada(empresa_id, r.get("nsu"), adquirente_id):
                         estatisticas["duplicatas"] += 1
                         continue
                     
-                    # Criar venda
+                    # 🔹 Criar objeto MovAdquirente
                     venda = MovAdquirente(
                         empresa_id=empresa_id,
                         adquirente_id=adquirente_id,
-                        data_venda=to_date(r.get("data_venda") or r.get("data")),
-                        data_prevista_pagamento=to_date(r.get("data_prevista")),
-                        bandeira=str(r.get("bandeira", ""))[:50] if r.get("bandeira") else None,
-                        produto=str(r.get("produto", ""))[:50] if r.get("produto") else None,
+                        
+                        # ✅ CORREÇÃO CRÍTICA: to_date() agora reconhece date e datetime
+                        data_venda=to_date(r.get("data_venda") or r.get("data") or r.get("dt_venda")),
+                        data_prevista_pagamento=to_date(r.get("data_prevista") or r.get("data_prevista_pagamento")),
+                        
+                        # Campos opcionais com truncamento para evitar estouro de coluna
+                        bandeira=str(r.get("bandeira", "")).strip()[:50] if r.get("bandeira") else None,
+                        produto=str(r.get("produto", "")).strip()[:50] if r.get("produto") else None,
                         parcela=to_int(r.get("parcela")),
                         total_parcelas=to_int(r.get("total_parcelas")),
-                        nsu=str(r.get("nsu", ""))[:50] if r.get("nsu") else None,
-                        autorizacao=str(r.get("autorizacao", ""))[:50] if r.get("autorizacao") else None,
+                        nsu=str(r.get("nsu", "")).strip()[:50] if r.get("nsu") else None,
+                        autorizacao=str(r.get("autorizacao", "")).strip()[:50] if r.get("autorizacao") else None,
+                        
+                        # Valores monetários
                         valor_bruto=valor_bruto,
-                        taxa_cobrada=to_decimal(r.get("taxa")),
-                        valor_liquido=to_decimal(r.get("valor_liquido")),
+                        taxa_cobrada=to_decimal(r.get("taxa") or r.get("taxa_cobrada")),
+                        valor_liquido=to_decimal(r.get("valor_liquido") or r.get("vl_liquido")),
+                        
+                        # Status padrão
                         valor_conciliado=Decimal("0"),
                         status_conciliacao="pendente",
+                        
+                        # Metadados
                         arquivo_origem=str(arquivo_id)[:255] if arquivo_id else None
                     )
                     
@@ -196,6 +274,10 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
             db.session.rollback()
             logger.error(f"❌ Erro no batch {i}: {str(e)}")
             estatisticas["falhas"] += len(batch)
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"❌ Erro inesperado no batch {i}: {str(e)}")
+            estatisticas["falhas"] += len(batch)
     
     logger.info(f"✅ Fim importação vendas: {estatisticas}")
     
@@ -204,8 +286,16 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
 # ============================================================
 # SALVAR RECEBIMENTOS
 # ============================================================
+
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
-    """Salva recebimentos em batches com validação e tratamento de erro"""
+    """
+    Salva recebimentos em batches com validação e tratamento de erro.
+    
+    ✅ Features:
+        - Validação de conta bancária por empresa
+        - Tratamento seguro de datas (to_date corrigido)
+        - Logs detalhados para debug
+    """
     
     logger.info(f"🔍 Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
     
@@ -225,31 +315,40 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
             
             for r in batch:
                 try:
-                    # Validar dados obrigatórios
+                    # 🔹 Validar dados obrigatórios
                     valor = to_decimal(r.get("valor"))
                     if valor <= 0:
                         estatisticas["invalidos"] += 1
                         continue
                     
-                    # Validar conta bancária
+                    # 🔹 Validar conta bancária
                     conta_id = validar_conta_bancaria(r.get("conta_id"), empresa_id)
                     if not conta_id:
-                        # Se não tem conta_id, tenta usar um padrão ou pula
-                        logger.warning(f"⚠️ Conta bancária não encontrada para recebimento: {r.get('conta_id')}")
+                        logger.warning(f"⚠️ Conta bancária não encontrada: {r.get('conta_id')}")
                         estatisticas["falhas"] += 1
                         continue
                     
-                    # Criar recebimento
+                    # 🔹 Criar objeto MovBanco
                     mov = MovBanco(
                         empresa_id=empresa_id,
                         conta_bancaria_id=conta_id,
-                        data_movimento=to_date(r.get("data") or r.get("data_movimento")),
-                        historico=str(r.get("descricao") or r.get("historico", ""))[:255],
-                        documento=str(r.get("documento", ""))[:100],
-                        origem=str(r.get("origem", ""))[:50],
+                        
+                        # ✅ CORREÇÃO CRÍTICA: to_date() agora reconhece date e datetime
+                        data_movimento=to_date(r.get("data") or r.get("data_movimento") or r.get("dt_movimento")),
+                        
+                        # Campos opcionais com truncamento
+                        historico=str(r.get("descricao") or r.get("historico") or "").strip()[:255],
+                        documento=str(r.get("documento") or "").strip()[:100],
+                        origem=str(r.get("origem") or "").strip()[:50],
+                        
+                        # Valor monetário
                         valor=valor,
+                        
+                        # Status padrão
                         valor_conciliado=Decimal("0"),
                         conciliado=False,
+                        
+                        # Metadados
                         arquivo_origem=str(arquivo_id)[:255] if arquivo_id else None
                     )
                     
@@ -266,6 +365,10 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
         except SQLAlchemyError as e:
             db.session.rollback()
             logger.error(f"❌ Erro no batch {i}: {str(e)}")
+            estatisticas["falhas"] += len(batch)
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"❌ Erro inesperado no batch {i}: {str(e)}")
             estatisticas["falhas"] += len(batch)
     
     logger.info(f"✅ Fim importação recebimentos: {estatisticas}")
