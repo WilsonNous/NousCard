@@ -1,7 +1,10 @@
+# services/importer_db_movimento.py - VERSÃO CORRIGIDA
+
 from models import db, MovAdquirente, MovBanco, Adquirente, ContaBancaria
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import func
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,19 +53,60 @@ def to_int(valor, default=None):
         return default
 
 # ============================================================
-# VALIDAÇÕES
+# VALIDAÇÕES INTELIGENTES
 # ============================================================
-def validar_adquirente(adquirente_id):
-    """Valida se adquirente existe"""
-    if not adquirente_id:
+def validar_adquirente(valor, empresa_id=None):
+    """
+    Valida adquirente por ID numérico OU por nome (string).
+    
+    Args:
+        valor: ID numérico OU nome da adquirente (ex: "Cielo", "Rede")
+        empresa_id: Opcional, para filtrar por empresa se necessário
+    
+    Returns:
+        int: ID da adquirente se encontrado, None caso contrário
+    """
+    if not valor:
         return None
-    adquirente = Adquirente.query.filter_by(id=int(adquirente_id)).first()
-    return adquirente.id if adquirente else None
+    
+    # ✅ Se for número, tenta buscar por ID
+    if isinstance(valor, (int,)) or (isinstance(valor, str) and valor.strip().isdigit()):
+        adquirente = Adquirente.query.filter_by(id=int(valor)).first()
+        if adquirente:
+            return adquirente.id
+    
+    # ✅ Se for string, tenta buscar por nome (case-insensitive, tolerante a espaços)
+    if isinstance(valor, str):
+        nome_normalizado = valor.strip().lower()
+        
+        # Tenta match exato primeiro
+        adquirente = Adquirente.query.filter(
+            func.lower(Adquirente.nome) == nome_normalizado
+        ).first()
+        if adquirente:
+            return adquirente.id
+        
+        # Tenta match parcial (contém)
+        adquirente = Adquirente.query.filter(
+            func.lower(Adquirente.nome).contains(nome_normalizado)
+        ).first()
+        if adquirente:
+            return adquirente.id
+        
+        # Log para debug (remover após teste)
+        logger.warning(f"⚠️ Adquirente não encontrado: '{valor}' (normalizado: '{nome_normalizado}')")
+    
+    return None
 
 def validar_conta_bancaria(conta_id, empresa_id):
     """Valida se conta bancária existe e pertence à empresa"""
     if not conta_id:
         return None
+    
+    # Se for string numérica, converter para int
+    if isinstance(conta_id, str) and conta_id.strip().isdigit():
+        conta_id = int(conta_id.strip())
+    
     conta = ContaBancaria.query.filter_by(id=int(conta_id), empresa_id=empresa_id).first()
     return conta.id if conta else None
 
@@ -78,12 +122,12 @@ def verificar_venda_duplicada(empresa_id, nsu, adquirente_id):
     return venda is not None
 
 # ============================================================
-# SALVAR VENDAS
+# SALVAR VENDAS (CORRIGIDO)
 # ============================================================
 def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
-    """Salva vendas em batches com validação e tratamento de erro"""
+    """Salva vendas em batches com validação inteligente de adquirente"""
     
-    logger.info(f"Início importação vendas: empresa={empresa_id}, registros={len(registros)}")
+    logger.info(f"🔍 Início importação vendas: empresa={empresa_id}, registros={len(registros)}")
     
     estatisticas = {
         "total": len(registros),
@@ -107,9 +151,13 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                         estatisticas["invalidos"] += 1
                         continue
                     
-                    # Validar adquirente
-                    adquirente_id = validar_adquirente(r.get("adquirente_id"))
+                    # ✅ CORREÇÃO: Validar adquirente por nome OU ID
+                    # Tenta primeiro adquirente_id (numérico), depois adquirente (nome)
+                    adquirente_valor = r.get("adquirente_id") or r.get("adquirente")
+                    adquirente_id = validar_adquirente(adquirente_valor, empresa_id)
+                    
                     if not adquirente_id:
+                        logger.warning(f"⚠️ Falha ao validar adquirente: {adquirente_valor}")
                         estatisticas["falhas"] += 1
                         continue
                     
@@ -122,7 +170,7 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                     venda = MovAdquirente(
                         empresa_id=empresa_id,
                         adquirente_id=adquirente_id,
-                        data_venda=to_date(r.get("data_venda")),
+                        data_venda=to_date(r.get("data_venda") or r.get("data")),
                         data_prevista_pagamento=to_date(r.get("data_prevista")),
                         bandeira=str(r.get("bandeira", ""))[:50] if r.get("bandeira") else None,
                         produto=str(r.get("produto", ""))[:50] if r.get("produto") else None,
@@ -142,7 +190,7 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                     estatisticas["sucesso"] += 1
                     
                 except Exception as e:
-                    logger.error(f"Erro ao processar venda: {str(e)}")
+                    logger.error(f"❌ Erro ao processar venda: {str(e)}, registro={r}")
                     estatisticas["falhas"] += 1
                     continue
             
@@ -150,10 +198,10 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
             
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(f"Erro no batch {i}: {str(e)}")
+            logger.error(f"❌ Erro no batch {i}: {str(e)}")
             estatisticas["falhas"] += len(batch)
     
-    logger.info(f"Fim importação vendas: {estatisticas}")
+    logger.info(f"✅ Fim importação vendas: {estatisticas}")
     
     return estatisticas
 
@@ -163,7 +211,7 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
     """Salva recebimentos em batches com validação e tratamento de erro"""
     
-    logger.info(f"Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
+    logger.info(f"🔍 Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
     
     estatisticas = {
         "total": len(registros),
@@ -190,6 +238,8 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                     # Validar conta bancária
                     conta_id = validar_conta_bancaria(r.get("conta_id"), empresa_id)
                     if not conta_id:
+                        # Se não tem conta_id, tenta usar um padrão ou pula
+                        logger.warning(f"⚠️ Conta bancária não encontrada para recebimento: {r.get('conta_id')}")
                         estatisticas["falhas"] += 1
                         continue
                     
@@ -197,10 +247,10 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                     mov = MovBanco(
                         empresa_id=empresa_id,
                         conta_bancaria_id=conta_id,
-                        data_movimento=to_date(r.get("data")),
-                        historico=str(r.get("descricao", ""))[:255] if r.get("descricao") else None,
-                        documento=str(r.get("documento", ""))[:100] if r.get("documento") else None,
-                        origem=str(r.get("origem", ""))[:50] if r.get("origem") else None,
+                        data_movimento=to_date(r.get("data") or r.get("data_movimento")),
+                        historico=str(r.get("descricao") or r.get("historico", ""))[:255],
+                        documento=str(r.get("documento", ""))[:100],
+                        origem=str(r.get("origem", ""))[:50],
                         valor=valor,
                         valor_conciliado=Decimal("0"),
                         conciliado=False,
@@ -211,7 +261,7 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                     estatisticas["sucesso"] += 1
                     
                 except Exception as e:
-                    logger.error(f"Erro ao processar recebimento: {str(e)}")
+                    logger.error(f"❌ Erro ao processar recebimento: {str(e)}, registro={r}")
                     estatisticas["falhas"] += 1
                     continue
             
@@ -219,9 +269,9 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
             
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(f"Erro no batch {i}: {str(e)}")
+            logger.error(f"❌ Erro no batch {i}: {str(e)}")
             estatisticas["falhas"] += len(batch)
     
-    logger.info(f"Fim importação recebimentos: {estatisticas}")
+    logger.info(f"✅ Fim importação recebimentos: {estatisticas}")
     
     return estatisticas
