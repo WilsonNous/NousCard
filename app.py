@@ -40,7 +40,10 @@ def create_app(config_class=Config):
     
     app = Flask(__name__)
     app.config.from_object(config_class)
-
+    
+    # Registrar context processor
+    app.context_processor(inject_global_vars)
+    
     # ---------------------------------------------------------
     # SENTRY (MONITORAMENTO DE ERROS - PRODUÇÃO)
     # ---------------------------------------------------------
