@@ -1,4 +1,4 @@
-# routes/__init__.py - VERSÃO CORRIGIDA
+# routes/__init__.py - VERSÃO FINAL CORRIGIDA
 
 from .dashboard_routes import dashboard_bp
 from .contrato_routes import contrato_bp
@@ -8,7 +8,7 @@ from .empresas_routes import empresas_bp
 from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
 from .dashboard_api import dashboard_api
-from .conciliacao_api import bp_con
+from .conciliacao_api import bp_conc  # ← ✅ CORRETO: bp_conc (não bp_con)
 
 
 def register_blueprints(app):
@@ -38,7 +38,10 @@ def register_blueprints(app):
     # APIs (versionadas)
     # ---------------------------------------------------------
     app.register_blueprint(dashboard_api, url_prefix='/api/v1/dashboard')
-    app.register_blueprint(bp_conc, url_prefix='/api/v1/conciliacao')
+    
+    # ✅ CORREÇÃO: bp_conc JÁ TEM url_prefix definido no arquivo!
+    # Não adicionar outro prefixo aqui para evitar duplicação
+    app.register_blueprint(bp_conc)  # ← ✅ SEM url_prefix adicional!
     
     # ---------------------------------------------------------
     # ÁREA ADMINISTRATIVA (restrita)
