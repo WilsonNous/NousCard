@@ -106,54 +106,57 @@
 </section>
 
 <!-- Scripts -->
-<!-- ✅ CORREÇÃO: URL do Chart.js sem espaços extras -->
+<!-- ✅ CORREÇÃO: URL do Chart.js SEM espaços extras -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 
-<!-- ===================== SCRIPTS DOS FILTROS ===================== -->
+<!-- ===================== SCRIPTS DOS FILTROS (CORRIGIDO) ===================== -->
 <script>
-// Funções para filtros de data - integradas com o dashboard.js existente
+// ✅ Funções para filtros de data - com escopo correto das variáveis DOM
 
 window.aplicarFiltros = function() {
-    const inicio = document.getElementById('filtroInicio').value;
-    const fim = document.getElementById('filtroFim').value;
+    const inicio = document.getElementById('filtroInicio')?.value;
+    const fim = document.getElementById('filtroFim')?.value;
     
-    // Construir parâmetros da query string
     const params = new URLSearchParams();
     
     if (inicio && fim) {
-        // Período personalizado
         params.append('periodo', 'personalizado');
         params.append('data_inicio', inicio);
         params.append('data_fim', fim);
     } else if (inicio) {
-        // Apenas data início
         params.append('periodo', 'personalizado');
         params.append('data_inicio', inicio);
     } else if (fim) {
-        // Apenas data fim
         params.append('periodo', 'personalizado');
         params.append('data_fim', fim);
     } else {
-        // Sem filtros = mostra tudo
         params.append('periodo', 'todos');
     }
     
-    // Recarregar KPIs com os filtros
     carregarKPIsComFiltros(params.toString());
 };
 
 window.limparFiltros = function() {
-    // Limpar inputs
-    document.getElementById('filtroInicio').value = '';
-    document.getElementById('filtroFim').value = '';
-    
-    // Recarregar sem filtros (mostra todos os dados)
+    const filtroInicio = document.getElementById('filtroInicio');
+    const filtroFim = document.getElementById('filtroFim');
+    if (filtroInicio) filtroInicio.value = '';
+    if (filtroFim) filtroFim.value = '';
     carregarKPIs();
 };
 
-// Versão de carregarKPIs que aceita query string de filtros
+// ✅ Versão corrigida: obtém elementos DOM dentro da função (escopo correto)
 async function carregarKPIsComFiltros(queryString = '') {
+    // ✅ Obtém elementos DOM aqui (escopo correto para evitar ReferenceError)
+    const kpiVendas = document.querySelector(".kpi-value-vendas");
+    const kpiRecebido = document.querySelector(".kpi-value-recebido");
+    const kpiDiferenca = document.querySelector(".kpi-value-diferenca");
+    const kpiAlertas = document.querySelector(".kpi-value-alertas");
+    const ctxGrafico = document.getElementById("graficoVendasRecebidos");
+    const ctxBandeiras = document.getElementById("graficoBandeiras");
+    const acqContainer = document.getElementById("acqContainer");
+    const dashboardError = document.getElementById("dashboard-error");  // ✅ Definido no escopo!
+    
     // Mostrar loading
     const kpiElements = document.querySelectorAll('.kpi-value[data-loading="true"]');
     kpiElements.forEach(el => {
@@ -181,27 +184,22 @@ async function carregarKPIsComFiltros(queryString = '') {
             throw new Error(data.error || 'Erro ao carregar dados');
         }
 
-        // Atualizar estado global
-        ultimoKpis = data.kpis;
-        graficoBandeirasRetryCount = 0;
+        // Atualizar estado global (verifica se variáveis existem)
+        if (typeof ultimoKpis !== 'undefined') ultimoKpis = data.kpis;
+        if (typeof graficoBandeirasRetryCount !== 'undefined') graficoBandeirasRetryCount = 0;
 
-        // Atualizar UI
-        const kpiVendas = document.querySelector(".kpi-value-vendas");
-        const kpiRecebido = document.querySelector(".kpi-value-recebido");
-        const kpiDiferenca = document.querySelector(".kpi-value-diferenca");
-        const kpiAlertas = document.querySelector(".kpi-value-alertas");
-        const ctxGrafico = document.getElementById("graficoVendasRecebidos");
-        const ctxBandeiras = document.getElementById("graficoBandeiras");
-        const acqContainer = document.getElementById("acqContainer");
-        const dashboardError = document.getElementById("dashboard-error");
-
-        atualizarKPIs(data.kpis, { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas });
-        atualizarAcquirers(data.kpis.adquirentes || {}, acqContainer);
+        // Atualizar UI (usa elementos obtidos no escopo correto)
+        if (typeof atualizarKPIs === 'function') {
+            atualizarKPIs(data.kpis, { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas });
+        }
+        if (typeof atualizarAcquirers === 'function') {
+            atualizarAcquirers(data.kpis.adquirentes || {}, acqContainer);
+        }
         
-        if (ctxGrafico && window.Chart) {
+        if (ctxGrafico && window.Chart && typeof atualizarGraficoVendas === 'function') {
             atualizarGraficoVendas(data.kpis, ctxGrafico);
         }
-        if (ctxBandeiras && window.Chart) {
+        if (ctxBandeiras && window.Chart && typeof atualizarGraficoBandeiras === 'function') {
             atualizarGraficoBandeiras(data.kpis.bandeiras || {}, ctxBandeiras);
         }
 
@@ -214,6 +212,7 @@ async function carregarKPIsComFiltros(queryString = '') {
     } catch (err) {
         console.error("Erro ao carregar KPIs com filtros:", err);
         
+        // ✅ Usa dashboardError obtido no início da função (escopo correto)
         if (dashboardError) {
             dashboardError.textContent = '⚠️ Não foi possível carregar os dados. Verifique sua conexão e tente novamente.';
             dashboardError.style.display = 'block';
@@ -222,15 +221,13 @@ async function carregarKPIsComFiltros(queryString = '') {
     }
 }
 
-// ✅ Inicializar com todos os dados por padrão (sem filtros)
+// ✅ Inicialização segura
 document.addEventListener("DOMContentLoaded", function() {
-    // Garantir que os inputs de data estão vazios ao carregar
     const filtroInicio = document.getElementById('filtroInicio');
     const filtroFim = document.getElementById('filtroFim');
     if (filtroInicio) filtroInicio.value = '';
     if (filtroFim) filtroFim.value = '';
     
-    // Carregar KPIs sem filtros = mostra todos os dados
     if (typeof carregarKPIs === 'function') {
         carregarKPIs();
     }
