@@ -1,18 +1,33 @@
+# services/dashboard_service.py - VERSÃO CORRIGIDA
+
 from models import db, MovAdquirente, MovBanco, Adquirente
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime, timedelta
 from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
 
-def calcular_kpis(empresa_id, periodo='mes', data_inicio=None, data_fim=None):
-    """Calcula KPIs do dashboard"""
+def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
+    """
+    Calcula KPIs do dashboard.
     
-    # Definir período
+    ✅ periodos suportados:
+        - 'todos': Mostra TODOS os dados (sem filtro de data) ← NOVO
+        - 'personalizado': Filtra por data_inicio e data_fim
+        - 'semana': Últimos 7 dias
+        - 'mes': Mês atual (padrão antigo)
+        - 'ano': Ano atual
+    """
+    
     hoje = datetime.now().date()
     
-    if periodo == 'personalizado' and data_inicio and data_fim:
+    # ✅ CORREÇÃO: Definir datas com suporte a 'todos'
+    if periodo == 'todos':
+        # Sem filtro de data - mostra tudo
+        inicio = None
+        fim = None
+    elif periodo == 'personalizado' and data_inicio and data_fim:
         inicio = datetime.strptime(data_inicio, "%Y-%m-%d").date()
         fim = datetime.strptime(data_fim, "%Y-%m-%d").date()
     elif periodo == 'semana':
@@ -21,34 +36,66 @@ def calcular_kpis(empresa_id, periodo='mes', data_inicio=None, data_fim=None):
     elif periodo == 'ano':
         inicio = hoje.replace(month=1, day=1)
         fim = hoje
-    else:  # mes
+    else:  # mes (padrão antigo)
         inicio = hoje.replace(day=1)
         fim = hoje
     
-    # Total Vendas
-    total_vendas = db.session.query(
+    # ✅ Função auxiliar para aplicar filtro de data (trata NULLs)
+    def aplicar_filtro_data(query, campo_data, inicio, fim):
+        """Aplica filtro de data opcional, tratando NULLs"""
+        if inicio is None and fim is None:
+            # Sem filtro - retorna query original
+            return query
+        if inicio and fim:
+            # Filtro completo: inclui registros com data no período OU data NULL (opcional)
+            return query.filter(
+                or_(
+                    campo_data.between(inicio, fim),
+                    campo_data == None  # ← Incluir NULLs? Remova se não quiser
+                )
+            )
+        if inicio:
+            return query.filter(
+                or_(
+                    campo_data >= inicio,
+                    campo_data == None
+                )
+            )
+        if fim:
+            return query.filter(
+                or_(
+                    campo_data <= fim,
+                    campo_data == None
+                )
+            )
+        return query
+    
+    # ✅ Total Vendas (com filtro opcional)
+    query_vendas = db.session.query(
         func.sum(MovAdquirente.valor_bruto)
     ).filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.data_venda >= inicio,
-        MovAdquirente.data_venda <= fim
-    ).scalar() or Decimal("0")
+        MovAdquirente.ativo == True  # ← Garantir que só conta ativos
+    )
+    query_vendas = aplicar_filtro_data(query_vendas, MovAdquirente.data_venda, inicio, fim)
+    total_vendas = query_vendas.scalar() or Decimal("0")
     
-    # Total Recebido
-    total_recebido = db.session.query(
+    # ✅ Total Recebido (com filtro opcional)
+    query_recebido = db.session.query(
         func.sum(MovBanco.valor)
     ).filter(
         MovBanco.empresa_id == empresa_id,
-        MovBanco.data_movimento >= inicio,
-        MovBanco.data_movimento <= fim,
-        MovBanco.conciliado == True
-    ).scalar() or Decimal("0")
+        MovBanco.conciliado == True,
+        MovBanco.ativo == True
+    )
+    query_recebido = aplicar_filtro_data(query_recebido, MovBanco.data_movimento, inicio, fim)
+    total_recebido = query_recebido.scalar() or Decimal("0")
     
-    # Diferença
+    # ✅ Diferença
     diferenca = total_vendas - total_recebido
     
-    # Totais por Adquirente
-    adquirentes = db.session.query(
+    # ✅ Totais por Adquirente (com filtro opcional)
+    query_adq = db.session.query(
         Adquirente.nome,
         func.sum(MovAdquirente.valor_bruto).label('total_vendas'),
         func.sum(MovAdquirente.valor_liquido).label('total_liquido')
@@ -56,29 +103,34 @@ def calcular_kpis(empresa_id, periodo='mes', data_inicio=None, data_fim=None):
         MovAdquirente, Adquirente.id == MovAdquirente.adquirente_id
     ).filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.data_venda >= inicio
-    ).group_by(Adquirente.nome).all()
+        MovAdquirente.ativo == True
+    )
+    query_adq = aplicar_filtro_data(query_adq, MovAdquirente.data_venda, inicio, fim)
+    adquirentes = query_adq.group_by(Adquirente.nome).all()
     
-    # Vendas por Bandeira
-    bandeiras = db.session.query(
+    # ✅ Vendas por Bandeira (com filtro opcional)
+    query_band = db.session.query(
         MovAdquirente.bandeira,
         func.count().label('quantidade'),
         func.sum(MovAdquirente.valor_bruto).label('total')
     ).filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.data_venda >= inicio
-    ).group_by(MovAdquirente.bandeira).all()
+        MovAdquirente.ativo == True
+    )
+    query_band = aplicar_filtro_data(query_band, MovAdquirente.data_venda, inicio, fim)
+    bandeiras = query_band.group_by(MovAdquirente.bandeira).all()
     
+    # ✅ Formatar resposta
     return {
         "periodo": {
-            "inicio": inicio.strftime("%d/%m/%Y"),
-            "fim": fim.strftime("%d/%m/%Y")
+            "inicio": inicio.strftime("%d/%m/%Y") if inicio else "todos",
+            "fim": fim.strftime("%d/%m/%Y") if fim else "todos"
         },
         "total_vendas": str(total_vendas),
         "total_recebido": str(total_recebido),
         "diferenca": str(diferenca),
         "adquirentes": [{
-            "nome": a.nome,
+            "nome": a.nome or "Não identificada",
             "total_vendas": str(a.total_vendas or 0),
             "total_liquido": str(a.total_liquido or 0)
         } for a in adquirentes],
@@ -90,23 +142,24 @@ def calcular_kpis(empresa_id, periodo='mes', data_inicio=None, data_fim=None):
     }
 
 def tem_dados_cadastrados(empresa_id):
-    """Verifica se empresa já tem dados"""
+    """Verifica se empresa já tem dados (ignora filtro de data)"""
     from models import MovAdquirente
-    return MovAdquirente.query.filter_by(empresa_id=empresa_id).count() > 0
+    return MovAdquirente.query.filter_by(
+        empresa_id=empresa_id,
+        ativo=True
+    ).count() > 0
 
 def calcular_resumo_rapido(empresa_id):
-    """Resumo rápido para header (cacheável)"""
-    hoje = datetime.now().date()
-    inicio_mes = hoje.replace(day=1)
-    
-    vendas_mes = db.session.query(
+    """Resumo rápido para header (sem filtro de data para ser cacheável)"""
+    # ✅ Sem filtro de data - mostra total acumulado
+    vendas_total = db.session.query(
         func.sum(MovAdquirente.valor_bruto)
     ).filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.data_venda >= inicio_mes
+        MovAdquirente.ativo == True
     ).scalar() or Decimal("0")
     
     return {
-        "vendas_mes": str(vendas_mes),
+        "vendas_total": str(vendas_total),
         "atualizado_em": datetime.now().isoformat()
     }
