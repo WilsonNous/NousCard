@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session, g
+from flask import Blueprint, render_template, request, jsonify, session, g, current_app
 from utils.auth_middleware import login_required, empresa_required
 from services.importer import process_uploaded_files
 from services.importer_db import listar_arquivos_importados, buscar_arquivo_por_id
@@ -28,16 +28,48 @@ def upload_arquivos():
     if not files:
         return jsonify({"ok": False, "message": "Nenhum arquivo enviado."}), 400
 
-    empresa_id = g.user.empresa_id
-    usuario_id = g.user.id
+    # ✅ CORREÇÃO CRÍTICA: Validar empresa_id explicitamente
+    usuario = g.user
+    empresa_id = getattr(usuario, 'empresa_id', None)
+    usuario_id = getattr(usuario, 'id', None)
+    
+    # Debug log (remover após teste em produção)
+    logger.info(f"DEBUG UPLOAD: usuario_id={usuario_id}, empresa_id={empresa_id}, user_obj={usuario}")
+    
+    if not empresa_id:
+        logger.error(f"❌ Upload bloqueado: usuario_id={usuario_id} não tem empresa_id vinculado")
+        return jsonify({
+            "ok": False, 
+            "message": "Usuário não está vinculado a uma empresa. Contate o administrador."
+        }), 403
 
-    resultados = process_uploaded_files(files, empresa_id, usuario_id)
+    try:
+        resultados = process_uploaded_files(files, empresa_id, usuario_id)
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar upload: {str(e)}", exc_info=True)
+        return jsonify({
+            "ok": False,
+            "message": f"Erro interno ao processar arquivos: {str(e)}"
+        }), 500
 
-    total_arquivos = len(resultados)
-    qtde_vendas = sum(1 for r in resultados if r.get("tipo") == "venda")
-    qtde_recebimentos = sum(1 for r in resultados if r.get("tipo") == "recebimento")
-    total_vendas = sum(r.get("linhas", 0) for r in resultados if r.get("tipo") == "venda")
-    total_recebimentos = sum(r.get("linhas", 0) for r in resultados if r.get("tipo") == "recebimento")
+    # Calcular resumo apenas dos arquivos que foram processados com sucesso
+    arquivos_sucesso = [r for r in resultados if r.get("ok")]
+    
+    total_arquivos = len(arquivos_sucesso)
+    qtde_vendas = sum(r.get("linhas", 0) for r in arquivos_sucesso if r.get("tipo") == "venda")
+    qtde_recebimentos = sum(r.get("linhas", 0) for r in arquivos_sucesso if r.get("tipo") == "recebimento")
+    
+    # Calcular totais em R$ (somente dos arquivos com sucesso)
+    total_valor_vendas = sum(
+        sum(float(reg.get('valor_bruto') or reg.get('valor') or 0) 
+            for reg in r.get('registros', []))
+        for r in arquivos_sucesso if r.get("tipo") == "venda"
+    )
+    total_valor_recebimentos = sum(
+        sum(float(reg.get('valor') or 0) 
+            for reg in r.get('registros', []))
+        for r in arquivos_sucesso if r.get("tipo") == "recebimento"
+    )
 
     resumo = {
         "ok": True,
@@ -45,8 +77,8 @@ def upload_arquivos():
         "total_arquivos": total_arquivos,
         "qtde_vendas": qtde_vendas,
         "qtde_recebimentos": qtde_recebimentos,
-        "total_vendas": total_vendas,
-        "total_recebimentos": total_recebimentos,
+        "total_vendas": f"{total_valor_vendas:.2f}",
+        "total_recebimentos": f"{total_valor_recebimentos:.2f}",
         "result": resultados
     }
 
@@ -92,10 +124,12 @@ def arquivo_detalhe_page(arquivo_id):
             mensagem="Arquivo não encontrado ou não pertence à sua empresa."
         )
 
-    # Converter JSON armazenado
+    # Converter JSON armazenado (que na verdade é texto criptografado)
     try:
-        registros = json.loads(arquivo["conteudo_json"]) if arquivo["conteudo_json"] else []
-    except Exception:
+        from services.importer_db import descriptografar_conteudo
+        registros = descriptografar_conteudo(arquivo.get("conteudo_json"))
+    except Exception as e:
+        logger.error(f"Erro ao descriptografar arquivo {arquivo_id}: {str(e)}")
         registros = []
 
     return render_template(
@@ -112,11 +146,12 @@ def arquivo_detalhe_page(arquivo_id):
 @empresa_required
 def conciliar_api():
     empresa_id = g.user.empresa_id
+    usuario_id = g.user.id
 
     try:
         from services.conciliacao import executar_conciliacao
 
-        resultado = executar_conciliacao(empresa_id, usuario_id=g.user.id)
+        resultado = executar_conciliacao(empresa_id, usuario_id=usuario_id)
 
         return jsonify({
             "ok": True,
@@ -125,7 +160,7 @@ def conciliar_api():
         })
 
     except Exception as e:
-        logger.error(f"Erro na conciliação: {str(e)}")
+        logger.error(f"Erro na conciliação: {str(e)}", exc_info=True)
         return jsonify({
             "ok": False,
             "message": "Erro ao processar conciliação."
@@ -153,5 +188,5 @@ def detalhado_api():
         return jsonify({"ok": True, "dados": data})
 
     except Exception as e:
-        logger.error(f"Erro ao gerar detalhamento: {str(e)}")
+        logger.error(f"Erro ao gerar detalhamento: {str(e)}", exc_info=True)
         return jsonify({"ok": False, "message": "Erro ao gerar relatório detalhado."}), 500
