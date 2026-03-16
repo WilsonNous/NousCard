@@ -1,11 +1,15 @@
 // ============================================================
-//  DASHBOARD • NousCard Premium (VERSÃO FINAL RESPONSIVA)
+//  DASHBOARD • NousCard Premium (VERSÃO FINAL COM RETRY)
 // ============================================================
 
 let ultimoKpis = null;
 let graficoVendas = null;
 let graficoBandeiras = null;
 let kpiInterval = null;
+
+// Contador para prevenir spam de warnings (máx 3 tentativas)
+let graficoBandeirasRetryCount = 0;
+const MAX_GRAFICO_RETRY = 3;
 
 // ============================================================
 // UTILITÁRIOS SEGUROS
@@ -83,15 +87,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
             ultimoKpis = data.kpis;
 
+            // Resetar contador de retry quando novos dados chegam
+            graficoBandeirasRetryCount = 0;
+
             // Atualizar UI com verificações de segurança
             atualizarKPIs(data.kpis, { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas });
             atualizarAcquirers(data.kpis.acquirers || {}, acqContainer);
             
-            // ✅ CORREÇÃO: Verificar se canvas existe antes de renderizar gráfico
+            // Renderizar gráficos se canvas existir e Chart.js estiver carregado
             if (ctxGrafico && window.Chart) {
                 atualizarGraficoVendas(data.kpis, ctxGrafico);
             }
-            // ✅ CORREÇÃO: Usar dados de bandeiras (não acquirers) para gráfico de bandeiras
             if (ctxBandeiras && window.Chart) {
                 atualizarGraficoBandeiras(data.kpis.bandeiras || {}, ctxBandeiras);
             }
@@ -231,16 +237,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ================== GRÁFICO VENDAS x RECEBIDO ==================
     function atualizarGraficoVendas(kpis, ctx) {
-        // ✅ CORREÇÃO: Verificar se Chart.js está carregado
         if (!ctx || !window.Chart) {
             console.warn('⚠️ Chart.js não carregado ou canvas não encontrado');
             return;
         }
 
-        // ✅ CORREÇÃO: Garantir que o container tenha dimensões válidas
         const container = ctx.parentElement;
         if (!container || container.offsetWidth === 0) {
-            console.warn('⚠️ Container do gráfico sem dimensões válidas');
+            // Tentar novamente no próximo frame se container não tem dimensões
+            requestAnimationFrame(() => {
+                if (container && container.offsetWidth > 0) {
+                    atualizarGraficoVendas(kpis, ctx);
+                }
+            });
             return;
         }
 
@@ -283,9 +292,9 @@ document.addEventListener("DOMContentLoaded", () => {
                             beginAtZero: true,
                             ticks: {
                                 callback: (value) => formatCurrency(value),
-                                maxTicksLimit: 5  // Evita labels demais em mobile
+                                maxTicksLimit: 5
                             },
-                            afterFit: (scale) => { scale.width = 60; }  // Largura fixa para eixo Y
+                            afterFit: (scale) => { scale.width = 60; }
                         },
                         x: {
                             ticks: {
@@ -304,22 +313,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ================== GRÁFICO BANDEIRAS ==================
     function atualizarGraficoBandeiras(bandeiras, ctx) {
-        // ✅ CORREÇÃO CRÍTICA: Verificar se elementos existem antes de usar
         if (!ctx || !window.Chart) {
             console.warn('⚠️ Chart.js não carregado ou canvas não encontrado para gráfico de bandeiras');
             return;
         }
 
-        // ✅ CORREÇÃO: Verificar se o parent element existe e tem dimensões
         const container = ctx.parentElement;
+        
+        // ✅ CORREÇÃO: Se container não tem dimensões, tentar novamente com requestAnimationFrame
         if (!container || container.offsetWidth === 0) {
-            console.warn('⚠️ Container do gráfico de bandeiras não encontrado ou sem dimensões');
+            // Prevenir spam: só tenta retry até MAX_GRAFICO_RETRY vezes
+            if (graficoBandeirasRetryCount < MAX_GRAFICO_RETRY) {
+                graficoBandeirasRetryCount++;
+                requestAnimationFrame(() => {
+                    if (container && container.offsetWidth > 0) {
+                        atualizarGraficoBandeiras(bandeiras, ctx);
+                    }
+                });
+            } else {
+                // Após máx tentativas, mostra mensagem e para de tentar
+                console.warn('⚠️ Container do gráfico de bandeiras ainda sem dimensões após retry');
+                if (container) {
+                    container.innerHTML = '<p class="nc-empty-state" style="text-align:center;color:var(--gray-dark);padding:2rem">Sem dados para exibir</p>';
+                }
+            }
             return;
         }
 
+        // Resetar contador quando gráfico for renderizado com sucesso
+        graficoBandeirasRetryCount = 0;
+
         const labels = Object.keys(bandeiras || {});
         
-        // Se não houver dados, mostrar mensagem amigável (sem quebrar)
         if (!labels.length) {
             container.innerHTML = '<p class="nc-empty-state" style="text-align:center;color:var(--gray-dark);padding:2rem">Sem dados para exibir</p>';
             return;
@@ -327,7 +352,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const valores = labels.map(l => parseFloat(bandeiras[l]?.vendas) || 0);
 
-        // Destruir gráfico anterior se existir
         if (graficoBandeiras) {
             graficoBandeiras.destroy();
             graficoBandeiras = null;
@@ -358,8 +382,8 @@ document.addEventListener("DOMContentLoaded", () => {
                             labels: {
                                 padding: 15,
                                 usePointStyle: true,
-                                boxWidth: 12,  // Ícones menores em mobile
-                                font: { size: 11 },  // Fonte menor em mobile
+                                boxWidth: 12,
+                                font: { size: 11 },
                                 generateLabels: (chart) => {
                                     const data = chart.data;
                                     return data.labels.map((label, i) => ({
@@ -380,7 +404,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         } catch (err) {
             console.error('Erro ao criar gráfico de bandeiras:', err);
-            // Fallback: mostrar mensagem de erro amigável
             if (container) {
                 container.innerHTML = '<p class="nc-error" style="padding:1rem">Erro ao renderizar gráfico. Tente recarregar a página.</p>';
             }
@@ -406,10 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Escapar título com segurança
         tituloEl.textContent = titulo;
-
-        // Limpar tabela
         tabela.innerHTML = '';
         tabela.setAttribute('role', 'table');
         tabela.setAttribute('aria-label', 'Tabela de detalhamento');
@@ -423,7 +443,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (modalEmpty) modalEmpty.style.display = 'none';
             if (tabela.parentElement) tabela.parentElement.style.display = 'block';
 
-            // Criar thead
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
             const cols = ['Data Venda', 'Adquirente', 'Descrição', 'Valor', 'Previsão', 'Banco', 'Data Receb.', 'Tipo'];
@@ -437,11 +456,9 @@ document.addEventListener("DOMContentLoaded", () => {
             thead.appendChild(headerRow);
             tabela.appendChild(thead);
 
-            // Criar tbody
             const tbody = document.createElement('tbody');
             linhas.forEach(l => {
                 const tr = document.createElement('tr');
-                
                 [l.data, l.adquirente, l.descricao, l.valor, l.previsao, l.banco, l.data_recebimento, l.tipo].forEach(val => {
                     const td = document.createElement('td');
                     if (val !== undefined && val !== null) {
@@ -451,21 +468,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     tr.appendChild(td);
                 });
-                
                 tbody.appendChild(tr);
             });
             tabela.appendChild(tbody);
         }
 
-        // Mostrar modal
         modal.style.display = "block";
         modal.setAttribute('aria-hidden', 'false');
         
-        // Focar no botão fechar para acessibilidade
         const closeBtn = modal.querySelector('.nc-modal-close');
         if (closeBtn) closeBtn.focus();
-
-        // Trap de foco
         setupModalFocusTrap(modal);
     };
 
@@ -505,7 +517,6 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.style.display = "none";
         modal.setAttribute('aria-hidden', 'true');
         
-        // Remover trap de foco
         if (modal._focusTrapHandler) {
             modal.removeEventListener('keydown', modal._focusTrapHandler);
             delete modal._focusTrapHandler;
@@ -529,28 +540,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ================== REDIMENSIONAR GRÁFICOS AO REDIMENSIONAR JANELA ==================
-    // ✅ NOVO: Atualizar gráficos quando a janela for redimensionada (para responsividade)
     let resizeTimeout;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            // Redraw charts se existirem e se houver dados
             if (graficoVendas && ultimoKpis) {
                 atualizarGraficoVendas(ultimoKpis, ctxGrafico);
             }
             if (graficoBandeiras && ultimoKpis?.bandeiras) {
                 atualizarGraficoBandeiras(ultimoKpis.bandeiras, ctxBandeiras);
             }
-        }, 250); // Debounce de 250ms para performance
+        }, 250);
     });
 
     // ================== INICIAR LOOP DE ATUALIZAÇÃO ==================
     carregarKPIs();
     
-    // Clear interval anterior se existir (hot reload)
     if (kpiInterval) clearInterval(kpiInterval);
-    
-    kpiInterval = setInterval(carregarKPIs, 30000); // 30 segundos
+    kpiInterval = setInterval(carregarKPIs, 30000);
 
     // ================== CLEANUP NO UNLOAD ==================
     window.addEventListener('beforeunload', () => {
