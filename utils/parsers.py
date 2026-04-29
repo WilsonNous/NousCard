@@ -608,3 +608,278 @@ def parse_generic(file_stream, filename: str):
             return parse_csv_generic(file_stream, filename)
         
         raise ValueError(f"Formato não suportado: {filename}")
+        
+# ============================================================
+# DETECTOR E PARSER ESPECÍFICO: CLIENTE FLOW
+# ============================================================
+
+def is_flow_csv(filename: str, sample_content: str) -> bool:
+    """
+    Detecta se o arquivo é do formato Cliente Flow.
+    
+    Critérios:
+    - Nome contém 'flow' ou 'relatorio sumarizado'
+    - OU conteúdo tem 'Relatório sumarizado de vendas' + 'Estabelecimento(s)'
+    """
+    filename_lower = filename.lower() if filename else ""
+    
+    # Detectar pelo nome do arquivo
+    if 'flow' in filename_lower or 'relatorio sumarizado' in filename_lower:
+        return True
+    
+    # Detectar pelo conteúdo (primeiras 500 chars)
+    content_preview = sample_content[:500].lower()
+    if 'relatório sumarizado de vendas' in content_preview or 'relatorio sumarizado de vendas' in content_preview:
+        if 'estabelecimento' in content_preview:
+            return True
+    
+    return False
+
+
+def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
+    """
+    Parser específico para CSV do Cliente Flow.
+    
+    Formato esperado:
+    - Linha 0: "Relatório sumarizado de vendas"
+    - Linha 1: "Estabelecimento(s);CB-109264950001"
+    - Linha 2: Headers das colunas
+    - Linhas 3+: Dados
+    - Última linha: "Total;..." (ignorar)
+    
+    Args:
+        file_stream: Stream do arquivo
+        filename: Nome do arquivo
+        default_empresa_id: Fallback se estabelecimento não mapeado
+    
+    Returns:
+        Lista de registros normalizados
+    """
+    logger.info(f"Início parse Flow CSV: {filename}")
+    
+    # Validar tamanho
+    file_stream.seek(0, 2)
+    size = file_stream.tell()
+    file_stream.seek(0)
+    
+    if size > MAX_FILE_SIZE:
+        raise ValueError(f"Arquivo Flow CSV excede {MAX_FILE_SIZE/1024/1024}MB")
+    
+    # Detectar encoding
+    encoding = detectar_encoding(file_stream)
+    
+    try:
+        # Ler todo o conteúdo
+        file_stream.seek(0)
+        raw = file_stream.read().decode(encoding, errors="replace")
+        lines = raw.strip().split('\n')
+        
+        if len(lines) < 3:
+            raise ValueError("Arquivo Flow CSV muito curto")
+        
+        # Extrair estabelecimento da linha 1 (índice 1)
+        estabelecimento = None
+        linha_estabelecimento = lines[1].strip() if len(lines) > 1 else ""
+        if 'Estabelecimento' in linha_estabelecimento:
+            partes = linha_estabelecimento.split(';')
+            if len(partes) >= 2:
+                estabelecimento = partes[1].strip()
+        
+        # Mapear estabelecimento para empresa_id
+        empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento, default_empresa_id)
+        if not empresa_id:
+            logger.error(f"❌ Não foi possível determinar empresa_id para estabelecimento: {estabelecimento}")
+            # Continuar com default se fornecido, ou pular registros
+            if not default_empresa_id:
+                return []
+            empresa_id = default_empresa_id
+        
+        # Pular linhas de cabeçalho (0 e 1) e linha de headers (2)
+        # Processar apenas linhas de dados (ignorar linha de Total)
+        data_lines = []
+        for i, line in enumerate(lines[3:], start=4):  # start=4 para logging correto
+            line_stripped = line.strip()
+            # Ignorar linhas vazias e linha de Total
+            if not line_stripped or line_stripped.lower().startswith('total'):
+                continue
+            data_lines.append(line)
+        
+        if not data_lines:
+            logger.warning("Nenhuma linha de dados encontrada no Flow CSV")
+            return []
+        
+        # Parse CSV com delimitador ;
+        reader = csv.DictReader(
+            data_lines,
+            delimiter=';',
+            fieldnames=[
+                'estabelecimento', 'data_pagamento', 'bandeira',
+                'produto', 'quantidade', 'valor_bruto',
+                'desconto', 'valor_liquido'
+            ]
+        )
+        
+        registros = []
+        for row_num, row in enumerate(reader, start=4):
+            try:
+                # Validar e converter valor_bruto (obrigatório para vendas)
+                valor_bruto = parse_valor(row.get('valor_bruto'))
+                if not valor_bruto or valor_bruto <= 0:
+                    continue
+                
+                # Converter data
+                data_venda = parse_data(row.get('data_pagamento'))
+                if not data_venda:
+                    logger.warning(f"⚠️ Flow CSV linha {row_num}: data inválida '{row.get('data_pagamento')}', pulando")
+                    continue
+                
+                # Mapear para schema padrão do NousCard
+                registro = normalize_row({
+                    # Campos mapeados especificamente para Flow
+                    'valor_bruto': str(valor_bruto),
+                    'data_venda': data_venda.strftime('%Y-%m-%d') if data_venda else None,
+                    'bandeira': row.get('bandeira', '').strip(),
+                    'produto': row.get('produto', '').strip(),
+                    'quantidade': row.get('quantidade', '0'),
+                    'desconto': row.get('desconto', '0'),
+                    'valor_liquido': row.get('valor_liquido', '0'),
+                    
+                    # Metadados para rastreabilidade
+                    'empresa_id': empresa_id,
+                    'estabelecimento_origem': estabelecimento,
+                    'arquivo_origem': filename.split('/')[-1] if filename else 'unknown',
+                    'linha_origem': row_num,
+                })
+                
+                # Garantir que empresa_id está no registro final
+                registro['empresa_id'] = empresa_id
+                
+                registros.append(registro)
+                
+            except Exception as e:
+                logger.error(f"❌ Erro ao parsear linha {row_num} do Flow CSV: {str(e)}, row={row}")
+                continue
+        
+        logger.info(f"✅ Parse Flow CSV: {len(registros)} registros válidos de {filename}")
+        return registros
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao processar Flow CSV {filename}: {str(e)}")
+        raise ValueError(f"Erro ao processar arquivo Flow CSV: {str(e)}")
+
+
+def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: int = None) -> int:
+    """
+    Consulta mapeamento de estabelecimento → empresa_id.
+    
+    Prioridade:
+    1. Tabela do banco (se disponível)
+    2. Configuração estática em config/estabelecimentos.py
+    3. Fallback passado como parâmetro
+    """
+    # Tentar consultar tabela do banco (se modelos disponíveis)
+    try:
+        from models import EstabelecimentoMapeamento
+        if codigo_estabelecimento:
+            mapeamento = EstabelecimentoMapeamento.query.filter_by(
+                codigo_estabelecimento=codigo_estabelecimento,
+                ativo=True
+            ).first()
+            if mapeamento:
+                return mapeamento.empresa_id
+    except ImportError:
+        pass  # Modelos não disponíveis ainda
+    except Exception as e:
+        logger.warning(f"⚠️ Erro ao consultar mapeamento no banco: {str(e)}")
+    
+    # Fallback para configuração estática
+    try:
+        from config.estabelecimentos import ESTABELECIMENTO_PARA_EMPRESA
+        if codigo_estabelecimento and codigo_estabelecimento in ESTABELECIMENTO_PARA_EMPRESA:
+            return ESTABELECIMENTO_PARA_EMPRESA[codigo_estabelecimento]
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning(f"⚠️ Erro ao ler config de estabelecimentos: {str(e)}")
+    
+    # Último fallback
+    return fallback
+
+
+# ============================================================
+# ATUALIZAR parse_generic PARA SUPORTAR FLOW CSV
+# ============================================================
+
+# Substitua a função parse_generic existente por esta versão atualizada:
+
+def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
+    """
+    Detecta formato automaticamente e chama parser apropriado.
+    
+    Args:
+        file_stream: Stream do arquivo
+        filename: Nome do arquivo (para detectar extensão)
+        default_empresa_id: Empresa_id fallback para parsers que precisam
+    
+    Returns:
+        List[dict]: Registros normalizados com empresa_id incluído
+    """
+    if not filename:
+        raise ValueError("Nome do arquivo é obrigatório para detecção de formato")
+    
+    filename_lower = filename.lower()
+    
+    # 🔹 Detectar Flow CSV primeiro (antes do CSV genérico)
+    file_stream.seek(0)
+    sample = file_stream.read(1024).decode('utf-8', errors='ignore')
+    file_stream.seek(0)
+    
+    if is_flow_csv(filename, sample):
+        return parse_flow_csv(file_stream, filename, default_empresa_id)
+    
+    # 🔹 Formatos padrão
+    if filename_lower.endswith(('.csv', '.txt')):
+        registros = parse_csv_generic(file_stream, filename)
+        # Injetar empresa_id se não estiver presente
+        if default_empresa_id:
+            for reg in registros:
+                if 'empresa_id' not in reg or not reg['empresa_id']:
+                    reg['empresa_id'] = default_empresa_id
+        return registros
+    
+    elif filename_lower.endswith(('.xlsx', '.xls')):
+        registros = parse_excel_generic(file_stream, filename)
+        if default_empresa_id:
+            for reg in registros:
+                if 'empresa_id' not in reg or not reg['empresa_id']:
+                    reg['empresa_id'] = default_empresa_id
+        return registros
+    
+    elif filename_lower.endswith('.ofx'):
+        registros = parse_ofx_generic(file_stream, filename)
+        if default_empresa_id:
+            for reg in registros:
+                if 'empresa_id' not in reg or not reg['empresa_id']:
+                    reg['empresa_id'] = default_empresa_id
+        return registros
+    
+    else:
+        # Tentar detectar por conteúdo como fallback
+        if sample.strip().startswith('<?xml') or '<OFX>' in sample.upper():
+            registros = parse_ofx_generic(file_stream, filename)
+        elif ',' in sample or ';' in sample:
+            # Verificar se é Flow mesmo sem nome específico
+            if is_flow_csv(filename, sample):
+                registros = parse_flow_csv(file_stream, filename, default_empresa_id)
+            else:
+                registros = parse_csv_generic(file_stream, filename)
+        else:
+            raise ValueError(f"Formato não suportado: {filename}")
+        
+        # Injetar empresa_id se necessário
+        if default_empresa_id:
+            for reg in registros:
+                if 'empresa_id' not in reg or not reg['empresa_id']:
+                    reg['empresa_id'] = default_empresa_id
+        
+        return registros
