@@ -1,6 +1,6 @@
 # ============================================================
-#  PARSERS • NousCard (VERSÃO PRODUÇÃO)
-#  Suporte: CSV, Excel, OFX com fallback robusto para bancos BR
+#  PARSERS • NousCard (VERSÃO PRODUÇÃO COM FLOW + PIX)
+#  Suporte: CSV Flow, CSV genérico, Excel, OFX com fallback robusto
 # ============================================================
 
 import csv
@@ -171,10 +171,15 @@ def sanitizar_celula(value):
 def normalize_row(row: dict):
     """
     Normaliza uma linha de dados mapeando nomes de colunas variados
-    para um schema padrão: {valor, data, descricao, ...}
+    para um schema padrão: {valor, data, descricao, tipo_pagamento, ...}
     """
     if not row:
-        return {"valor": Decimal("0"), "data": None, "descricao": ""}
+        return {
+            "valor": Decimal("0"), 
+            "data": None, 
+            "descricao": "",
+            "tipo_pagamento": "cartao"  # Default para cartão
+        }
     
     new = {}
     valor_alternativo = None
@@ -214,7 +219,25 @@ def normalize_row(row: dict):
         elif k in ("adquirente", "merchant", "estabelecimento"):
             new["adquirente"] = sanitizar_celula(value) if value else None
         elif k in ("bandeira", "card", "brand"):
-            new["bandeira"] = sanitizar_celula(value) if value else None
+            val = sanitizar_celula(value) if value else None
+            # PIX não tem bandeira tradicional
+            if val and val.lower() == 'pix':
+                new["bandeira"] = None
+                new["tipo_pagamento"] = 'pix'
+            else:
+                new["bandeira"] = val
+        
+        # ✅ NOVO: Detectar tipo de pagamento (PIX, boleto, cartão)
+        elif k in ("tipo_pagamento", "forma_pagamento", "payment_method", "payment_type", "produto"):
+            val = str(value).strip().lower()
+            if 'pix' in val:
+                new["tipo_pagamento"] = 'pix'
+            elif 'boleto' in val or 'billet' in val:
+                new["tipo_pagamento"] = 'boleto'
+            elif 'cartao' in val or 'cartão' in val or 'credit' in val or 'debit' in val:
+                new["tipo_pagamento"] = 'cartao'
+            else:
+                new["tipo_pagamento"] = 'outros'
         
         # 7) Outros campos: sanitizar e incluir
         else:
@@ -234,6 +257,19 @@ def normalize_row(row: dict):
     # Garantir data
     if "data" not in new:
         new["data"] = None
+    
+    # ✅ Garantir tipo_pagamento (default: cartão)
+    if "tipo_pagamento" not in new:
+        # Inferir pelo produto ou bandeira se disponível
+        produto = new.get("produto", "").lower() if new.get("produto") else ""
+        bandeira = new.get("bandeira", "").lower() if new.get("bandeira") else ""
+        
+        if 'pix' in produto or bandeira == 'pix':
+            new["tipo_pagamento"] = 'pix'
+        elif 'boleto' in produto:
+            new["tipo_pagamento"] = 'boleto'
+        else:
+            new["tipo_pagamento"] = 'cartao'  # Default para cartão
     
     return new
 
@@ -569,47 +605,6 @@ def parse_ofx_generic(file_stream, filename=None):
     return registros
 
 # ============================================================
-# FUNÇÃO GENÉRICA DE PARSE (AUTO-DETECT FORMATO)
-# ============================================================
-def parse_generic(file_stream, filename: str):
-    """
-    Detecta formato automaticamente e chama parser apropriado.
-    
-    Args:
-        file_stream: Stream do arquivo
-        filename: Nome do arquivo (para detectar extensão)
-    
-    Returns:
-        List[dict]: Registros normalizados
-    """
-    if not filename:
-        raise ValueError("Nome do arquivo é obrigatório para detecção de formato")
-    
-    filename_lower = filename.lower()
-    
-    if filename_lower.endswith(('.csv', '.txt')):
-        return parse_csv_generic(file_stream, filename)
-    
-    elif filename_lower.endswith(('.xlsx', '.xls')):
-        return parse_excel_generic(file_stream, filename)
-    
-    elif filename_lower.endswith('.ofx'):
-        return parse_ofx_generic(file_stream, filename)
-    
-    else:
-        # Tentar detectar por conteúdo como fallback
-        file_stream.seek(0)
-        sample = file_stream.read(1024).decode('utf-8', errors='ignore')
-        file_stream.seek(0)
-        
-        if sample.strip().startswith('<?xml') or '<OFX>' in sample.upper():
-            return parse_ofx_generic(file_stream, filename)
-        elif ',' in sample or ';' in sample:
-            return parse_csv_generic(file_stream, filename)
-        
-        raise ValueError(f"Formato não suportado: {filename}")
-        
-# ============================================================
 # DETECTOR E PARSER ESPECÍFICO: CLIENTE FLOW
 # ============================================================
 
@@ -653,7 +648,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         default_empresa_id: Fallback se estabelecimento não mapeado
     
     Returns:
-        Lista de registros normalizados
+        Lista de registros normalizados com tipo_pagamento
     """
     logger.info(f"Início parse Flow CSV: {filename}")
     
@@ -689,7 +684,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento, default_empresa_id)
         if not empresa_id:
             logger.error(f"❌ Não foi possível determinar empresa_id para estabelecimento: {estabelecimento}")
-            # Continuar com default se fornecido, ou pular registros
             if not default_empresa_id:
                 return []
             empresa_id = default_empresa_id
@@ -697,9 +691,8 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         # Pular linhas de cabeçalho (0 e 1) e linha de headers (2)
         # Processar apenas linhas de dados (ignorar linha de Total)
         data_lines = []
-        for i, line in enumerate(lines[3:], start=4):  # start=4 para logging correto
+        for i, line in enumerate(lines[3:], start=4):
             line_stripped = line.strip()
-            # Ignorar linhas vazias e linha de Total
             if not line_stripped or line_stripped.lower().startswith('total'):
                 continue
             data_lines.append(line)
@@ -733,16 +726,31 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     logger.warning(f"⚠️ Flow CSV linha {row_num}: data inválida '{row.get('data_pagamento')}', pulando")
                     continue
                 
+                # ✅ Detectar tipo de pagamento pelo campo 'produto' (Crédito/Débito/PIX)
+                produto_val = (row.get('produto') or '').strip().lower()
+                bandeira_val = (row.get('bandeira') or '').strip().lower()
+                
+                if 'pix' in produto_val or bandeira_val == 'pix':
+                    tipo_pagamento = 'pix'
+                    bandeira = None  # PIX não tem bandeira tradicional
+                elif 'boleto' in produto_val:
+                    tipo_pagamento = 'boleto'
+                    bandeira = None
+                else:
+                    tipo_pagamento = 'cartao'  # Default para cartão
+                    bandeira = row.get('bandeira', '').strip() if row.get('bandeira') else None
+                
                 # Mapear para schema padrão do NousCard
                 registro = normalize_row({
                     # Campos mapeados especificamente para Flow
                     'valor_bruto': str(valor_bruto),
                     'data_venda': data_venda.strftime('%Y-%m-%d') if data_venda else None,
-                    'bandeira': row.get('bandeira', '').strip(),
+                    'bandeira': bandeira,
                     'produto': row.get('produto', '').strip(),
                     'quantidade': row.get('quantidade', '0'),
                     'desconto': row.get('desconto', '0'),
                     'valor_liquido': row.get('valor_liquido', '0'),
+                    'tipo_pagamento': tipo_pagamento,  # ✅ Definido explicitamente
                     
                     # Metadados para rastreabilidade
                     'empresa_id': empresa_id,
@@ -751,8 +759,9 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     'linha_origem': row_num,
                 })
                 
-                # Garantir que empresa_id está no registro final
+                # Garantir que empresa_id e tipo_pagamento estão no registro final
                 registro['empresa_id'] = empresa_id
+                registro['tipo_pagamento'] = tipo_pagamento
                 
                 registros.append(registro)
                 
@@ -807,10 +816,8 @@ def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: i
 
 
 # ============================================================
-# ATUALIZAR parse_generic PARA SUPORTAR FLOW CSV
+# FUNÇÃO GENÉRICA DE PARSE (AUTO-DETECT FORMATO + FLOW + PIX)
 # ============================================================
-
-# Substitua a função parse_generic existente por esta versão atualizada:
 
 def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
     """
@@ -822,7 +829,7 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
         default_empresa_id: Empresa_id fallback para parsers que precisam
     
     Returns:
-        List[dict]: Registros normalizados com empresa_id incluído
+        List[dict]: Registros normalizados com empresa_id e tipo_pagamento
     """
     if not filename:
         raise ValueError("Nome do arquivo é obrigatório para detecção de formato")
@@ -840,11 +847,13 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
     # 🔹 Formatos padrão
     if filename_lower.endswith(('.csv', '.txt')):
         registros = parse_csv_generic(file_stream, filename)
-        # Injetar empresa_id se não estiver presente
+        # Injetar empresa_id e tipo_pagamento se não estiverem presentes
         if default_empresa_id:
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
+                if 'tipo_pagamento' not in reg:
+                    reg['tipo_pagamento'] = 'cartao'
         return registros
     
     elif filename_lower.endswith(('.xlsx', '.xls')):
@@ -853,6 +862,8 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
+                if 'tipo_pagamento' not in reg:
+                    reg['tipo_pagamento'] = 'cartao'
         return registros
     
     elif filename_lower.endswith('.ofx'):
@@ -861,6 +872,8 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
+                if 'tipo_pagamento' not in reg:
+                    reg['tipo_pagamento'] = 'cartao'
         return registros
     
     else:
@@ -876,10 +889,12 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
         else:
             raise ValueError(f"Formato não suportado: {filename}")
         
-        # Injetar empresa_id se necessário
+        # Injetar empresa_id e tipo_pagamento se necessário
         if default_empresa_id:
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
+                if 'tipo_pagamento' not in reg:
+                    reg['tipo_pagamento'] = 'cartao'
         
         return registros
