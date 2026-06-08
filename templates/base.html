@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="{{ user_lang or 'pt-BR' }}"> {# ✅ NOVO: Suporte a i18n #}
 
 <head>
     <meta charset="UTF-8">
@@ -8,6 +8,11 @@
     
     <!-- SEO e Social -->
     <meta name="description" content="NousCard: Conciliação simples de cartões para micro e pequenas empresas">
+    
+    <!-- ✅ NOVO: CSRF Token para formulários e fetch -->
+    {% if csrf_token %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    {% endif %}
     
     <!-- Favicon (com fallback para evitar 404) -->
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" onerror="this.style.display='none'">
@@ -23,6 +28,13 @@
     <!-- Skip Link para Acessibilidade -->
     <a href="#main-content" class="skip-link">Pular para o conteúdo</a>
     
+    <!-- ✅ NOVO: Loading Global (oculto por padrão, mostrado via JS) -->
+    <div id="global-loading" class="nc-loading-overlay" hidden aria-live="polite" aria-busy="true">
+        <div class="nc-loading-spinner" role="status">
+            <span class="sr-only">Carregando...</span>
+        </div>
+    </div>
+    
     <!-- ===================== TOPBAR ===================== -->
     <header class="nc-topbar" role="banner">
         <div class="nc-topbar-left">
@@ -31,42 +43,57 @@
             </a>
         </div>
         
+        <!-- ✅ CORREÇÃO: Navegação semântica com lista -->
         <nav class="nc-topbar-nav" role="navigation" aria-label="Navegação principal">
-            <a href="{{ url_for('dashboard.dashboard') }}" 
-               class="nc-topbar-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
-               aria-label="Ir para Dashboard"
-               {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}>
-                📊 Dashboard
-            </a>
-            <a href="{{ url_for('operacoes.importar_page') }}" 
-               class="nc-topbar-item {% if request.endpoint == 'operacoes.importar_page' %}active{% endif %}"
-               aria-label="Importar arquivos">
-                ⬆️ Importar
-            </a>
-            <a href="{{ url_for('operacoes.arquivos_importados_page') }}" 
-               class="nc-topbar-item {% if request.endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
-               aria-label="Ver arquivos importados">
-                📂 Arquivos
-            </a>
-            <a href="{{ url_for('operacoes.conciliar_page') }}" 
-               class="nc-topbar-item {% if request.endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
-               aria-label="Executar conciliação">
-                ✔️ Conciliação
-            </a>
-            
-            {% if is_master %}
-                <a href="{{ url_for('empresas.listar_empresas') }}" 
-                   class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}"
-                   aria-label="Gerenciar empresas (admin)">
-                    🏢 Empresas
-                </a>
-            {% endif %}
-            
-            <a href="{{ url_for('auth.logout') }}" 
-               class="nc-topbar-item logout"
-               aria-label="Sair da conta">
-                🚪 Sair
-            </a>
+            <ul class="nc-nav-list">
+                <li>
+                    <a href="{{ url_for('dashboard.dashboard') }}" 
+                       class="nc-topbar-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
+                       aria-label="Ir para Dashboard"
+                       {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}>
+                        📊 Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('operacoes.importar_page') }}" 
+                       class="nc-topbar-item {% if request.endpoint == 'operacoes.importar_page' %}active{% endif %}"
+                       aria-label="Importar arquivos">
+                        ⬆️ Importar
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('operacoes.arquivos_importados_page') }}" 
+                       class="nc-topbar-item {% if request.endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
+                       aria-label="Ver arquivos importados">
+                        📂 Arquivos
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('operacoes.conciliar_page') }}" 
+                       class="nc-topbar-item {% if request.endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
+                       aria-label="Executar conciliação">
+                        ✔️ Conciliação
+                    </a>
+                </li>
+                
+                {% if is_master %}
+                    <li>
+                        <a href="{{ url_for('empresas.listar_empresas') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}"
+                           aria-label="Gerenciar empresas (admin)">
+                            🏢 Empresas
+                        </a>
+                    </li>
+                {% endif %}
+                
+                <li>
+                    <a href="{{ url_for('auth.logout') }}" 
+                       class="nc-topbar-item logout"
+                       aria-label="Sair da conta">
+                        🚪 Sair
+                    </a>
+                </li>
+            </ul>
         </nav>
     </header>
     
@@ -132,6 +159,32 @@
     <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
     
     {% block extra_scripts %}{% endblock %}
+    
+    <!-- ✅ NOVO: Error Handler Global para JavaScript -->
+    <script>
+    // Registrar handler de erro global para debug
+    window.addEventListener('error', function(e) {
+        console.error('❌ Erro global:', e.message, 'em', e.filename + ':' + e.lineno);
+        // Em produção, poderia enviar para serviço de monitoramento
+        // fetch('/api/log-error', { method: 'POST', body: JSON.stringify({...}) });
+    });
+    
+    // ✅ NOVO: Helpers para loading global
+    window.showLoading = function() {
+        const loader = document.getElementById('global-loading');
+        if (loader) loader.hidden = false;
+    };
+    
+    window.hideLoading = function() {
+        const loader = document.getElementById('global-loading');
+        if (loader) loader.hidden = true;
+    };
+    
+    // ✅ NOVO: Helper para CSRF token
+    window.getCsrfToken = function() {
+        return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    };
+    </script>
     
 </body>
 </html>
