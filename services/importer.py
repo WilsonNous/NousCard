@@ -1,3 +1,5 @@
+# services/importer.py - VERSÃO CORRIGIDA COM SUPORTE FLOW + PIX
+
 import os
 import hashlib
 import logging
@@ -7,7 +9,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from utils.parsers import (
     parse_csv_generic,
     parse_excel_generic,
-    parse_ofx_generic
+    parse_ofx_generic,
+    parse_flow_csv,  # ← NOVO: Importar parser específico do Flow
+    is_flow_csv      # ← NOVO: Importar detector do Flow
 )
 from utils.helpers import gerar_hash_arquivo
 from services.importer_db import (
@@ -30,56 +34,116 @@ MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_REGISTROS_POR_ARQUIVO = 10000
 
 # ============================================================
-# 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS (NOVO - CRÍTICO)
+# 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS (ATUALIZADO)
 # ============================================================
-# Mapeia variações de nomes de colunas para nomes padrão internos
-# Formato: {nome_padrao: [variação1, variação2, ...]}
 
 COLUNAS_PADRAO_VENDA = {
-    'valor_bruto': ['valor_bruto', 'vl_bruto', 'valor', 'bruto', 'gross_value', 'gross_amount', 'vlr_bruto', 'vlr_bruto'],
-    'data_venda': ['data_venda', 'data', 'dt_venda', 'dt', 'sale_date', 'transaction_date', 'data_transacao', 'dt_transacao'],
-    'nsu': ['nsu', 'cod_nsu', 'numero_nsu', 'nsu_code', 'transaction_id', 'id_transacao', 'cod_transacao'],
-    'adquirente': ['adquirente', 'acquirer', 'operadora', 'maquininha', 'gateway'],
-    'bandeira': ['bandeira', 'flag', 'card_flag', 'brand', 'carteira'],
-    'taxa': ['taxa', 'fee', 'taxa_cobrada', 'commission', 'custo', 'vlr_taxa'],
-    'valor_liquido': ['valor_liquido', 'vl_liquido', 'net_value', 'net_amount', 'valor_recebido', 'vlr_liquido'],
-    'parcela': ['parcela', 'installment', 'parcel', 'num_parcela'],
-    'total_parcelas': ['total_parcelas', 'total_installments', 'qtd_parcelas', 'num_parcelas'],
-    'autorizacao': ['autorizacao', 'auth_code', 'codigo_autorizacao', 'cod_autorizacao'],
-    'produto': ['produto', 'product', 'description', 'descricao', 'item'],
+    'valor_bruto': [
+        'valor_bruto', 'vl_bruto', 'valor', 'bruto', 'gross_value', 
+        'gross_amount', 'vlr_bruto', 'valor bruto', 'valorbruto'
+    ],
+    'data_venda': [
+        'data_venda', 'data', 'dt_venda', 'dt', 'sale_date', 
+        'transaction_date', 'data_transacao', 'dt_transacao',
+        'data do pagamento', 'datapagamento', 'data_pagamento'  # ← NOVO: Flow CSV
+    ],
+    'nsu': [
+        'nsu', 'cod_nsu', 'numero_nsu', 'nsu_code', 'transaction_id', 
+        'id_transacao', 'cod_transacao'
+    ],
+    'adquirente': [
+        'adquirente', 'acquirer', 'operadora', 'maquininha', 'gateway',
+        'estabelecimento', 'no estabelecimento', 'noestabelecimento'  # ← NOVO: Flow
+    ],
+    'bandeira': [
+        'bandeira', 'flag', 'card_flag', 'brand', 'carteira'
+    ],
+    'taxa': [
+        'taxa', 'fee', 'taxa_cobrada', 'commission', 'custo', 
+        'vlr_taxa', 'desconto', 'discount'  # ← NOVO: Flow usa "Desconto"
+    ],
+    'valor_liquido': [
+        'valor_liquido', 'vl_liquido', 'net_value', 'net_amount', 
+        'valor_recebido', 'vlr_liquido', 'valor líquido', 'valorliquido'  # ← NOVO
+    ],
+    'parcela': [
+        'parcela', 'installment', 'parcel', 'num_parcela'
+    ],
+    'total_parcelas': [
+        'total_parcelas', 'total_installments', 'qtd_parcelas', 'num_parcelas'
+    ],
+    'autorizacao': [
+        'autorizacao', 'auth_code', 'codigo_autorizacao', 'cod_autorizacao'
+    ],
+    'produto': [
+        'produto', 'product', 'description', 'descricao', 'item',
+        'tipo_pagamento', 'formapagamento', 'payment_type'  # ← NOVO: Para detectar PIX
+    ],
+    'quantidade': [  # ← NOVO: Flow CSV tem esta coluna
+        'quantidade', 'quantity', 'qtd', 'qtde'
+    ],
 }
 
 COLUNAS_PADRAO_RECEBIMENTO = {
-    'valor': ['valor', 'vl_movimento', 'vl_credito', 'credito', 'amount', 'value', 'vlr_credito', 'vlr_movimento'],
-    'data_movimento': ['data_movimento', 'data', 'dt_movimento', 'dt_credito', 'movement_date', 'credit_date', 'data_credito', 'dt_lancamento'],
-    'documento': ['documento', 'doc', 'nsu', 'cod_documento', 'reference', 'ref', 'id_documento'],
-    'banco': ['banco', 'bank', 'instituicao', 'financial_institution'],
-    'tipo_movimento': ['tipo_movimento', 'tipo', 'movement_type', 'transaction_type'],
-    'saldo': ['saldo', 'balance', 'vl_saldo'],
+    'valor': [
+        'valor', 'vl_movimento', 'vl_credito', 'credito', 'amount', 
+        'value', 'vlr_credito', 'vlr_movimento'
+    ],
+    'data_movimento': [
+        'data_movimento', 'data', 'dt_movimento', 'dt_credito', 
+        'movement_date', 'credit_date', 'data_credito', 'dt_lancamento'
+    ],
+    'documento': [
+        'documento', 'doc', 'nsu', 'cod_documento', 'reference', 
+        'ref', 'id_documento'
+    ],
+    'banco': [
+        'banco', 'bank', 'instituicao', 'financial_institution'
+    ],
+    'tipo_movimento': [
+        'tipo_movimento', 'tipo', 'movement_type', 'transaction_type'
+    ],
+    'saldo': [
+        'saldo', 'balance', 'vl_saldo'
+    ],
 }
 
-# Colunas mínimas necessárias para identificar o tipo do arquivo
+# Colunas mínimas necessárias
 COLUNAS_MINIMAS_VENDA = ['valor_bruto', 'data_venda', 'nsu']
 COLUNAS_MINIMAS_RECEBIMENTO = ['valor', 'data_movimento', 'documento']
 
 # ============================================================
-# 🧰 UTILITÁRIOS DE NORMALIZAÇÃO E MAPEAMENTO
+# 🧰 UTILITÁRIOS DE NORMALIZAÇÃO (CORRIGIDO)
 # ============================================================
 
 def normalizar_chave(key):
-    """Remove BOM, espaços, normaliza case e remove caracteres especiais para comparação"""
+    """
+    Normaliza chave para comparação: remove BOM, espaços extras, 
+    converte para minúsculo, remove acentos, mas PRESERVA palavras separadas.
+    """
     if not isinstance(key, str):
         return key
-    # Remove BOM, espaços, converte para minúsculo, remove acentos e caracteres especiais
+    
+    # Remove BOM e espaços extras nas extremidades
     key = key.strip().replace('\ufeff', '').lower()
-    key = re.sub(r'[^a-z0-9_]', '', key)  # Mantém apenas letras, números e underscore
+    
+    # Remove acentos (opcional, mas útil para comparação)
+    import unicodedata
+    key = ''.join(
+        c for c in unicodedata.normalize('NFD', key)
+        if unicodedata.category(c) != 'Mn'
+    )
+    
+    # Substitui espaços e hífens por underscore para padronizar
+    key = re.sub(r'[\s\-]+', '_', key)
+    
+    # Remove caracteres especiais, mas mantém letras, números e underscore
+    key = re.sub(r'[^a-z0-9_]', '', key)
+    
     return key
 
 def encontrar_coluna_padrao(chave_disponivel, mapeamento):
-    """
-    Encontra o nome padrão para uma chave disponível no arquivo.
-    Retorna o nome padrão ou None se não encontrar correspondência.
-    """
+    """Encontra o nome padrão para uma chave disponível no arquivo"""
     chave_normalizada = normalizar_chave(chave_disponivel)
     
     for nome_padrao, variacoes in mapeamento.items():
@@ -89,28 +153,47 @@ def encontrar_coluna_padrao(chave_disponivel, mapeamento):
     return None
 
 def normalizar_registro(registro, mapeamento):
-    """
-    Normaliza as chaves de um registro para os nomes padrão definidos no mapeamento.
-    Mantém colunas não mapeadas como estão.
-    """
+    """Normaliza as chaves de um registro para os nomes padrão"""
     if not isinstance(registro, dict):
         return registro
     
     registro_normalizado = {}
     for key, value in registro.items():
         if key and isinstance(key, str):
-            # Tenta encontrar o nome padrão para esta chave
             nome_padrao = encontrar_coluna_padrao(key, mapeamento)
             if nome_padrao:
                 registro_normalizado[nome_padrao] = value
             else:
-                # Mantém a chave original (normalizada) se não houver mapeamento
+                # Mantém a chave original normalizada se não houver mapeamento
                 registro_normalizado[normalizar_chave(key)] = value
     return registro_normalizado
 
 def normalizar_registros(registros, mapeamento):
-    """Normaliza uma lista de registros usando o mapeamento fornecido"""
+    """Normaliza uma lista de registros"""
     return [normalizar_registro(r, mapeamento) for r in registros]
+
+def inferir_tipo_pagamento(registro):
+    """
+    Infere o tipo de pagamento (cartao, pix, boleto, outros) baseado nos campos.
+    ✅ Suporta detecção de PIX no CSV Flow
+    """
+    produto = str(registro.get('produto') or '').strip().lower()
+    bandeira = str(registro.get('bandeira') or '').strip().lower()
+    
+    # Detectar PIX
+    if 'pix' in produto or bandeira == 'pix':
+        return 'pix'
+    
+    # Detectar boleto
+    if 'boleto' in produto or 'billet' in produto:
+        return 'boleto'
+    
+    # Detectar cartão (Crédito/Débito)
+    if any(kw in produto for kw in ['crédito', 'credito', 'débito', 'debito', 'credit', 'debit']):
+        return 'cartao'
+    
+    # Default: cartão (maioria dos casos)
+    return 'cartao'
 
 # ============================================================
 # 🔍 VALIDAÇÕES INTELIGENTES
@@ -123,10 +206,7 @@ def validar_tamanho_arquivo(file_storage):
     return size <= MAX_FILE_SIZE, size
 
 def validar_registros(registros, tipo):
-    """
-    Valida registros verificando se pelo menos as colunas mínimas estão presentes
-    (considerando todas as variações possíveis de nomenclatura).
-    """
+    """Valida registros verificando colunas mínimas"""
     if not registros or len(registros) == 0:
         return False, "Arquivo vazio"
     
@@ -137,14 +217,10 @@ def validar_registros(registros, tipo):
     mapeamento = COLUNAS_PADRAO_VENDA if tipo == "venda" else COLUNAS_PADRAO_RECEBIMENTO
     colunas_minimas = COLUNAS_MINIMAS_VENDA if tipo == "venda" else COLUNAS_MINIMAS_RECEBIMENTO
     
-    # Conjunto de chaves disponíveis (já normalizadas pelo normalizar_registros)
     chaves_disponiveis = set(primeira_linha.keys())
     
-    # Verifica se todas as colunas mínimas estão presentes (já devem estar no padrão)
     for col_minima in colunas_minimas:
         if col_minima not in chaves_disponiveis:
-            # Tenta encontrar se alguma variação estava presente antes da normalização
-            # (caso o registro não tenha sido normalizado ainda)
             found = False
             for key in primeira_linha.keys():
                 if encontrar_coluna_padrao(key, mapeamento) == col_minima:
@@ -156,34 +232,25 @@ def validar_registros(registros, tipo):
     return True, "OK"
 
 def identificar_tipo_por_conteudo(registros, nome_arquivo):
-    """
-    Identifica se o arquivo é de venda ou recebimento com base em:
-    1. Nome do arquivo (heurística rápida)
-    2. Presença de colunas características de cada tipo
-    """
-    # Heurística por nome do arquivo (fallback rápido)
+    """Identifica se o arquivo é de venda ou recebimento"""
     nome = nome_arquivo.lower()
     
-    # Palavras-chave que indicam recebimento/extrato bancário
+    # Heurística por nome
     if any(kw in nome for kw in ['receb', 'extrato', 'ofx', 'banco', 'credito', 'deposito', 'movimento']):
         return "recebimento"
-    
-    # Palavras-chave que indicam venda/adquirente
     if any(kw in nome for kw in ['venda', 'transacao', 'adquirente', 'cielo', 'rede', 'stone', 'pagseguro', 'getnet', 'maquininha']):
         return "venda"
     
-    # Se ambíguo pelo nome, analisa o conteúdo
+    # Análise de conteúdo
     if not registros:
         return "desconhecido"
     
     primeira_linha = registros[0] if isinstance(registros[0], dict) else {}
-    chaves = set(primeira_linha.keys())  # Já devem estar normalizadas
+    chaves = set(primeira_linha.keys())
     
-    # Conta quantas colunas características de cada tipo estão presentes
     score_venda = sum(1 for col in COLUNAS_MINIMAS_VENDA if col in chaves)
     score_receb = sum(1 for col in COLUNAS_MINIMAS_RECEBIMENTO if col in chaves)
     
-    # Bônus por colunas adicionais características
     if 'adquirente' in chaves or 'bandeira' in chaves or 'nsu' in chaves:
         score_venda += 1
     if 'banco' in chaves or 'documento' in chaves:
@@ -194,16 +261,21 @@ def identificar_tipo_por_conteudo(registros, nome_arquivo):
     elif score_receb >= 2 and score_receb > score_venda:
         return "recebimento"
     elif score_venda > 0 or score_receb > 0:
-        # Se tiver pelo menos uma coluna característica, usa como palpite
         return "venda" if score_venda >= score_receb else "recebimento"
     
     return "desconhecido"
 
 # ============================================================
-# 📦 PROCESSAR UM ARQUIVO
+# 📦 PROCESSAR UM ARQUIVO (CORRIGIDO)
 # ============================================================
 
-def process_file(file_storage):
+def process_file(file_storage, default_empresa_id=None):
+    """
+    Processa um arquivo e retorna registros normalizados.
+    
+    ✅ NOVO: Suporte a CSV Flow com detecção automática
+    ✅ NOVO: Inferência de tipo_pagamento (PIX/cartão/boleto)
+    """
     nome = file_storage.filename.lower()
     
     # Validar tamanho
@@ -215,24 +287,37 @@ def process_file(file_storage):
             "erro": f"Arquivo excede {MAX_FILE_SIZE/1024/1024}MB"
         }
     
-    # Gerar hash ANTES de processar (leitura única)
+    # Gerar hash
     file_storage.seek(0)
     conteudo = file_storage.read()
     file_storage.seek(0)
     hash_arquivo = hashlib.sha256(conteudo).hexdigest()
     
     try:
-        # Parse baseado na extensão
-        if nome.endswith(".csv") or nome.endswith(".txt"):
+        # 🔹 Detectar CSV Flow ANTES de parsear
+        sample = conteudo[:1024].decode('utf-8', errors='ignore') if isinstance(conteudo, bytes) else conteudo[:1024]
+        
+        if nome.endswith(('.csv', '.txt')) and is_flow_csv(nome, sample):
+            # ✅ Usar parser específico do Flow
+            file_storage.seek(0)
+            registros = parse_flow_csv(file_storage, nome, default_empresa_id=default_empresa_id)
+            tipo = "venda"  # Flow CSV é sempre de vendas
+            mapeamento = COLUNAS_PADRAO_VENDA
+        elif nome.endswith(".csv") or nome.endswith(".txt"):
             registros = parse_csv_generic(file_storage)
-            mapeamento = None  # Será definido após identificar o tipo
+            tipo = identificar_tipo_por_conteudo(registros, nome)
+            mapeamento = COLUNAS_PADRAO_VENDA if tipo == "venda" else COLUNAS_PADRAO_RECEBIMENTO
+            # Normalizar registros genéricos
+            registros = normalizar_registros(registros, mapeamento)
         elif nome.endswith(".xlsx") or nome.endswith(".xls"):
             registros = parse_excel_generic(file_storage)
-            mapeamento = None
+            tipo = identificar_tipo_por_conteudo(registros, nome)
+            mapeamento = COLUNAS_PADRAO_VENDA if tipo == "venda" else COLUNAS_PADRAO_RECEBIMENTO
+            registros = normalizar_registros(registros, mapeamento)
         elif nome.endswith(".ofx"):
-            # OFX tem estrutura padrão, não precisa de mapeamento flexível
             registros = parse_ofx_generic(file_storage)
-            mapeamento = {}  # OFX já vem padronizado
+            tipo = "recebimento"  # OFX é geralmente extrato bancário
+            mapeamento = {}
         else:
             return {
                 "ok": False,
@@ -240,21 +325,12 @@ def process_file(file_storage):
                 "erro": "Formato não suportado"
             }
         
-        # Identificar tipo ANTES de normalizar (para saber qual mapeamento usar)
-        tipo = identificar_tipo_por_conteudo(registros, nome)
         if tipo == "desconhecido":
             return {
                 "ok": False,
                 "arquivo": nome,
-                "erro": "Não foi possível identificar o tipo do arquivo (venda ou recebimento)"
+                "erro": "Não foi possível identificar o tipo do arquivo"
             }
-        
-        # Selecionar o mapeamento correto
-        mapeamento = COLUNAS_PADRAO_VENDA if tipo == "venda" else COLUNAS_PADRAO_RECEBIMENTO
-        
-        # ✅ CORREÇÃO CRÍTICA: Normalizar chaves para o padrão interno
-        # Isso permite que o sistema entenda arquivos com nomenclaturas variadas
-        registros = normalizar_registros(registros, mapeamento)
         
     except Exception as e:
         logger.error(f"Erro ao parsear arquivo {nome}: {str(e)}")
@@ -264,7 +340,7 @@ def process_file(file_storage):
             "erro": f"Erro ao processar: {str(e)}"
         }
     
-    # Validar registros com as colunas já normalizadas
+    # Validar registros
     valido, msg = validar_registros(registros, tipo)
     if not valido:
         return {
@@ -272,6 +348,14 @@ def process_file(file_storage):
             "arquivo": nome,
             "erro": msg
         }
+    
+    # ✅ INFERIR tipo_pagamento para cada registro (se não estiver definido)
+    for reg in registros:
+        if 'tipo_pagamento' not in reg or not reg['tipo_pagamento']:
+            reg['tipo_pagamento'] = inferir_tipo_pagamento(reg)
+        # Garantir empresa_id se fornecido
+        if default_empresa_id and ('empresa_id' not in reg or not reg['empresa_id']):
+            reg['empresa_id'] = default_empresa_id
     
     return {
         "ok": True,
@@ -306,15 +390,15 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         nome = file_storage.filename.lower()
         
         try:
-            # Processar arquivo
-            resultado = process_file(file_storage)
+            # ✅ PASSAR empresa_id para o parser (necessário para Flow CSV)
+            resultado = process_file(file_storage, default_empresa_id=empresa_id)
             
             if not resultado["ok"]:
                 logger.warning(f"Arquivo rejeitado: {nome}, erro={resultado.get('erro')}")
                 resultados.append(resultado)
                 continue
             
-            # Verificar duplicata ANTES de salvar
+            # Verificar duplicata
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
                 resultados.append({
                     "ok": False,
@@ -323,7 +407,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 })
                 continue
             
-            # Salvar em transação (savepoint)
+            # Salvar em transação
             db.session.begin_nested()
             
             arquivo_id = salvar_arquivo_importado(
