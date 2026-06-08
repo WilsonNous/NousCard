@@ -1,5 +1,5 @@
 # ============================================================
-#  MODELS • MovAdquirente (Vendas de Maquininha)
+#  MODELS • MovAdquirente (Vendas de Maquininha + PIX + Outros)
 #  Compatível com SQLAlchemy 1.4.x + Flask-SQLAlchemy 3.0.x
 # ============================================================
 
@@ -9,12 +9,15 @@ from decimal import Decimal
 
 class MovAdquirente(db.Model, BaseMixin):
     """
-    Representa uma venda/transação de adquirente (Cielo, Rede, Getnet, etc.).
+    Representa uma venda/transação de adquirente (Cielo, Rede, Getnet, etc.) 
+    ou outras formas de pagamento (PIX, boleto, transferência).
     
     Fluxo típico:
-    1. Importado de CSV/OFX da adquirente
+    1. Importado de CSV/OFX da adquirente ou extrato bancário
     2. Conciliado com MovBanco (recebimento bancário)
     3. Status: pendente → parcial → conciliado
+    
+    ✅ Suporta múltiplos tipos de pagamento via campo 'tipo_pagamento'
     """
     __tablename__ = "mov_adquirente"
 
@@ -28,7 +31,7 @@ class MovAdquirente(db.Model, BaseMixin):
     adquirente_id = db.Column(
         db.Integer,
         db.ForeignKey("adquirentes.id", ondelete="SET NULL"),
-        nullable=True,  # Pode ser null se adquirente for deletada
+        nullable=True,  # Pode ser null se adquirente for deletada ou se for PIX/boleto
         index=True
     )
     
@@ -47,10 +50,19 @@ class MovAdquirente(db.Model, BaseMixin):
     autorizacao = db.Column(db.String(50), nullable=True)
     
     # Produto/Bandeira
-    bandeira = db.Column(db.String(50), nullable=True)  # Visa, Mastercard, etc.
-    produto = db.Column(db.String(50), nullable=True)   # Débito, Crédito, PIX
-    parcela = db.Column(db.Integer, nullable=True)      # 1, 2, 3...
+    bandeira = db.Column(db.String(50), nullable=True)  # Visa, Mastercard, etc. (NULL para PIX/boleto)
+    produto = db.Column(db.String(50), nullable=True)   # Débito, Crédito, PIX, etc.
+    parcela = db.Column(db.Integer, nullable=True)      # 1, 2, 3... (NULL para PIX à vista)
     total_parcelas = db.Column(db.Integer, nullable=True)  # Total de parcelas da venda
+    
+    # ✅ NOVO: Tipo de pagamento (cartão, PIX, boleto, outros)
+    tipo_pagamento = db.Column(
+        db.Enum('cartao', 'pix', 'boleto', 'outros', name='tipo_pagamento_enum'),
+        default='cartao',
+        index=True,
+        nullable=False,
+        comment="Tipo de pagamento: cartao=cartão de crédito/débito, pix=PIX, boleto=boleto bancário, outros=outras formas"
+    )
     
     # Valores (usar Numeric para precisão monetária)
     valor_bruto = db.Column(db.Numeric(15, 2), nullable=False)
@@ -76,21 +88,22 @@ class MovAdquirente(db.Model, BaseMixin):
     # ✅ Empresa: back_populates deve bater com Empresa.movimentos_adquirente
     empresa = db.relationship(
         "Empresa",
-        back_populates="movimentos_adquirente",  # ✅ Este nome deve existir em Empresa
+        back_populates="movimentos_adquirente",
         lazy=True
     )
     
     # ✅ Adquirente: back_populates deve bater com Adquirente.movimentos
+    # Nota: Pode ser NULL para PIX/boleto que não têm adquirente tradicional
     adquirente = db.relationship(
         "Adquirente",
-        back_populates="movimentos",  # ✅ Este nome deve existir em Adquirente
+        back_populates="movimentos",
         lazy=True
     )
     
     # ✅ Conciliações: uma venda pode ter múltiplos recebimentos conciliados
     conciliacoes = db.relationship(
         "Conciliacao",
-        back_populates="mov_adquirente",  # ✅ Deve bater com Conciliacao.mov_adquirente
+        back_populates="mov_adquirente",
         lazy=True,
         cascade="all, delete-orphan"
     )
@@ -104,6 +117,7 @@ class MovAdquirente(db.Model, BaseMixin):
         db.Index('idx_mov_adq_nsu', 'nsu'),
         db.Index('idx_mov_adq_status', 'status_conciliacao'),
         db.Index('idx_mov_adq_adquirente', 'adquirente_id'),
+        db.Index('idx_mov_adq_tipo_pagamento', 'tipo_pagamento'),  # ✅ NOVO: índice para filtros por tipo
     )
 
     # ============================================================
@@ -125,6 +139,21 @@ class MovAdquirente(db.Model, BaseMixin):
         """Verifica se venda está parcialmente conciliada"""
         return self.status_conciliacao == "parcial"
     
+    @property
+    def eh_pix(self) -> bool:
+        """Verifica se é uma venda via PIX"""
+        return self.tipo_pagamento == 'pix'
+    
+    @property
+    def eh_cartao(self) -> bool:
+        """Verifica se é uma venda via cartão"""
+        return self.tipo_pagamento == 'cartao'
+    
+    @property
+    def tem_adquirente(self) -> bool:
+        """Verifica se a venda tem adquirente associado (cartão sim, PIX/boleto não)"""
+        return self.tipo_pagamento == 'cartao' and self.adquirente_id is not None
+    
     def atualizar_status_conciliacao(self):
         """Atualiza status_conciliacao baseado em valor_conciliado"""
         if self.valor_conciliado >= self.valor_liquido:
@@ -139,7 +168,7 @@ class MovAdquirente(db.Model, BaseMixin):
     # ============================================================
     
     def __repr__(self):
-        return f"<MovAdquirente NSU={self.nsu} Valor={self.valor_liquido} Status={self.status_conciliacao}>"
+        return f"<MovAdquirente NSU={self.nsu} Tipo={self.tipo_pagamento} Valor={self.valor_liquido} Status={self.status_conciliacao}>"
     
     def to_dict(self):
         """Serializa para dict (útil para APIs)"""
@@ -155,10 +184,17 @@ class MovAdquirente(db.Model, BaseMixin):
             "produto": self.produto,
             "parcela": self.parcela,
             "total_parcelas": self.total_parcelas,
+            # ✅ NOVO: Tipo de pagamento
+            "tipo_pagamento": self.tipo_pagamento,
+            "eh_pix": self.eh_pix,
+            "eh_cartao": self.eh_cartao,
+            # Valores
             "valor_bruto": str(self.valor_bruto),
             "valor_liquido": str(self.valor_liquido),
             "valor_conciliado": str(self.valor_conciliado),
             "valor_pendente": str(self.valor_pendente),
             "status_conciliacao": self.status_conciliacao,
+            # Metadados
+            "arquivo_origem": self.arquivo_origem,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None
         }
