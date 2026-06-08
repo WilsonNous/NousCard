@@ -1,8 +1,8 @@
 # services/importer_db_movimento.py
-# ✅ VERSÃO FINAL CORRIGIDA: to_date() reconhece datetime.date + datetime.datetime
+# ✅ VERSÃO FINAL: Suporte completo a tipo_pagamento (cartao/pix/boleto/outros)
 
 from models import db, MovAdquirente, MovBanco, Adquirente, ContaBancaria
-from datetime import datetime, date, timezone  # ← ✅ IMPORTANTE: importar 'date'
+from datetime import datetime, date, timezone
 from decimal import Decimal, InvalidOperation
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy import func
@@ -16,51 +16,39 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 100
 
 # ============================================================
-# CONVERTERS SEGUROS (CORRIGIDOS)
+# CONVERTERS SEGUROS
 # ============================================================
 
 def to_date(valor):
     """
     Converte valor para date de forma segura.
-    
-    ✅ Suporta:
-        - datetime.date (já é date, retorna direto)
-        - datetime.datetime (converte para date)
-        - str (parseia nos formatos suportados)
-        - None/empty (retorna None)
+    Suporta: date, datetime, string "DD/MM/YYYY", string "YYYY-MM-DD"
     """
     if not valor:
         return None
     
-    # ✅ Se já for um objeto date (mas não datetime), retorna diretamente
-    # Isso evita que dates do parser sejam convertidos para None
     if isinstance(valor, date) and not isinstance(valor, datetime):
         return valor
     
-    # ✅ Se for datetime, extrai a parte de date
     if isinstance(valor, datetime):
         return valor.date()
     
-    # ✅ Se for string, tenta parsear em múltiplos formatos
     if isinstance(valor, str):
-        valor = valor.strip()  # Remove espaços extras que podem quebrar o parse
+        valor = valor.strip()
         formatos = [
-            "%Y-%m-%d",           # 2026-02-01 (ISO, mais comum)
-            "%d/%m/%Y",           # 01/02/2026 (formato BR)
-            "%Y-%m-%d %H:%M:%S",  # 2026-02-01 10:30:00 (com hora)
-            "%d/%m/%Y %H:%M:%S",  # 01/02/2026 10:30:00 (BR com hora)
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+            "%Y-%m-%d %H:%M:%S",
+            "%d/%m/%Y %H:%M:%S",
         ]
         for fmt in formatos:
             try:
                 return datetime.strptime(valor, fmt).date()
             except (ValueError, TypeError):
-                continue  # Tenta próximo formato
-        
-        # Se nenhum formato funcionou, loga warning para debug
+                continue
         logger.warning(f"⚠️ Não foi possível parsear data: '{valor}'")
         return None
     
-    # Tipo não suportado
     logger.warning(f"⚠️ Tipo de data não suportado: {type(valor).__name__} = {valor}")
     return None
 
@@ -70,7 +58,6 @@ def to_decimal(valor, default=Decimal("0")):
     try:
         if valor is None:
             return default
-        # Se já for Decimal, retorna direto
         if isinstance(valor, Decimal):
             return valor
         return Decimal(str(valor))
@@ -93,6 +80,35 @@ def to_int(valor, default=None):
         logger.warning(f"⚠️ Valor inválido para int: {valor} (erro: {e})")
         return default
 
+
+def inferir_tipo_pagamento(registro):
+    """
+    Infere o tipo de pagamento baseado nos campos do registro.
+    
+    ✅ Suporta detecção de:
+        - 'pix': quando produto ou bandeira contém 'pix'
+        - 'boleto': quando produto contém 'boleto'
+        - 'cartao': quando produto é Crédito/Débito (default)
+        - 'outros': fallback
+    """
+    produto = str(registro.get('produto') or '').strip().lower()
+    bandeira = str(registro.get('bandeira') or '').strip().lower()
+    
+    # Detectar PIX
+    if 'pix' in produto or bandeira == 'pix':
+        return 'pix'
+    
+    # Detectar boleto
+    if 'boleto' in produto or 'billet' in produto:
+        return 'boleto'
+    
+    # Detectar cartão (Crédito/Débito)
+    if any(kw in produto for kw in ['crédito', 'credito', 'débito', 'debito', 'credit', 'debit']):
+        return 'cartao'
+    
+    # Default: cartão (maioria dos casos em adquirentes)
+    return 'cartao'
+
 # ============================================================
 # VALIDAÇÕES INTELIGENTES
 # ============================================================
@@ -100,45 +116,33 @@ def to_int(valor, default=None):
 def validar_adquirente(valor, empresa_id=None):
     """
     Valida adquirente por ID numérico OU por nome (string).
-    
-    Args:
-        valor: ID (int) OU nome (str) da adquirente
-        empresa_id: Opcional, para filtrar por empresa se necessário
-    
-    Returns:
-        int: ID da adquirente se encontrado, None caso contrário
     """
     if not valor:
         return None
     
-    # ✅ Se for número (int ou string numérica), tenta buscar por ID
     if isinstance(valor, int) or (isinstance(valor, str) and valor.strip().isdigit()):
         try:
             adquirente = Adquirente.query.filter_by(id=int(valor)).first()
             if adquirente:
                 return adquirente.id
         except (ValueError, TypeError):
-            pass  # Se não conseguir converter, tenta como nome abaixo
+            pass
     
-    # ✅ Se for string, tenta buscar por nome (case-insensitive, tolerante a espaços)
     if isinstance(valor, str):
         nome_normalizado = valor.strip().lower()
         
-        # Match exato (case-insensitive)
         adquirente = Adquirente.query.filter(
             func.lower(Adquirente.nome) == nome_normalizado
         ).first()
         if adquirente:
             return adquirente.id
         
-        # Match parcial (contém) - útil para variações como "Cielo Ltda"
         adquirente = Adquirente.query.filter(
             func.lower(Adquirente.nome).contains(nome_normalizado)
         ).first()
         if adquirente:
             return adquirente.id
         
-        # Debug log para identificar adquirentes não mapeadas
         logger.warning(f"⚠️ Adquirente não encontrada: '{valor}' (normalizado: '{nome_normalizado}')")
     
     return None
@@ -149,7 +153,6 @@ def validar_conta_bancaria(conta_id, empresa_id):
     if not conta_id:
         return None
     
-    # Se for string numérica, converter para int
     if isinstance(conta_id, str) and conta_id.strip().isdigit():
         try:
             conta_id = int(conta_id.strip())
@@ -175,21 +178,21 @@ def verificar_venda_duplicada(empresa_id, nsu, adquirente_id):
         ).first()
         return venda is not None
     except Exception:
-        return False  # Em caso de erro, assume não duplicada para não bloquear
+        return False
 
 # ============================================================
-# SALVAR VENDAS (CORRIGIDO)
+# SALVAR VENDAS (CORRIGIDO COM tipo_pagamento)
 # ============================================================
 
 def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
     """
-    Salva vendas em batches com validação inteligente.
+    Salva vendas em batches com suporte a tipo_pagamento.
     
     ✅ Features:
+        - Inferência automática de tipo_pagamento (pix/cartao/boleto)
         - Validação de adquirente por nome OU ID
-        - Tratamento seguro de datas (to_date corrigido)
+        - Tratamento seguro de datas
         - Prevenção de duplicatas por NSU
-        - Logs detalhados para debug
     """
     
     logger.info(f"🔍 Início importação vendas: empresa={empresa_id}, registros={len(registros)}")
@@ -216,7 +219,7 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                         estatisticas["invalidos"] += 1
                         continue
                     
-                    # 🔹 Validar adquirente (flexível: nome OU ID)
+                    # 🔹 Validar adquirente
                     adquirente_valor = r.get("adquirente_id") or r.get("adquirente")
                     adquirente_id = validar_adquirente(adquirente_valor, empresa_id)
                     
@@ -230,16 +233,21 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                         estatisticas["duplicatas"] += 1
                         continue
                     
+                    # ✅ Inferir tipo_pagamento se não estiver definido
+                    tipo_pagamento = r.get('tipo_pagamento')
+                    if not tipo_pagamento:
+                        tipo_pagamento = inferir_tipo_pagamento(r)
+                    
                     # 🔹 Criar objeto MovAdquirente
                     venda = MovAdquirente(
                         empresa_id=empresa_id,
                         adquirente_id=adquirente_id,
                         
-                        # ✅ CORREÇÃO CRÍTICA: to_date() agora reconhece date e datetime
+                        # Datas convertidas corretamente
                         data_venda=to_date(r.get("data_venda") or r.get("data") or r.get("dt_venda")),
                         data_prevista_pagamento=to_date(r.get("data_prevista") or r.get("data_prevista_pagamento")),
                         
-                        # Campos opcionais com truncamento para evitar estouro de coluna
+                        # Campos opcionais com truncamento
                         bandeira=str(r.get("bandeira", "")).strip()[:50] if r.get("bandeira") else None,
                         produto=str(r.get("produto", "")).strip()[:50] if r.get("produto") else None,
                         parcela=to_int(r.get("parcela")),
@@ -251,6 +259,9 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                         valor_bruto=valor_bruto,
                         taxa_cobrada=to_decimal(r.get("taxa") or r.get("taxa_cobrada")),
                         valor_liquido=to_decimal(r.get("valor_liquido") or r.get("vl_liquido")),
+                        
+                        # ✅ NOVO: Tipo de pagamento (obrigatório no modelo)
+                        tipo_pagamento=tipo_pagamento,
                         
                         # Status padrão
                         valor_conciliado=Decimal("0"),
@@ -290,11 +301,6 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
     """
     Salva recebimentos em batches com validação e tratamento de erro.
-    
-    ✅ Features:
-        - Validação de conta bancária por empresa
-        - Tratamento seguro de datas (to_date corrigido)
-        - Logs detalhados para debug
     """
     
     logger.info(f"🔍 Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
@@ -333,7 +339,7 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                         empresa_id=empresa_id,
                         conta_bancaria_id=conta_id,
                         
-                        # ✅ CORREÇÃO CRÍTICA: to_date() agora reconhece date e datetime
+                        # Data convertida corretamente
                         data_movimento=to_date(r.get("data") or r.get("data_movimento") or r.get("dt_movimento")),
                         
                         # Campos opcionais com truncamento
