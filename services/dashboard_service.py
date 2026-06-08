@@ -1,4 +1,5 @@
-# services/dashboard_service.py - VERSÃO FINAL CORRIGIDA
+# services/dashboard_service.py
+# ✅ VERSÃO FINAL: Suporte completo a tipo_pagamento (cartao/pix/boleto/outros)
 
 from models import db, MovAdquirente, MovBanco, Adquirente
 from sqlalchemy import func, and_
@@ -8,12 +9,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
+def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None, tipo_pagamento=None):
     """
-    Calcula KPIs do dashboard.
+    Calcula KPIs do dashboard com suporte a múltiplos tipos de pagamento.
     
-    ✅ IMPORTANTE: MovBanco NÃO tem coluna 'ativo', então não filtramos por ela.
-    MovAdquirente TEM coluna 'ativo', então filtramos.
+    ✅ Suporta:
+        - periodo: 'todos', 'semana', 'mes', 'ano', 'personalizado'
+        - tipo_pagamento: None (todos), 'cartao', 'pix', 'boleto', 'outros'
+    
+    ✅ IMPORTANTE: 
+        - MovBanco NÃO tem coluna 'ativo' → não filtramos por ela
+        - MovAdquirente TEM coluna 'ativo' → filtramos sempre
     """
     
     try:
@@ -36,30 +42,73 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
         elif periodo == 'ano':
             inicio = hoje.replace(month=1, day=1)
             fim = hoje
-        else:  # mes
+        else:  # mes (padrão)
             inicio = hoje.replace(day=1)
             fim = hoje
         
-        logger.info(f"🔍 Calcular KPIs: empresa={empresa_id}, periodo={periodo}, inicio={inicio}, fim={fim}")
+        logger.info(f"🔍 Calcular KPIs: empresa={empresa_id}, periodo={periodo}, tipo_pagamento={tipo_pagamento}, inicio={inicio}, fim={fim}")
         
-        # ✅ VENDAS: MovAdquirente TEM coluna 'ativo' → filtrar
-        query_vendas = db.session.query(func.sum(MovAdquirente.valor_bruto)).filter(
+        # ✅ Query base para VENDAS (sempre filtra por empresa_id e ativo)
+        query_vendas_base = db.session.query(func.sum(MovAdquirente.valor_bruto)).filter(
+            MovAdquirente.empresa_id == empresa_id,
+            MovAdquirente.ativo == True
+        )
+        
+        # Aplicar filtro de data se necessário
+        if inicio is not None:
+            query_vendas_base = query_vendas_base.filter(MovAdquirente.data_venda >= inicio)
+        if fim is not None:
+            query_vendas_base = query_vendas_base.filter(MovAdquirente.data_venda <= fim)
+        
+        # Aplicar filtro de tipo_pagamento se especificado
+        if tipo_pagamento and tipo_pagamento != 'todos':
+            query_vendas_base = query_vendas_base.filter(MovAdquirente.tipo_pagamento == tipo_pagamento)
+        
+        # ✅ Total geral de vendas
+        total_vendas = query_vendas_base.scalar()
+        total_vendas = Decimal(str(total_vendas)) if total_vendas is not None else Decimal("0")
+        
+        # ✅ Totais por tipo de pagamento (sempre calcula, mesmo com filtro aplicado)
+        query_tipos = db.session.query(
+            MovAdquirente.tipo_pagamento,
+            func.count().label('quantidade'),
+            func.sum(MovAdquirente.valor_bruto).label('total')
+        ).filter(
             MovAdquirente.empresa_id == empresa_id,
             MovAdquirente.ativo == True
         )
         if inicio is not None:
-            query_vendas = query_vendas.filter(MovAdquirente.data_venda >= inicio)
+            query_tipos = query_tipos.filter(MovAdquirente.data_venda >= inicio)
         if fim is not None:
-            query_vendas = query_vendas.filter(MovAdquirente.data_venda <= fim)
+            query_tipos = query_tipos.filter(MovAdquirente.data_venda <= fim)
         
-        total_vendas = query_vendas.scalar()
-        total_vendas = Decimal(str(total_vendas)) if total_vendas is not None else Decimal("0")
+        tipos_raw = query_tipos.group_by(MovAdquirente.tipo_pagamento).all()
+        tipos_pagamento = [{
+            "tipo": t.tipo_pagamento or "outros",
+            "quantidade": t.quantidade or 0,
+            "total": str(t.total or 0)
+        } for t in tipos_raw if t.tipo_pagamento]
         
-        # ✅ RECEBIDOS: MovBanco NÃO tem coluna 'ativo' → NÃO filtrar por ativo!
+        # ✅ Totais individuais por tipo (para acesso rápido no frontend)
+        total_vendas_cartao = Decimal("0")
+        total_vendas_pix = Decimal("0")
+        total_vendas_boleto = Decimal("0")
+        total_vendas_outros = Decimal("0")
+        
+        for t in tipos_pagamento:
+            if t['tipo'] == 'cartao':
+                total_vendas_cartao = Decimal(t['total'])
+            elif t['tipo'] == 'pix':
+                total_vendas_pix = Decimal(t['total'])
+            elif t['tipo'] == 'boleto':
+                total_vendas_boleto = Decimal(t['total'])
+            else:
+                total_vendas_outros = Decimal(t['total'])
+        
+        # ✅ RECEBIDOS: MovBanco (NÃO tem tipo_pagamento, NÃO tem coluna 'ativo')
         query_recebido = db.session.query(func.sum(MovBanco.valor)).filter(
             MovBanco.empresa_id == empresa_id,
             MovBanco.conciliado == True
-            # ← SEM: MovBanco.ativo == True (não existe!)
         )
         if inicio is not None:
             query_recebido = query_recebido.filter(MovBanco.data_movimento >= inicio)
@@ -71,60 +120,77 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
         
         diferenca = total_vendas - total_recebido
         
-        # ✅ Adquirentes (MovAdquirente tem 'ativo')
-        query_adq = db.session.query(
-            Adquirente.nome,
-            func.sum(MovAdquirente.valor_bruto).label('total_vendas'),
-            func.sum(MovAdquirente.valor_liquido).label('total_liquido')
-        ).join(
-            MovAdquirente, Adquirente.id == MovAdquirente.adquirente_id
-        ).filter(
-            MovAdquirente.empresa_id == empresa_id,
-            MovAdquirente.ativo == True
-        )
-        if inicio is not None:
-            query_adq = query_adq.filter(MovAdquirente.data_venda >= inicio)
-        if fim is not None:
-            query_adq = query_adq.filter(MovAdquirente.data_venda <= fim)
+        # ✅ Adquirentes (apenas para cartão, pois PIX/boleto não têm adquirente tradicional)
+        # Se filtro de tipo_pagamento for aplicado e não for 'cartao', retorna lista vazia
+        adquirentes = []
+        if not tipo_pagamento or tipo_pagamento == 'todos' or tipo_pagamento == 'cartao':
+            query_adq = db.session.query(
+                Adquirente.nome,
+                func.sum(MovAdquirente.valor_bruto).label('total_vendas'),
+                func.sum(MovAdquirente.valor_liquido).label('total_liquido')
+            ).join(
+                MovAdquirente, Adquirente.id == MovAdquirente.adquirente_id
+            ).filter(
+                MovAdquirente.empresa_id == empresa_id,
+                MovAdquirente.ativo == True,
+                MovAdquirente.tipo_pagamento == 'cartao'  # ← Apenas cartão tem adquirente
+            )
+            if inicio is not None:
+                query_adq = query_adq.filter(MovAdquirente.data_venda >= inicio)
+            if fim is not None:
+                query_adq = query_adq.filter(MovAdquirente.data_venda <= fim)
+            
+            adquirentes_raw = query_adq.group_by(Adquirente.nome).all()
+            adquirentes = [{
+                "nome": a.nome or "Não identificada",
+                "total_vendas": str(a.total_vendas or 0),
+                "total_liquido": str(a.total_liquido or 0)
+            } for a in adquirentes_raw if a.nome]
         
-        adquirentes_raw = query_adq.group_by(Adquirente.nome).all()
-        adquirentes = [{
-            "nome": a.nome or "Não identificada",
-            "total_vendas": str(a.total_vendas or 0),
-            "total_liquido": str(a.total_liquido or 0)
-        } for a in adquirentes_raw if a.nome]
+        # ✅ Bandeiras (apenas para cartão)
+        bandeiras = []
+        if not tipo_pagamento or tipo_pagamento == 'todos' or tipo_pagamento == 'cartao':
+            query_band = db.session.query(
+                MovAdquirente.bandeira,
+                func.count().label('quantidade'),
+                func.sum(MovAdquirente.valor_bruto).label('total')
+            ).filter(
+                MovAdquirente.empresa_id == empresa_id,
+                MovAdquirente.ativo == True,
+                MovAdquirente.tipo_pagamento == 'cartao'  # ← Apenas cartão tem bandeira
+            )
+            if inicio is not None:
+                query_band = query_band.filter(MovAdquirente.data_venda >= inicio)
+            if fim is not None:
+                query_band = query_band.filter(MovAdquirente.data_venda <= fim)
+            
+            bandeiras_raw = query_band.group_by(MovAdquirente.bandeira).all()
+            bandeiras = [{
+                "bandeira": b.bandeira or "Não identificada",
+                "quantidade": b.quantidade or 0,
+                "total": str(b.total or 0)
+            } for b in bandeiras_raw if b.bandeira]
         
-        # ✅ Bandeiras (MovAdquirente tem 'ativo')
-        query_band = db.session.query(
-            MovAdquirente.bandeira,
-            func.count().label('quantidade'),
-            func.sum(MovAdquirente.valor_bruto).label('total')
-        ).filter(
-            MovAdquirente.empresa_id == empresa_id,
-            MovAdquirente.ativo == True
-        )
-        if inicio is not None:
-            query_band = query_band.filter(MovAdquirente.data_venda >= inicio)
-        if fim is not None:
-            query_band = query_band.filter(MovAdquirente.data_venda <= fim)
-        
-        bandeiras_raw = query_band.group_by(MovAdquirente.bandeira).all()
-        bandeiras = [{
-            "bandeira": b.bandeira or "Não identificada",
-            "quantidade": b.quantidade or 0,
-            "total": str(b.total or 0)
-        } for b in bandeiras_raw if b.bandeira]
-        
-        logger.info(f"✅ KPIs calculados: vendas={total_vendas}, recebido={total_recebido}")
+        logger.info(f"✅ KPIs calculados: vendas={total_vendas}, pix={total_vendas_pix}, recebido={total_recebido}")
         
         return {
             "periodo": {
                 "inicio": inicio.strftime("%d/%m/%Y") if inicio else "todos",
                 "fim": fim.strftime("%d/%m/%Y") if fim else "todos"
             },
+            # Filtro aplicado
+            "tipo_pagamento_filtro": tipo_pagamento or "todos",
+            # Totais gerais
             "total_vendas": str(total_vendas),
             "total_recebido": str(total_recebido),
             "diferenca": str(diferenca),
+            # ✅ NOVOS: Detalhamento por tipo de pagamento
+            "total_vendas_cartao": str(total_vendas_cartao),
+            "total_vendas_pix": str(total_vendas_pix),
+            "total_vendas_boleto": str(total_vendas_boleto),
+            "total_vendas_outros": str(total_vendas_outros),
+            "tipos_pagamento": tipos_pagamento,
+            # Dados existentes (apenas para cartão)
             "adquirentes": adquirentes,
             "bandeiras": bandeiras
         }
@@ -135,7 +201,7 @@ def calcular_kpis(empresa_id, periodo='todos', data_inicio=None, data_fim=None):
 
 
 def tem_dados_cadastrados(empresa_id):
-    """Verifica se empresa já tem dados"""
+    """Verifica se empresa já tem dados (ignora filtro de data)"""
     try:
         return MovAdquirente.query.filter_by(
             empresa_id=empresa_id,
@@ -146,7 +212,7 @@ def tem_dados_cadastrados(empresa_id):
 
 
 def calcular_resumo_rapido(empresa_id):
-    """Resumo rápido para header"""
+    """Resumo rápido para header (sem filtro de data, todos os tipos de pagamento)"""
     try:
         vendas_total = db.session.query(
             func.sum(MovAdquirente.valor_bruto)
@@ -154,6 +220,7 @@ def calcular_resumo_rapido(empresa_id):
             MovAdquirente.empresa_id == empresa_id,
             MovAdquirente.ativo == True
         ).scalar()
+        
         return {
             "vendas_total": str(Decimal(str(vendas_total)) if vendas_total is not None else 0),
             "atualizado_em": datetime.now().isoformat()
