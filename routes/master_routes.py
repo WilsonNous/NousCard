@@ -1,19 +1,57 @@
+# routes/master_routes.py - VERSÃO CORRIGIDA E COMPLETA
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort
 from utils.auth_middleware import master_required
 from models import db, Empresa, Usuario, LogAuditoria, MovAdquirente, MovBanco
 from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy import or_, func
 import logging
 import re
+import time
 
 logger = logging.getLogger(__name__)
 
 master_bp = Blueprint("master", __name__, url_prefix="/master")
 
 # ============================================================
+# CONFIGURAÇÕES DE SEGURANÇA
+# ============================================================
+RATE_LIMIT_WINDOW = 60  # segundos
+RATE_LIMIT_MAX_REQUESTS = 15  # por minuto para endpoints master (mais restritivo)
+_master_rate_limit_cache = {}
+
+def check_master_rate_limit(user_id: str, endpoint: str) -> bool:
+    """Verifica rate limiting para endpoints master"""
+    now = time.time()
+    key = f"master:{user_id}:{endpoint}"
+    
+    _master_rate_limit_cache[key] = [
+        t for t in _master_rate_limit_cache.get(key, [])
+        if now - t < RATE_LIMIT_WINDOW
+    ]
+    
+    if len(_master_rate_limit_cache.get(key, [])) >= RATE_LIMIT_MAX_REQUESTS:
+        return False
+    
+    _master_rate_limit_cache.setdefault(key, []).append(now)
+    return True
+
+# ============================================================
 # VALIDAÇÕES
 # ============================================================
-def validar_senha_forte(senha):
+def validar_email(email: str) -> bool:
+    """Valida formato de email com regex"""
+    if not email:
+        return False
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validar_senha_forte(senha: str):
+    """
+    Valida força da senha para contas administrativas.
+    Returns: (bool, mensagem)
+    """
     if len(senha) < 8:
         return False, "Mínimo 8 caracteres"
     if not re.search(r"[A-Z]", senha):
@@ -22,10 +60,27 @@ def validar_senha_forte(senha):
         return False, "Precisa de letra minúscula"
     if not re.search(r"\d", senha):
         return False, "Precisa de número"
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", senha):
+        return False, "Precisa de caractere especial (!@#$%...)"
     return True, "Senha válida"
 
-def log_acao_master(acao, detalhes, empresa_id=None):
-    """Log centralizado para ações master"""
+def validar_csrf_token():
+    """Valida token CSRF manualmente para formulários master"""
+    token_form = request.form.get('csrf_token')
+    token_header = request.headers.get('X-CSRF-Token')
+    session_token = g.get('csrf_token')
+    
+    token = token_form or token_header
+    if not token or not session_token or token != session_token:
+        logger.warning("CSRF token inválido ou ausente em ação master")
+        return False
+    return True
+
+def log_acao_master(acao: str, detalhes: str, empresa_id=None):
+    """
+    Log centralizado para ações master.
+    ⚠️ NÃO commita - deve ser commitado junto com a transação principal.
+    """
     try:
         log = LogAuditoria(
             usuario_id=g.user.id,
@@ -36,24 +91,60 @@ def log_acao_master(acao, detalhes, empresa_id=None):
             criado_em=datetime.now(timezone.utc)
         )
         db.session.add(log)
-        db.session.commit()
+        # NÃO commitar aqui - deixar para a transação principal
     except Exception as e:
-        logger.error(f"Erro ao logar ação master: {str(e)}")
-        db.session.rollback()
+        logger.error(f"Erro ao preparar log de auditoria master: {str(e)}")
+        # Não falhar a operação principal por erro de log
 
 # ============================================================
-# LISTAR EMPRESAS
+# LISTAR EMPRESAS (COM BUSCA E ORDENAÇÃO)
 # ============================================================
 @master_bp.route("/empresas")
 @master_required
 def empresas_listar():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
+    # ✅ Rate limiting
+    if not check_master_rate_limit(str(g.user.id), "empresas_listar"):
+        flash("Muitas requisições. Aguarde alguns segundos.", "warning")
+        return redirect(url_for("master.empresas_listar"))
     
-    empresas = Empresa.query.order_by(Empresa.id.desc())\
-        .paginate(page=page, per_page=per_page, error_out=False)
+    # Parâmetros de paginação, busca e ordenação
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(request.args.get('per_page', 20, type=int), 100)
+    search = request.args.get('search', '').strip()
+    order_by = request.args.get('order_by', 'id')
+    order_dir = request.args.get('order_dir', 'desc')
     
-    return render_template("master/empresas_listar.html", empresas=empresas)
+    # Query base
+    query = Empresa.query
+    
+    # ✅ Aplicar busca por nome ou email
+    if search:
+        query = query.filter(
+            or_(
+                Empresa.nome.ilike(f"%{search}%"),
+                Empresa.email.ilike(f"%{search}%")
+            )
+        )
+    
+    # ✅ Aplicar ordenação
+    order_column = getattr(Empresa, order_by, Empresa.id)
+    if order_dir == 'desc':
+        query = query.order_by(order_column.desc())
+    else:
+        query = query.order_by(order_column.asc())
+    
+    # Paginar
+    empresas = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template(
+        "master/empresas_listar.html", 
+        empresas=empresas,
+        search=search,
+        order_by=order_by,
+        order_dir=order_dir,
+        page=page,
+        per_page=per_page
+    )
 
 # ============================================================
 # CRIAR EMPRESA
@@ -61,10 +152,20 @@ def empresas_listar():
 @master_bp.route("/empresa/nova", methods=["GET", "POST"])
 @master_required
 def empresa_nova():
+    # ✅ Rate limiting
+    if not check_master_rate_limit(str(g.user.id), "empresa_nova"):
+        flash("Muitas tentativas. Aguarde.", "warning")
+        return redirect(url_for("master.empresa_nova"))
+    
     if request.method == "GET":
         return render_template("master/empresa_nova.html")
     
-    # Coletar dados
+    # ✅ Validar CSRF
+    if not validar_csrf_token():
+        flash("Erro de segurança. Recarregue a página.", "error")
+        return redirect(url_for("master.empresa_nova"))
+    
+    # Coletar e sanitizar dados
     nome = (request.form.get("nome") or "").strip()
     admin_nome = (request.form.get("admin_nome") or "").strip()
     email = (request.form.get("email") or "").lower().strip()
@@ -73,6 +174,10 @@ def empresa_nova():
     # Validações
     if not all([nome, admin_nome, email, senha]):
         flash("Preencha todos os campos obrigatórios", "error")
+        return render_template("master/empresa_nova.html")
+    
+    if not validar_email(email):
+        flash("Formato de email inválido", "error")
         return render_template("master/empresa_nova.html")
     
     valido, msg = validar_senha_forte(senha)
@@ -87,9 +192,15 @@ def empresa_nova():
     
     try:
         # Criar empresa
-        empresa = Empresa(nome=nome, documento="", email=email, ativo=True)
+        empresa = Empresa(
+            nome=nome,
+            documento="",
+            email=email,
+            ativo=True,
+            criado_em=datetime.now(timezone.utc)
+        )
         db.session.add(empresa)
-        db.session.flush()
+        db.session.flush()  # Gera ID sem commit
         
         # Criar usuário admin
         usuario = Usuario(
@@ -98,42 +209,68 @@ def empresa_nova():
             email=email,
             admin=True,
             master=False,
-            ativo=True
+            ativo=True,
+            tentativas_login_falhas=0
         )
         usuario.set_password(senha)
         db.session.add(usuario)
         
-        # Log de auditoria
+        # Log de auditoria (mesma transação)
         log_acao_master("master_criou_empresa", f"Empresa: {nome}, Admin: {email}", empresa.id)
         
         db.session.commit()
         
         flash(f"Empresa '{nome}' criada com sucesso!", "success")
-        logger.info(f"Master criou empresa: {nome}, admin={email}")
+        logger.info(f"✅ Master criou empresa: {nome}, admin={email}")
         
         return redirect(url_for("master.empresas_listar"))
         
     except IntegrityError as e:
         db.session.rollback()
-        logger.error(f"Erro de integridade: {str(e)}")
+        logger.error(f"⚠️ Erro de integridade ao criar empresa: {str(e)}")
         flash("Erro ao criar. Email já existe?", "error")
         return render_template("master/empresa_nova.html")
     except SQLAlchemyError as e:
         db.session.rollback()
-        logger.error(f"Erro de banco: {str(e)}")
+        logger.error(f"❌ Erro de banco ao criar empresa: {str(e)}")
         flash("Erro interno. Tente novamente.", "error")
         return render_template("master/empresa_nova.html")
 
 # ============================================================
-# VER EMPRESA + USUÁRIOS
+# VER EMPRESA + USUÁRIOS (COM PAGINAÇÃO)
 # ============================================================
 @master_bp.route("/empresa/<int:empresa_id>")
 @master_required
 def empresa_ver(empresa_id):
-    empresa = Empresa.query.get_or_404(empresa_id)
-    usuarios = Usuario.query.filter_by(empresa_id=empresa_id).order_by(Usuario.nome).all()
+    # ✅ Rate limiting
+    if not check_master_rate_limit(str(g.user.id), "empresa_ver"):
+        flash("Muitas requisições. Aguarde.", "warning")
+        return redirect(url_for("master.empresas_listar"))
     
-    return render_template("master/empresa_ver.html", empresa=empresa, usuarios=usuarios)
+    empresa = Empresa.query.get_or_404(empresa_id)
+    
+    # ✅ Paginação para lista de usuários
+    page = max(1, request.args.get('page', 1, type=int))
+    per_page = min(request.args.get('per_page', 50, type=int), 100)
+    
+    usuarios_pagination = Usuario.query.filter_by(empresa_id=empresa_id)\
+        .order_by(Usuario.nome.asc())\
+        .paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Contagens úteis para auditoria
+    total_vendas = MovAdquirente.query.filter_by(empresa_id=empresa_id).count()
+    total_recebimentos = MovBanco.query.filter_by(empresa_id=empresa_id).count()
+    
+    return render_template(
+        "master/empresa_ver.html", 
+        empresa=empresa, 
+        usuarios=usuarios_pagination.items,
+        usuarios_pagination=usuarios_pagination,
+        total_vendas=total_vendas,
+        total_recebimentos=total_recebimentos,
+        page=page,
+        per_page=per_page
+    )
 
 # ============================================================
 # CRIAR USUÁRIO
@@ -141,12 +278,22 @@ def empresa_ver(empresa_id):
 @master_bp.route("/empresa/<int:empresa_id>/usuario/novo", methods=["GET", "POST"])
 @master_required
 def usuario_novo(empresa_id):
+    # ✅ Rate limiting
+    if not check_master_rate_limit(str(g.user.id), "usuario_novo"):
+        flash("Muitas tentativas. Aguarde.", "warning")
+        return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
+    
     empresa = Empresa.query.get_or_404(empresa_id)
     
     if request.method == "GET":
         return render_template("master/usuario_novo.html", empresa=empresa)
     
-    # Coletar dados
+    # ✅ Validar CSRF
+    if not validar_csrf_token():
+        flash("Erro de segurança. Recarregue a página.", "error")
+        return redirect(url_for("master.usuario_novo", empresa_id=empresa_id))
+    
+    # Coletar e sanitizar dados
     nome = (request.form.get("nome") or "").strip()
     email = (request.form.get("email") or "").lower().strip()
     senha = request.form.get("senha")
@@ -155,6 +302,10 @@ def usuario_novo(empresa_id):
     # Validações
     if not all([nome, email, senha]):
         flash("Preencha todos os campos obrigatórios", "error")
+        return render_template("master/usuario_novo.html", empresa=empresa)
+    
+    if not validar_email(email):
+        flash("Formato de email inválido", "error")
         return render_template("master/usuario_novo.html", empresa=empresa)
     
     valido, msg = validar_senha_forte(senha)
@@ -174,24 +325,26 @@ def usuario_novo(empresa_id):
             email=email,
             admin=bool(admin_flag),
             master=False,
-            ativo=True
+            ativo=True,
+            tentativas_login_falhas=0,
+            criado_em=datetime.now(timezone.utc)
         )
         usuario.set_password(senha)
         db.session.add(usuario)
         
-        # Log de auditoria
+        # Log de auditoria (mesma transação)
         log_acao_master("master_criou_usuario", f"Usuário: {email}, Empresa: {empresa.nome}", empresa_id)
         
         db.session.commit()
         
         flash(f"Usuário '{nome}' criado com sucesso!", "success")
-        logger.info(f"Master criou usuário: {email}, empresa={empresa_id}")
+        logger.info(f"✅ Master criou usuário: {email}, empresa={empresa_id}")
         
         return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
         
     except SQLAlchemyError as e:
         db.session.rollback()
-        logger.error(f"Erro ao criar usuário: {str(e)}")
+        logger.error(f"❌ Erro ao criar usuário: {str(e)}")
         flash("Erro ao criar usuário", "error")
         return render_template("master/usuario_novo.html", empresa=empresa)
 
@@ -201,6 +354,16 @@ def usuario_novo(empresa_id):
 @master_bp.route("/empresa/<int:empresa_id>/usuario/<int:user_id>/remover", methods=["POST"])
 @master_required
 def usuario_remover(empresa_id, user_id):
+    # ✅ Rate limiting
+    if not check_master_rate_limit(str(g.user.id), "usuario_remover"):
+        flash("Muitas tentativas. Aguarde.", "warning")
+        return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
+    
+    # ✅ Validar CSRF
+    if not validar_csrf_token():
+        flash("Erro de segurança", "error")
+        return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
+    
     usuario = Usuario.query.filter_by(id=user_id, empresa_id=empresa_id).first_or_404()
     
     # Não permitir auto-exclusão
@@ -208,33 +371,57 @@ def usuario_remover(empresa_id, user_id):
         flash("Não pode excluir a si mesmo", "error")
         return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
     
+    # ✅ Verificar confirmação explícita para exclusão
+    confirmar = request.form.get("confirmar_exclusao")
+    if confirmar != "sim":
+        flash("Para remover usuário, confirme digitando 'sim' no campo de confirmação", "warning")
+        return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
+    
     try:
-        # Soft delete
+        # ✅ Soft delete: marcar como inativo + registrar exclusão
         usuario.ativo = False
         usuario.nome = f"[EXCLUÍDO] {usuario.nome}"
+        usuario.excluido_em = datetime.now(timezone.utc)
+        usuario.excluido_por = g.user.id
         
-        # Log de auditoria
+        # Log de auditoria (mesma transação)
         log_acao_master("master_excluiu_usuario", f"Usuário: {usuario.email}", empresa_id)
         
         db.session.commit()
         
         flash("Usuário removido com sucesso", "success")
-        logger.info(f"Master removeu usuário: {usuario.id}, empresa={empresa_id}")
+        logger.info(f"✅ Master removeu usuário: {usuario.id}, empresa={empresa_id}")
         
     except SQLAlchemyError as e:
         db.session.rollback()
-        logger.error(f"Erro ao remover usuário: {str(e)}")
+        logger.error(f"❌ Erro ao remover usuário: {str(e)}")
         flash("Erro ao remover usuário", "error")
     
     return redirect(url_for("master.empresa_ver", empresa_id=empresa_id))
 
 # ============================================================
-# REMOVER EMPRESA (SOFT DELETE COM VALIDAÇÃO)
+# REMOVER EMPRESA (SOFT DELETE COM VALIDAÇÃO REFORÇADA)
 # ============================================================
 @master_bp.route("/empresa/<int:empresa_id>/remover", methods=["POST"])
 @master_required
 def empresa_remover(empresa_id):
+    # ✅ Rate limiting
+    if not check_master_rate_limit(str(g.user.id), "empresa_remover"):
+        flash("Muitas tentativas. Aguarde.", "warning")
+        return redirect(url_for("master.empresas_listar"))
+    
+    # ✅ Validar CSRF
+    if not validar_csrf_token():
+        flash("Erro de segurança", "error")
+        return redirect(url_for("master.empresas_listar"))
+    
     empresa = Empresa.query.get_or_404(empresa_id)
+    
+    # ✅ Verificar confirmação explícita para exclusão de empresa
+    confirmar = request.form.get("confirmar_exclusao_empresa")
+    if confirmar != "sim":
+        flash("Para excluir empresa, confirme digitando 'sim' no campo de confirmação", "warning")
+        return redirect(url_for("master.empresas_listar"))
     
     # Verificar se tem dados financeiros
     tem_vendas = MovAdquirente.query.filter_by(empresa_id=empresa_id).count() > 0
@@ -245,25 +432,69 @@ def empresa_remover(empresa_id):
         return redirect(url_for("master.empresas_listar"))
     
     try:
-        # Soft delete
+        # ✅ Soft delete: marcar como inativo + registrar exclusão
         empresa.ativo = False
         empresa.nome = f"[EXCLUÍDA] {empresa.nome}"
+        empresa.excluido_em = datetime.now(timezone.utc)
+        empresa.excluido_por = g.user.id
         
-        # Desativar todos os usuários
+        # Desativar todos os usuários da empresa
         for usuario in Usuario.query.filter_by(empresa_id=empresa_id).all():
             usuario.ativo = False
+            usuario.excluido_em = datetime.now(timezone.utc)
         
-        # Log de auditoria
+        # Log de auditoria (mesma transação)
         log_acao_master("master_excluiu_empresa", f"Empresa: {empresa.nome}", empresa_id)
         
         db.session.commit()
         
         flash("Empresa removida com sucesso", "success")
-        logger.info(f"Master removeu empresa: {empresa_id}")
+        logger.info(f"✅ Master removeu empresa: {empresa_id}")
         
     except SQLAlchemyError as e:
         db.session.rollback()
-        logger.error(f"Erro ao remover empresa: {str(e)}")
+        logger.error(f"❌ Erro ao remover empresa: {str(e)}")
         flash("Erro ao remover empresa", "error")
     
     return redirect(url_for("master.empresas_listar"))
+
+# ============================================================
+# NOVO: DASHBOARD MASTER (RESUMO DO SISTEMA)
+# ============================================================
+@master_bp.route("/")
+@master_required
+def dashboard_master():
+    """Dashboard com resumo do sistema para master"""
+    
+    # Contagens globais (otimizadas)
+    total_empresas = Empresa.query.count()
+    empresas_ativas = Empresa.query.filter_by(ativo=True).count()
+    total_usuarios = Usuario.query.count()
+    usuarios_ativos = Usuario.query.filter_by(ativo=True).count()
+    total_vendas = MovAdquirente.query.count()
+    total_recebimentos = MovBanco.query.count()
+    
+    # Empresas criadas nos últimos 7 dias
+    from datetime import timedelta
+    sete_dias_atras = datetime.now(timezone.utc) - timedelta(days=7)
+    empresas_recentes = Empresa.query.filter(Empresa.criado_em >= sete_dias_atras).count()
+    
+    # Logs recentes de auditoria
+    logs_recentes = LogAuditoria.query.filter_by(acao__in=[
+        "master_criou_empresa",
+        "master_excluiu_empresa",
+        "master_criou_usuario",
+        "master_excluiu_usuario"
+    ]).order_by(LogAuditoria.criado_em.desc()).limit(10).all()
+    
+    return render_template(
+        "master/dashboard.html",
+        total_empresas=total_empresas,
+        empresas_ativas=empresas_ativas,
+        empresas_recentes=empresas_recentes,
+        total_usuarios=total_usuarios,
+        usuarios_ativos=usuarios_ativos,
+        total_vendas=total_vendas,
+        total_recebimentos=total_recebimentos,
+        logs_recentes=logs_recentes
+    )
