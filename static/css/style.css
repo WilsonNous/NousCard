@@ -1,5 +1,5 @@
 /* ============================================================
-   STYLE • NousCard (PRODUÇÃO)
+   STYLE • NousCard (PRODUÇÃO - VERSÃO CORRIGIDA)
    Styles globais para toda a aplicação
    Compatível com acessibilidade, dark mode e performance
 ============================================================ */
@@ -12,7 +12,6 @@ html, body {
     overflow-x: hidden;
     margin: 0;
     padding: 0;
-    /* ✅ Informar ao browser que suporta light e dark mode */
     color-scheme: light dark;
 }
 
@@ -21,27 +20,23 @@ html, body {
     max-width: 100%;
 }
 
-/* Garantir que imagens, canvases e SVGs não estoure o container */
 img, canvas, svg, video, embed, object, iframe {
     max-width: 100%;
     height: auto;
     display: block;
 }
 
-/* Containers principais */
 .nc-body, .nc-content, .nc-section {
     width: 100%;
     max-width: 100vw;
     overflow-x: hidden;
 }
 
-/* Ajuste para topbar e footer */
 .nc-topbar, .nc-footer {
     width: 100%;
     max-width: 100vw;
 }
 
-/* Tabelas com scroll horizontal apenas se necessário */
 .table-container, .nc-table-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -124,26 +119,19 @@ img, canvas, svg, video, embed, object, iframe {
 ============================================================ */
 @media (prefers-color-scheme: dark) {
     :root {
-        /* Texto */
         --text: #f7fafc;
         --text-muted: #a0aec0;
         --text-disabled: #718096;
         --white: #1a202c;
-        
-        /* Fundos */
         --gray-light: #2d3748;
         --gray: #4a5568;
         --gray-dark: #cbd5e0;
         --gray-border: #4a5568;
-        
-        /* KPIs e Status */
         --primary-light: #2d3748;
         --kpi-red-light: #4a1a1a;
         --kpi-yellow-light: #4a3a1a;
         --kpi-green-light: #1a3a2a;
         --kpi-blue-light: #1a3a4a;
-        
-        /* Feedback */
         --success-bg: #1a3a2a;
         --success-border: #2f855a;
         --error-bg: #4a1a1a;
@@ -152,14 +140,11 @@ img, canvas, svg, video, embed, object, iframe {
         --warning-border: #dd6b20;
         --info-bg: #1a3a4a;
         --info-border: #3182ce;
-        
-        /* Sombras */
         --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
         --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
         --shadow-lg: 0 10px 40px rgba(0,0,0,0.4);
     }
     
-    /* Ajustes específicos para dark mode */
     .nc-topbar, .nc-footer, .nc-section, .nc-modal-content {
         background: var(--white);
     }
@@ -179,7 +164,6 @@ img, canvas, svg, video, embed, object, iframe {
    ACESSIBILIDADE
 ============================================================ */
 
-/* Foco visível para navegação por teclado */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -190,12 +174,10 @@ textarea:focus-visible,
     outline-offset: 2px;
 }
 
-/* Remover outline padrão mas manter :focus-visible */
 :focus:not(:focus-visible) {
     outline: none;
 }
 
-/* Skip link para acessibilidade */
 .skip-link {
     position: absolute;
     top: -40px;
@@ -208,7 +190,6 @@ textarea:focus-visible,
     font-weight: 500;
     border-radius: 0 0 8px 0;
     transition: top 0.2s;
-    /* ✅ Touch target mínimo */
     min-height: var(--touch-target);
     display: inline-flex;
     align-items: center;
@@ -218,7 +199,6 @@ textarea:focus-visible,
     top: 0;
 }
 
-/* Screen reader only */
 .nc-sr-only {
     position: absolute;
     width: 1px;
@@ -231,22 +211,14 @@ textarea:focus-visible,
     border: 0;
 }
 
-/* Reduzir motion para usuários que preferem */
 @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
-    
-    .nc-modal-content {
-        animation: none !important;
-    }
-    
-    /* ✅ Spinner estático em reduced motion */
+    .nc-modal-content { animation: none !important; }
     .spinner {
         animation: none;
         border-top-color: transparent;
@@ -254,54 +226,38 @@ textarea:focus-visible,
     }
 }
 
-/* Alto contraste para usuários que precisam */
 @media (prefers-contrast: high) {
     :root {
         --gray: #ccc;
         --gray-dark: #333;
         --gray-border: #000;
     }
-    
-    .nc-kpi-card,
-    .nc-section,
-    .nc-table,
-    .nc-form-input,
-    .nc-btn {
+    .nc-kpi-card, .nc-section, .nc-table, .nc-form-input, .nc-btn {
         border-width: 2px;
         border-color: currentColor;
     }
 }
 
-/* Windows High Contrast Mode */
 @media (forced-colors: active) {
     .nc-btn-primary {
         background-color: ButtonFace;
         color: ButtonText;
         border: 2px solid ButtonText;
     }
-    
     .nc-form-input {
         background-color: Canvas;
         color: CanvasText;
         border: 2px solid CanvasText;
     }
-    
-    .nc-kpi-card {
-        border: 2px solid CanvasText;
-    }
-    
-    .nc-modal-backdrop {
-        background-color: rgba(0, 0, 0, 0.7);
-    }
+    .nc-kpi-card { border: 2px solid CanvasText; }
+    .nc-modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
 }
 
 /* ============================================================
    FORMULÁRIOS
 ============================================================ */
 
-.nc-form-group {
-    margin-bottom: 1.5rem;
-}
+.nc-form-group { margin-bottom: 1.5rem; }
 
 .nc-form-label {
     display: block;
@@ -327,13 +283,10 @@ textarea:focus-visible,
     transition: border-color 0.2s, box-shadow 0.2s;
     background: var(--white);
     color: var(--text);
-    /* ✅ Touch target mínimo */
     min-height: var(--touch-target);
-    /* ✅ Placeholder com contraste adequado */
     color-scheme: light dark;
 }
 
-/* ✅ Placeholder estilizado */
 .nc-form-input::placeholder,
 .nc-form-textarea::placeholder {
     color: var(--text-muted);
@@ -348,7 +301,6 @@ textarea:focus-visible,
     box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
 }
 
-/* Fallback para navegadores sem :focus-visible */
 .nc-form-input:focus,
 .nc-form-select:focus,
 .nc-form-textarea:focus {
@@ -370,14 +322,12 @@ textarea:focus-visible,
 }
 
 .nc-field-error {
-    display: block;
-    margin-top: 0.25rem;
-    font-size: var(--font-size-sm);
-    color: var(--error);
-    /* ✅ Ícone acessível para daltônicos */
     display: flex;
     align-items: center;
     gap: 0.375rem;
+    margin-top: 0.25rem;
+    font-size: var(--font-size-sm);
+    color: var(--error);
 }
 
 .nc-field-error::before {
@@ -393,7 +343,6 @@ textarea:focus-visible,
     color: var(--text-muted);
 }
 
-/* Checkbox/Radio custom */
 .nc-checkbox-wrapper {
     display: flex;
     align-items: flex-start;
@@ -406,7 +355,6 @@ textarea:focus-visible,
     width: 1.25rem;
     height: 1.25rem;
     accent-color: var(--primary);
-    /* ✅ Touch target mínimo */
     min-width: var(--touch-target);
     min-height: var(--touch-target);
 }
@@ -415,14 +363,13 @@ textarea:focus-visible,
     font-weight: 400;
     color: var(--text);
     cursor: pointer;
-    /* ✅ Touch target mínimo */
     min-height: var(--touch-target);
     display: inline-flex;
     align-items: center;
 }
 
 /* ============================================================
-   BOTÕES (COM PERFORMANCE)
+   BOTÕES
 ============================================================ */
 
 .nc-btn {
@@ -438,16 +385,12 @@ textarea:focus-visible,
     cursor: pointer;
     border: none;
     transition: background 0.2s, transform 0.1s;
-    /* ✅ Touch target mínimo */
     min-height: var(--touch-target);
     min-width: var(--touch-target);
-    /* ✅ Otimização de renderização */
     contain: layout style;
 }
 
-.nc-btn:active {
-    transform: scale(0.98);
-}
+.nc-btn:active { transform: scale(0.98); }
 
 .nc-btn-primary {
     background: var(--primary);
@@ -495,7 +438,7 @@ textarea:focus-visible,
 .nc-btn-sm {
     padding: 0.5rem 1rem;
     font-size: var(--font-size-sm);
-    min-height: 36px; /* Menor para botões secundários */
+    min-height: 36px;
 }
 
 .nc-btn:disabled,
@@ -511,21 +454,14 @@ textarea:focus-visible,
     gap: 0.5rem;
 }
 
-.nc-btn:disabled .btn-text {
-    display: none;
-}
-
-.nc-btn:disabled .btn-loading {
-    display: inline-flex;
-}
+.nc-btn:disabled .btn-text { display: none; }
+.nc-btn:disabled .btn-loading { display: inline-flex; }
 
 /* ============================================================
    MENSAGENS DE FEEDBACK
 ============================================================ */
 
-.nc-flash-messages {
-    margin-bottom: 1.5rem;
-}
+.nc-flash-messages { margin-bottom: 1.5rem; }
 
 .nc-flash {
     padding: 1rem 1.25rem;
@@ -536,7 +472,6 @@ textarea:focus-visible,
     gap: 0.75rem;
     font-size: 0.95rem;
     line-height: 1.4;
-    /* ✅ Otimização de renderização */
     contain: layout style;
 }
 
@@ -570,19 +505,13 @@ textarea:focus-visible,
     color: #004085;
 }
 
-/* Dark mode adjustments para feedback */
 @media (prefers-color-scheme: dark) {
-    .nc-flash-success,
-    .nc-flash-error,
-    .nc-flash-warning,
-    .nc-flash-info {
+    .nc-flash-success, .nc-flash-error, .nc-flash-warning, .nc-flash-info {
         color: var(--text);
     }
 }
 
-.nc-error,
-.nc-warning,
-.nc-success {
+.nc-error, .nc-warning, .nc-success {
     padding: 1rem;
     border-radius: var(--border-radius);
     margin: 1rem 0;
@@ -620,13 +549,10 @@ textarea:focus-visible,
     border-top-color: var(--primary);
     animation: spin 1s linear infinite;
     vertical-align: middle;
-    /* ✅ Otimização de animação */
     will-change: transform;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .nc-loading {
     display: flex;
@@ -645,7 +571,6 @@ textarea:focus-visible,
     border-radius: 4px;
     height: 1rem;
     margin: 0.5rem 0;
-    /* ✅ Otimização de animação */
     will-change: background-position;
 }
 
@@ -691,7 +616,7 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   MODAL (COM ACEITIBILIDADE COMPLETA)
+   MODAL
 ============================================================ */
 
 .nc-modal {
@@ -702,13 +627,10 @@ textarea:focus-visible,
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    /* ✅ Otimização de renderização */
     contain: layout style;
 }
 
-.nc-modal[aria-hidden="true"] {
-    display: none;
-}
+.nc-modal[aria-hidden="true"] { display: none; }
 
 .nc-modal-backdrop {
     position: absolute;
@@ -728,19 +650,12 @@ textarea:focus-visible,
     display: flex;
     flex-direction: column;
     animation: modalSlideIn 0.3s ease-out;
-    /* ✅ Otimização de animação */
     will-change: transform, opacity;
 }
 
 @keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .nc-modal-header,
@@ -762,7 +677,6 @@ textarea:focus-visible,
     padding: 1.5rem;
     overflow-y: auto;
     flex: 1;
-    /* ✅ Otimização de scroll */
     -webkit-overflow-scrolling: touch;
 }
 
@@ -779,7 +693,6 @@ textarea:focus-visible,
     border-radius: 4px;
     transition: background 0.2s;
     line-height: 1;
-    /* ✅ Touch target mínimo */
     min-width: var(--touch-target);
     min-height: var(--touch-target);
     display: flex;
@@ -798,7 +711,7 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   EMPTY STATES
+   EMPTY STATES & DRAG DROP
 ============================================================ */
 
 .nc-empty-state {
@@ -828,10 +741,6 @@ textarea:focus-visible,
     margin-right: auto;
 }
 
-/* ============================================================
-   DRAG & DROP
-============================================================ */
-
 .nc-dropzone {
     border: 2px dashed var(--primary);
     background: #f0f5ff;
@@ -841,7 +750,6 @@ textarea:focus-visible,
     cursor: pointer;
     transition: 0.3s;
     color: #333;
-    /* ✅ Touch target e otimização */
     min-height: 200px;
     contain: layout style;
 }
@@ -900,13 +808,8 @@ textarea:focus-visible,
     font-size: 0.9rem;
 }
 
-.nc-file-item:last-child {
-    border-bottom: none;
-}
-
-.nc-file-item small {
-    color: var(--text-muted);
-}
+.nc-file-item:last-child { border-bottom: none; }
+.nc-file-item small { color: var(--text-muted); }
 
 .nc-error-list {
     margin-top: 1rem;
@@ -918,9 +821,7 @@ textarea:focus-visible,
 }
 
 @media (prefers-color-scheme: dark) {
-    .nc-error-list {
-        color: var(--text);
-    }
+    .nc-error-list { color: var(--text); }
 }
 
 .nc-error-list div {
@@ -929,13 +830,12 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   TABELAS - MELHORIAS
+   TABELAS
 ============================================================ */
 
 .nc-table {
     width: 100%;
     border-collapse: collapse;
-    /* ✅ Otimização de renderização */
     contain: layout style;
 }
 
@@ -951,15 +851,8 @@ textarea:focus-visible,
     font-size: 0.8em;
 }
 
-.nc-table th[aria-sort="ascending"]::after {
-    content: ' ↑';
-    opacity: 1;
-}
-
-.nc-table th[aria-sort="descending"]::after {
-    content: ' ↓';
-    opacity: 1;
-}
+.nc-table th[aria-sort="ascending"]::after { content: ' ↑'; opacity: 1; }
+.nc-table th[aria-sort="descending"]::after { content: ' ↓'; opacity: 1; }
 
 .nc-table th,
 .nc-table td {
@@ -1010,13 +903,8 @@ textarea:focus-visible,
     font-weight: 500;
 }
 
-.nc-status-active {
-    color: var(--success);
-}
-
-.nc-status-inactive {
-    color: var(--text-muted);
-}
+.nc-status-active { color: var(--success); }
+.nc-status-inactive { color: var(--text-muted); }
 
 /* ============================================================
    PAGINAÇÃO
@@ -1037,8 +925,9 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   LAYOUT BASE
+   LAYOUT BASE & TOPBAR - ✅ CORREÇÃO DO MENU HORIZONTAL
 ============================================================ */
+
 .nc-body {
     font-family: var(--font-family);
     background: var(--gray-light);
@@ -1063,7 +952,6 @@ textarea:focus-visible,
     top: 0;
     z-index: 100;
     box-shadow: var(--shadow-sm);
-    /* ✅ Otimização */
     contain: layout style;
 }
 
@@ -1072,30 +960,48 @@ textarea:focus-visible,
     font-weight: 700;
     color: var(--primary);
     text-decoration: none;
-    /* ✅ Touch target */
     min-height: var(--touch-target);
     display: inline-flex;
     align-items: center;
 }
 
+/* ✅ CORREÇÃO CRÍTICA: Menu horizontal */
 .nc-topbar-nav {
     display: flex;
-    gap: 0.5rem;
     align-items: center;
 }
 
+/* ✅ Remove bullets e exibe lista horizontal */
+.nc-nav-list {
+    display: flex;
+    flex-direction: row;  /* ← ITENS LADO A LADO */
+    align-items: center;
+    gap: 0.25rem;
+    list-style: none;     /* ← Remove bullets */
+    margin: 0;
+    padding: 0;
+}
+
+.nc-nav-list li {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+/* ✅ Links do menu com layout correto */
 .nc-topbar-item {
-    padding: 0.5rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 6px;
     text-decoration: none;
     color: var(--text);
     font-weight: 500;
     font-size: var(--font-size-sm);
-    transition: background 0.2s;
-    /* ✅ Touch target */
+    white-space: nowrap;    /* ← Previne quebra de linha */
+    transition: background 0.2s, color 0.2s;
     min-height: var(--touch-target);
-    display: inline-flex;
-    align-items: center;
 }
 
 .nc-topbar-item:hover,
@@ -1117,14 +1023,12 @@ textarea:focus-visible,
     width: 100%;
 }
 
-/* Seções */
 .nc-section {
     background: var(--white);
     border-radius: var(--border-radius);
     padding: 1.5rem;
     margin-bottom: 1.5rem;
     box-shadow: var(--shadow-sm);
-    /* ✅ Otimização */
     contain: layout style;
 }
 
@@ -1163,7 +1067,6 @@ textarea:focus-visible,
     transition: transform 0.2s, box-shadow 0.2s;
     width: 100%;
     min-width: 0;
-    /* ✅ Otimização e touch target */
     contain: layout style;
     min-height: var(--touch-target);
 }
@@ -1175,9 +1078,7 @@ textarea:focus-visible,
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .nc-kpi-card:hover {
-        transform: none;
-    }
+    .nc-kpi-card:hover { transform: none; }
 }
 
 .kpi-icon {
@@ -1232,7 +1133,7 @@ textarea:focus-visible,
     min-width: 0;
 }
 
-/* Gráficos - RESPONSIVOS */
+/* Gráficos */
 .nc-graphs-container {
     background: var(--white);
     border-radius: var(--border-radius);
@@ -1242,7 +1143,6 @@ textarea:focus-visible,
     max-width: 100%;
     position: relative;
     overflow: hidden;
-    /* ✅ Otimização */
     contain: layout style;
 }
 
@@ -1265,19 +1165,17 @@ textarea:focus-visible,
 .nc-footer a {
     color: var(--primary);
     text-decoration: none;
-    /* ✅ Touch target */
     min-height: var(--touch-target);
     display: inline-flex;
     align-items: center;
 }
 
-.nc-footer a:hover {
-    text-decoration: underline;
-}
+.nc-footer a:hover { text-decoration: underline; }
 
 /* ============================================================
    BARRA DE STATUS DO USUÁRIO
 ============================================================ */
+
 .nc-user-status-bar {
     background: var(--gray-light);
     padding: 0.75rem 1rem;
@@ -1328,13 +1226,8 @@ textarea:focus-visible,
     gap: 0.25rem;
 }
 
-.nc-label {
-    color: var(--text-muted);
-}
-
-.nc-value {
-    font-weight: 600;
-}
+.nc-label { color: var(--text-muted); }
+.nc-value { font-weight: 600; }
 
 .nc-user-last-login {
     margin-left: auto;
@@ -1343,25 +1236,15 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   RESPONSIVIDADE CONSOLIDADA
+   RESPONSIVIDADE
 ============================================================ */
 
-/* Tablet */
 @media (max-width: 1024px) {
-    .nc-content {
-        padding: 1.5rem;
-    }
-    
-    .nc-section {
-        padding: 1.25rem;
-    }
-    
-    .nc-kpis {
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .nc-content { padding: 1.5rem; }
+    .nc-section { padding: 1.25rem; }
+    .nc-kpis { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Mobile */
 @media (max-width: 768px) {
     .nc-topbar {
         padding: 0.5rem 1rem;
@@ -1378,18 +1261,19 @@ textarea:focus-visible,
         padding: 0.5rem 0;
     }
     
+    /* ✅ Mobile: permite empilhar se necessário */
+    .nc-nav-list {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
     .nc-topbar-item {
         padding: 0.4rem 0.6rem;
         font-size: 0.85rem;
     }
     
-    .nc-content {
-        padding: 1rem;
-    }
-    
-    .nc-section {
-        padding: 1rem;
-    }
+    .nc-content { padding: 1rem; }
+    .nc-section { padding: 1rem; }
     
     .nc-user-status-bar {
         flex-direction: column;
@@ -1418,24 +1302,15 @@ textarea:focus-visible,
         gap: 0.75rem;
     }
     
-    .nc-kpi-card {
-        padding: 1rem;
-    }
-    
+    .nc-kpi-card { padding: 1rem; }
     .kpi-icon {
         width: 40px;
         height: 40px;
         font-size: 1.5rem;
     }
+    .kpi-value { font-size: 1.25rem; }
     
-    .kpi-value {
-        font-size: 1.25rem;
-    }
-    
-    .nc-acq-grid {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    }
-    
+    .nc-acq-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
     .nc-graphs-container {
         min-height: 280px;
         padding: 0.75rem;
@@ -1445,39 +1320,20 @@ textarea:focus-visible,
         margin: 0.5rem;
         max-height: 95vh;
     }
+    .nc-modal-body { padding: 1rem; }
     
-    .nc-modal-body {
-        padding: 1rem;
-    }
-    
-    .nc-table {
-        font-size: 0.85rem;
-    }
-    
-    .nc-table th,
-    .nc-table td {
-        padding: 0.5rem;
-    }
+    .nc-table { font-size: 0.85rem; }
+    .nc-table th, .nc-table td { padding: 0.5rem; }
 }
 
-/* Mobile muito pequeno */
 @media (max-width: 480px) {
-    .nc-kpis {
-        grid-template-columns: 1fr;
-    }
-    
-    .nc-graphs-container {
-        min-height: 250px;
-    }
-    
+    .nc-kpis { grid-template-columns: 1fr; }
+    .nc-graphs-container { min-height: 250px; }
     .nc-topbar-item {
         padding: 0.3rem 0.5rem;
         font-size: 0.8rem;
     }
-    
-    .nc-section {
-        padding: 0.75rem;
-    }
+    .nc-section { padding: 0.75rem; }
 }
 
 /* ============================================================
@@ -1485,12 +1341,8 @@ textarea:focus-visible,
 ============================================================ */
 
 @media print {
-    .nc-topbar,
-    .nc-footer,
-    .nc-btn,
-    .nc-modal-backdrop,
-    .nc-dropzone,
-    .nc-file-list {
+    .nc-topbar, .nc-footer, .nc-btn, .nc-modal-backdrop,
+    .nc-dropzone, .nc-file-list {
         display: none !important;
     }
     
@@ -1506,19 +1358,13 @@ textarea:focus-visible,
         page-break-inside: avoid;
     }
     
-    .nc-table {
-        font-size: 10pt;
-    }
-    
-    .nc-kpis {
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .nc-table { font-size: 10pt; }
+    .nc-kpis { grid-template-columns: repeat(2, 1fr); }
     
     a {
         text-decoration: none;
         color: #000;
     }
-    
     a[href]::after {
         content: " (" attr(href) ")";
         font-size: 0.9em;
