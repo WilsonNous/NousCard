@@ -1,4 +1,5 @@
 # utils/filters.py - Filtros Jinja2 personalizados para templates
+# ✅ Este arquivo NÃO usa 'app' no nível do módulo
 
 from decimal import Decimal, InvalidOperation
 
@@ -44,31 +45,15 @@ def register_filters(app):
     Registra todos os filters personalizados no ambiente Jinja2 do Flask.
     
     Args:
-        app: Instância Flask configurada
+        app: Instância Flask configurada (passada como parâmetro)
         
     Usage:
         from utils.filters import register_filters
-        register_filters(app)  # Chamar após app = Flask(__name__)
+        register_filters(app)  # Chamar DENTRO de create_app()
     """
-    # Registrar filter de moeda brasileira
+    # ✅ Registrar filter de moeda brasileira
+    # 'app' é recebido como parâmetro - NÃO é uma variável global
     app.jinja_env.filters['currency_br'] = currency_br
     
     # ✅ Adicionar mais filters aqui no futuro se necessário:
     # app.jinja_env.filters['outro_filter'] = outra_funcao
-
-
-def date_br(value):
-    """Formata datetime para DD/MM/YYYY"""
-    if not value:
-        return "—"
-    return value.strftime("%d/%m/%Y") if hasattr(value, 'strftime') else str(value)
-
-def percent_br(value):
-    """Formata decimal como porcentagem brasileira"""
-    if value is None:
-        return "0%"
-    return f"{float(value)*100:.2f}%".replace(".", ",")
-
-# No register_filters():
-app.jinja_env.filters['date_br'] = date_br
-app.jinja_env.filters['percent_br'] = percent_br
