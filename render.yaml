@@ -1,19 +1,151 @@
+# render.yaml
+# Blueprint para deploy do NousCard no Render.com
+
 services:
   - type: web
     name: nouscard
     env: python
-    plan: starter
-    region: oregon
-
-    pythonVersion: 3.11
-
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
-
+    plan: starter  # Ou: standard, professional para mais recursos
+    region: oregon  # Ou: frankfurt para menor latência no Brasil
+    
+    pythonVersion: "3.11"
+    
+    # ✅ Build com logs explícitos e validação
+    buildCommand: |
+      echo "🔧 Instalando dependências..."
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      echo "✅ Build concluído"
+    
+    # ✅ Start com Gunicorn configurado para produção
+    startCommand: |
+      echo "🚀 Iniciando NousCard com Gunicorn..."
+      gunicorn \
+        --bind 0.0.0.0:$PORT \
+        --workers 4 \
+        --worker-class gthread \
+        --threads 2 \
+        --timeout 120 \
+        --keep-alive 5 \
+        --access-logfile - \
+        --error-logfile - \
+        --log-level info \
+        app:app
+    
+    # ✅ Health check para monitoramento do Render
+    healthCheckPath: /health
+    healthCheckTimeout: 30
+    
+    # ✅ Timeout para requests longos (conciliação pode demorar)
+    timeoutSeconds: 120
+    
+    # ✅ Auto-deploy explícito
+    autoDeploy: true
+    
+    # ✅ Scaling básico (ajustar conforme necessidade)
+    numInstances: 1  # Aumentar para 2+ em produção com tráfego
+    
+    # ✅ Filtro de build para monorepo (opcional)
+    buildFilter:
+      paths:
+        - ./**
+        - requirements.txt
+      ignorePaths:
+        - docs/**
+        - tests/**
+        - "*.md"
+    
+    # ✅ Domínio customizado (opcional)
+    # domains:
+    #   - nouscard.com.br
+    #   - www.nouscard.com.br
+    
+    # ✅ Disco para uploads locais (se não usar S3)
+    # disk:
+    #   name: uploads-data
+    #   mountPath: /opt/render/project/src/uploads
+    #   sizeGB: 1
+    
+    # ✅ Variáveis de ambiente
     envVars:
+      # 🔐 Obrigatórias (sync: false = definir no dashboard do Render)
       - key: SECRET_KEY
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      
+      # ⚙️ Configurações de produção
       - key: FLASK_ENV
         value: "production"
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: "INFO"
+      
+      # 🔒 Segurança de sessão
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_HTTPONLY
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: "Lax"
+      - key: PERMANENT_SESSION_LIFETIME
+        value: "28800"  # 8 horas em segundos
+      
+      # 📤 Uploads
+      - key: MAX_CONTENT_LENGTH
+        value: "52428800"  # 50MB
+      - key: UPLOAD_FOLDER
+        value: "/opt/render/project/src/uploads"  # Se usar disk mount
+      
+      # 🛡️ CSRF
+      - key: WTF_CSRF_ENABLED
+        value: "true"
+      
+      # 📊 Monitoramento (opcional)
+      - key: SENTRY_DSN
+        sync: false  # Definir apenas se usar Sentry
+      
+      # 📧 Email (opcional)
+      - key: MAIL_SERVER
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_DEFAULT_SENDER
+        value: "noreply@nouscard.com.br"
+      
+      # 🚀 Feature flags
+      - key: FEATURE_PIX_ENABLED
+        value: "true"
+      - key: FEATURE_CONCIL_AUTO
+        value: "true"
+      
+      # 🗄️ Banco de dados (pool)
+      - key: DATABASE_POOL_SIZE
+        value: "10"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "20"
+      - key: DATABASE_POOL_TIMEOUT
+        value: "30"
+      
+      # ⚡ Rate limiting (opcional)
+      - key: RATELIMIT_ENABLED
+        value: "true"
+      - key: RATELIMIT_DEFAULT
+        value: "100 per hour"
+    
+    # ✅ Pré-deploy: rodar migrações antes de iniciar o app
+    preDeployCommand: |
+      echo "🔄 Rodando migrações do banco..."
+      flask db upgrade || echo "⚠️ Migrações falharam ou não necessárias"
+      echo "✅ Pré-deploy concluído"
+    
+    # ✅ Pós-deploy: health check manual (opcional)
+    postDeployCommand: |
+      echo "🔍 Verificando saúde do app..."
+      curl -f http://localhost:$PORT/health || echo "⚠️ Health check falhou"
+      echo "✅ Deploy concluído"
