@@ -1,5 +1,6 @@
 # routes/__init__.py - VERSÃO FINAL COMPLETA E ROBUSTA
 
+import os  
 import logging
 import time
 from flask import Flask
