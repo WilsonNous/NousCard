@@ -1,4 +1,4 @@
-# utils/auth_middleware.py - VERSÃO CORRIGIDA E COMPLETA
+# utils/auth_middleware.py - VERSÃO CORRIGIDA PARA FLASK 2.3+
 
 from flask import session, redirect, url_for, g, request, jsonify
 from functools import wraps
@@ -186,22 +186,38 @@ master_required_api = _check_acess("master", api_mode=True)
 empresa_required_api = _check_acess("empresa", api_mode=True)
 
 # ============================================================
-# HELPER: INICIAR SESSÃO SEGURA APÓS LOGIN
+# HELPER: INICIAR SESSÃO SEGURA APÓS LOGIN (CORRIGIDO PARA FLASK 2.3+)
 # ============================================================
 def iniciar_sessao_segura(usuario):
     """
     Chamar após login bem-sucedido para inicializar sessão com segurança.
     
-    ✅ Features:
-        - Regenera session ID (previne session fixation)
+    ✅ Compatível com Flask 2.3+ (session.regenerate() foi removido)
+    
+    Features:
+        - Previne session fixation attacks (via clear + restore pattern)
         - Define cookies seguros
         - Gera token CSRF
-        - Registra metadados de sessão
+        - Registra metadados de sessão para auditoria
     """
-    # ✅ Regenerar session ID para prevenir session fixation
-    session.regenerate()
+    # ✅ MÉTODO COMPATÍVEL COM FLASK 2.3+ PARA SESSION FIXATION PROTECTION:
+    # Em vez de session.regenerate() (removido), usamos clear + restore
     
-    # Definir dados da sessão
+    # 1. Salvar dados NÃO sensíveis da sessão atual (para preservar entre "regeneração")
+    safe_data_to_preserve = {
+        'next': session.get('next'),           # URL para redirect pós-login
+        'csrf_token': session.get('csrf_token'),  # Manter CSRF token válido
+    }
+    
+    # 2. Limpar TODOS os dados da sessão (equivale a "regenerar" o ID)
+    session.clear()
+    
+    # 3. Restaurar apenas dados seguros que fazemos questão de preservar
+    for key, value in safe_data_to_preserve.items():
+        if value is not None:
+            session[key] = value
+    
+    # 4. Definir NOVOS dados da sessão autenticada (dados sensíveis)
     session["usuario_id"] = usuario.id
     session["empresa_id"] = usuario.empresa_id
     session["is_admin"] = usuario.admin
@@ -210,13 +226,16 @@ def iniciar_sessao_segura(usuario):
     session["session_user_agent"] = request.user_agent.string[:200]  # Limitar tamanho
     session["last_activity"] = datetime.now(timezone.utc).isoformat()
     
-    # ✅ Gerar token CSRF para formulários
+    # 5. Gerar NOVO token CSRF (importante: novo token após "regeneração")
     session["csrf_token"] = gerar_csrf_token()
     
-    # Marcar sessão como permanente (respeita SESSION_TIMEOUT_HOURS)
+    # 6. Marcar sessão como permanente (respeita SESSION_TIMEOUT_HOURS do config)
     session.permanent = True
     
-    logger.info(f"✅ Sessão iniciada: usuario={usuario.id}, email={usuario.email}, ip={request.remote_addr}")
+    # 7. Marcar como modificada para garantir que seja salva no response
+    session.modified = True
+    
+    logger.info(f"✅ Sessão segura iniciada: usuario={usuario.id}, email={usuario.email}, ip={request.remote_addr}")
 
 # ============================================================
 # HELPER: ENCERRAR SESSÃO COM SEGURANÇA
