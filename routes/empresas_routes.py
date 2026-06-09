@@ -293,9 +293,10 @@ def editar_empresa(empresa_id):
             "empresas_form.html", 
             empresa=empresa,
             erros={},
-            stats=calcular_stats_empresa(empresa)
+            stats=calcular_stats_empresa(empresa),
+            logo_url=getattr(empresa, 'logo_url', None) if hasattr(empresa, 'logo_url') else None
         )
-    
+        
     if not validar_csrf_token():
         flash("Erro de segurança. Recarregue a página.", "error")
         return redirect(url_for("empresas.editar_empresa", empresa_id=empresa_id))
