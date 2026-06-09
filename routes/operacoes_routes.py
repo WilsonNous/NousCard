@@ -336,3 +336,29 @@ def detalhado_api():
             "ok": False, 
             "message": "Erro ao gerar relatório detalhado."
         }), 500
+
+# routes/operacoes_routes.py - Adicionar esta nova rota
+
+@operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
+@login_required
+@empresa_required
+def ultimos_uploads_api():
+    """Retorna últimos arquivos importados para a empresa"""
+    from services.importer_db import listar_arquivos_importados
+    
+    empresa_id = g.user.empresa_id
+    arquivos = listar_arquivos_importados(empresa_id, page=1, per_page=5)
+    
+    return jsonify({
+        "ok": True,
+        "uploads": [
+            {
+                "id": a["id"],
+                "nome": a["nome_arquivo"],
+                "data": a["data_importacao"].isoformat() if a.get("data_importacao") else None,
+                "status": a["status"],
+                "total_valor": str(a.get("total_valor", 0))
+            }
+            for a in arquivos
+        ]
+    })
