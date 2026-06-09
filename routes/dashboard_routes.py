@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, g, request, make_response, redirect, url_for, current_app, abort
 from utils.auth_middleware import login_required, empresa_required
 from datetime import datetime, timezone
-from sqlalchemy import func, or_
+from sqlalchemy import func
 import logging
 import time
 
@@ -90,24 +90,19 @@ def dashboard():
         # Não falhar o dashboard por erro de log
         logger.debug(f"⚠️ Erro ao logar acesso ao dashboard (não crítico): {str(e)}")
     
-    # ✅ Onboarding Inteligente: Verificar dados OU arquivos importados
-    # ✅ Otimizado: 1 query em vez de 2 COUNTs separados
+    # ✅ ✅ ✅ CORREÇÃO: Onboarding com queries separadas (SEM cartesian product)
     try:
         from models import MovAdquirente, ArquivoImportado
         
-        # Query única com OR para verificar se tem vendas OU arquivos
-        tem_dados = db.session.query(
-            func.count(MovAdquirente.id).label('vendas'),
-            func.count(ArquivoImportado.id).label('arquivos')
-        ).filter(
-            or_(
-                MovAdquirente.empresa_id == empresa_id,
-                ArquivoImportado.empresa_id == empresa_id
-            )
-        ).first()
+        # ✅ DUAS QUERIES SEPARADAS - cada uma conta em sua própria tabela
+        # ✅ .limit(1) otimiza: para de buscar no primeiro registro encontrado
+        tem_vendas = MovAdquirente.query.filter_by(
+            empresa_id=empresa_id
+        ).limit(1).count() > 0
         
-        tem_vendas = tem_dados.vendas > 0 if tem_dados else False
-        tem_arquivos = tem_dados.arquivos > 0 if tem_dados else False
+        tem_arquivos = ArquivoImportado.query.filter_by(
+            empresa_id=empresa_id
+        ).limit(1).count() > 0
         
         logger.debug(f"🔍 Onboarding: empresa={empresa_id}, tem_vendas={tem_vendas}, tem_arquivos={tem_arquivos}")
         
@@ -130,9 +125,9 @@ def dashboard():
         "current_year": datetime.now().year,
         "current_month": datetime.now().month,
         "page_title": "Dashboard - NousCard",
-        # ✅ NOVO: CSRF token para formulários no template
+        # ✅ CSRF token para formulários no template
         "csrf_token": request.cookies.get('csrf_token') or getattr(g, 'csrf_token', ''),
-        # ✅ NOVO: Tipos de pagamento disponíveis para filtros no frontend
+        # ✅ Tipos de pagamento disponíveis para filtros no frontend
         "tipos_pagamento_disponiveis": ["todos", "cartao", "pix", "boleto", "outros"],
     }
     
@@ -146,7 +141,7 @@ def dashboard():
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         
-        # ✅ NOVO: Security headers adicionais
+        # ✅ Security headers adicionais
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
