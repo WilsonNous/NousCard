@@ -233,7 +233,6 @@
                     updateFileList();
                 }
 
-                fileInput.value = '';
             }
             
             function updateFileList() {
