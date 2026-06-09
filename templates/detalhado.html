@@ -2,6 +2,100 @@
 
 {% block title %}Visão Detalhada - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para visão detalhada -->
+<style>
+    /* Resumo estatístico no topo */
+    .detalhado-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: var(--gray-lightest);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid var(--primary);
+    }
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary);
+    }
+    .stat-card .label {
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+    }
+    .stat-card.pending { border-left-color: #ca8a04; }
+    .stat-card.pending .value { color: #ca8a04; }
+    .stat-card.conciliated { border-left-color: #16a34a; }
+    .stat-card.conciliated .value { color: #16a34a; }
+    
+    /* Filtros avançados */
+    .advanced-filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: var(--gray-lightest);
+        border-radius: 8px;
+    }
+    
+    /* Tabela com colunas fixas */
+    .nc-table th.status,
+    .nc-table td.status {
+        white-space: nowrap;
+        width: 120px;
+    }
+    .nc-table th.valor,
+    .nc-table td.valor {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+    .nc-table th.actions,
+    .nc-table td.actions {
+        width: 100px;
+        text-align: center;
+    }
+    
+    /* Badge de status */
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .status-conciliado { background: #dcfce7; color: #166534; }
+    .status-pendente { background: #fef3c7; color: #92400e; }
+    .status-parcial { background: #dbeafe; color: #1e40af; }
+    
+    /* Estado de erro */
+    .error-state {
+        padding: 2rem;
+        text-align: center;
+        background: #fee2e2;
+        border: 1px solid #dc2626;
+        border-radius: 8px;
+        color: #991b1b;
+    }
+    
+    /* Estado vazio */
+    .empty-state {
+        padding: 3rem;
+        text-align: center;
+        color: var(--gray-dark);
+    }
+    .empty-state .icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="nc-section">
     <div class="nc-section-header">
@@ -10,46 +104,161 @@
             <p class="nc-subtitle">Resumo diário por adquirente, liquidação e status.</p>
         </div>
         <div class="nc-header-actions">
-            <button type="button" id="btn-refresh" class="nc-btn-icon" aria-label="Atualizar dados">🔄</button>
-            <small class="nc-last-update">Última atualização: <time id="lastUpdateTime"></time></small>
+            <button type="button" id="btn-refresh" class="nc-btn-icon" aria-label="Atualizar dados" title="Atualizar dados">🔄</button>
+            <small class="nc-last-update">Última atualização: <time id="lastUpdateTime" datetime=""></time></small>
         </div>
     </div>
     
+    <!-- ✅ NOVO: Resumo estatístico -->
+    <div id="detalhadoStats" class="detalhado-stats" style="display: none;">
+        <div class="stat-card conciliated">
+            <div class="value" id="statConciliados">0</div>
+            <div class="label">Conciliados</div>
+        </div>
+        <div class="stat-card pending">
+            <div class="value" id="statPendentes">0</div>
+            <div class="label">Pendentes</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" id="statParciais">0</div>
+            <div class="label">Parciais</div>
+        </div>
+        <div class="stat-card">
+            <div class="value" id="statTotalValor">R$ 0,00</div>
+            <div class="label">Valor Total</div>
+        </div>
+    </div>
+    
+    <!-- ✅ APRIMORADO: Filtros avançados -->
     <div class="nc-table-controls">
-        <div class="nc-filters">
-            <label for="filtro-data">
-                <span class="nc-sr-only">Filtrar por data</span>
-                <input type="date" id="filtro-data" aria-label="Filtrar por data">
-            </label>
-            <label for="filtro-status">
-                <span class="nc-sr-only">Filtrar por status</span>
-                <select id="filtro-status" aria-label="Filtrar por status">
+        <div class="advanced-filters">
+            <div class="nc-form-group" style="margin-bottom: 0;">
+                <label for="filtroDataInicio" class="nc-form-label">Data Início</label>
+                <input type="date" id="filtroDataInicio" class="nc-form-input" aria-label="Data início do período">
+            </div>
+            
+            <div class="nc-form-group" style="margin-bottom: 0;">
+                <label for="filtroDataFim" class="nc-form-label">Data Fim</label>
+                <input type="date" id="filtroDataFim" class="nc-form-input" aria-label="Data fim do período">
+            </div>
+            
+            <div class="nc-form-group" style="margin-bottom: 0;">
+                <label for="filtroStatus" class="nc-form-label">Status</label>
+                <select id="filtroStatus" class="nc-form-input" aria-label="Filtrar por status">
                     <option value="">Todos os status</option>
                     <option value="conciliado">Conciliado</option>
                     <option value="pendente">Pendente</option>
                     <option value="parcial">Parcial</option>
                 </select>
-            </label>
+            </div>
+            
+            {% if features.pix_enabled %}
+            <div class="nc-form-group" style="margin-bottom: 0;">
+                <label for="filtroTipoPagamento" class="nc-form-label">Tipo Pagamento</label>
+                <select id="filtroTipoPagamento" class="nc-form-input" aria-label="Filtrar por tipo de pagamento">
+                    <option value="">Todos</option>
+                    <option value="cartao">Cartão</option>
+                    <option value="pix">PIX</option>
+                    <option value="boleto">Boleto</option>
+                </select>
+            </div>
+            {% endif %}
+            
+            <div class="nc-form-group" style="margin-bottom: 0;">
+                <label for="filtroAdquirente" class="nc-form-label">Adquirente</label>
+                <select id="filtroAdquirente" class="nc-form-input" aria-label="Filtrar por adquirente">
+                    <option value="">Todas</option>
+                    <!-- Preenchido via JS -->
+                </select>
+            </div>
+            
+            <div class="nc-form-group" style="margin-bottom: 0;">
+                <label for="filtroBusca" class="nc-form-label">🔍 Buscar</label>
+                <input type="search" id="filtroBusca" class="nc-form-input" placeholder="NSU, bandeira..." aria-label="Buscar por NSU ou bandeira">
+            </div>
         </div>
         
-        <div class="nc-table-actions">
-            <button type="button" id="btn-export-csv" class="nc-btn nc-btn-secondary">📥 Exportar CSV</button>
+        <div class="nc-table-actions" style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+            <button type="button" id="btn-aplicar-filtros" class="nc-btn nc-btn-primary">
+                🔍 Aplicar Filtros
+            </button>
+            <button type="button" id="btn-limpar-filtros" class="nc-btn nc-btn-secondary">
+                🧹 Limpar
+            </button>
+            <button type="button" id="btn-export-csv" class="nc-btn nc-btn-outline">
+                📥 Exportar CSV
+            </button>
+            <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn nc-btn-outline">
+                ✔️ Conciliação
+            </a>
         </div>
     </div>
     
+    <!-- ✅ APRIMORADO: Container de dados com estados -->
     <div id="detalhadoContainer" role="status" aria-live="polite" aria-busy="true" aria-label="Carregando dados de detalhamento">
-        <div class="nc-loading">
-            <span class="spinner" aria-hidden="true"></span>
-            <span>Carregando dados...</span>
-        </div>
+        <!-- Estados gerenciados via JS -->
     </div>
     
+    <!-- ✅ APRIMORADO: Paginação com info de registros -->
     <div class="nc-pagination" role="navigation" aria-label="Paginação da tabela" style="display:none;" id="paginationContainer">
         <button type="button" id="btn-prev" aria-label="Página anterior" disabled>← Anterior</button>
-        <span class="nc-page-info" id="pageInfo">Página 1 de 1</span>
+        <span class="nc-page-info" id="pageInfo">
+            Página <span id="currentPage">1</span> de <span id="totalPages">1</span>
+            <small class="nc-muted" id="registroInfo">(0 registros)</small>
+        </span>
         <button type="button" id="btn-next" aria-label="Próxima página">Próxima →</button>
     </div>
 </section>
 
+<!-- ✅ NOVO: Modal de detalhe da transação -->
+<div id="modalDetalheTransacao" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalDetalheTitulo">
+    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-content">
+        <div class="nc-modal-header">
+            <h3 id="modalDetalheTitulo">Detalhes da Transação</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalDetalhe()">✕</button>
+        </div>
+        <div class="nc-modal-body" id="modalDetalheContent">
+            <!-- Preenchido via JS -->
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalDetalhe()">Fechar</button>
+            <a href="{{ url_for('operacoes.conciliar_page') }}" class="nc-btn nc-btn-primary" id="btnConciliarDoModal" style="display: none;">
+                ✔️ Conciliar
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
 <script src="{{ url_for('static', filename='js/detalhado.js') }}" defer></script>
+
+<!-- ✅ NOVO: Script inline para helpers -->
+<script>
+// Helper para fechar modal
+function fecharModalDetalhe() {
+    document.getElementById('modalDetalheTransacao').style.display = 'none';
+}
+
+// Fechar modal com Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharModalDetalhe();
+    }
+});
+
+// Atualizar timestamp
+function updateLastUpdateTime() {
+    const now = new Date();
+    const timeEl = document.getElementById('lastUpdateTime');
+    if (timeEl) {
+        timeEl.textContent = now.toLocaleString('pt-BR');
+        timeEl.setAttribute('datetime', now.toISOString());
+    }
+}
+
+// Expor funções globalmente
+window.updateLastUpdateTime = updateLastUpdateTime;
+window.fecharModalDetalhe = fecharModalDetalhe;
+</script>
 {% endblock %}
