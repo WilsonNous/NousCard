@@ -3,16 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criar conta - NousCard</title>
+    <title>Criar conta - NousCard{% if error %} - Erro{% endif %}</title>
+    
+    <!-- ✅ NOVO: Meta CSRF para JavaScript -->
+    {% if csrf_token %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    {% endif %}
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    
+    {% block extra_head %}{% endblock %}
 </head>
 
 <body class="nc-login-body">
     <div class="nc-login-box" role="main">
+        <!-- ✅ NOVO: Logo da marca -->
+        <div class="nc-login-logo" aria-hidden="true">
+            <span style="font-size: 2.5rem;">💳</span>
+            <h1 style="font-size: 1.5rem; margin: 0.5rem 0;">NousCard</h1>
+        </div>
+        
         <h1 class="nc-sr-only">Criar conta - NousCard</h1>
         <h2 aria-hidden="true">Criar empresa</h2>
         
+        <!-- ✅ APRIMORADO: Mensagens de erro com mais contexto -->
         {% if error %}
         <div class="nc-error" id="registro-erro" role="alert" aria-live="assertive">
             <span aria-hidden="true">❌</span>
@@ -20,74 +35,176 @@
         </div>
         {% endif %}
         
-        <form method="POST" action="{{ url_for('auth.registrar') }}" aria-describedby="{% if error %}registro-erro{% endif %}" novalidate>
+        <!-- ✅ NOVO: Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="nc-flash nc-flash-{{ category }}" role="status">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('auth.registrar') }}" 
+              id="registroForm" 
+              novalidate
+              aria-describedby="{% if error %}registro-erro{% endif %}">
+            
+            <!-- ✅ CRÍTICO: Token CSRF -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <!-- Nome da Empresa -->
             <div class="nc-form-group">
                 <label for="empresa" class="nc-sr-only">Nome da empresa</label>
                 <input 
                     type="text" 
                     id="empresa" 
                     name="empresa" 
-                    placeholder="Nome da empresa" 
+                    placeholder="Nome da empresa *" 
                     required
                     aria-required="true"
+                    aria-describedby="empresa-hint empresa-error"
                     autocomplete="organization"
                     maxlength="150"
                     autofocus
+                    value="{{ request.form.get('empresa', '') }}"
                 >
+                <small id="empresa-hint" class="nc-form-hint">
+                    Ex: Minha Empresa Ltda
+                </small>
+                <div class="nc-form-error" id="empresa-error" style="display:none;" role="alert"></div>
             </div>
             
+            <!-- ✅ NOVO: CNPJ (Opcional) -->
+            <div class="nc-form-group">
+                <label for="documento" class="nc-sr-only">CNPJ</label>
+                <input 
+                    type="text" 
+                    id="documento" 
+                    name="documento" 
+                    placeholder="CNPJ (opcional)" 
+                    autocomplete="off"
+                    maxlength="18"
+                    aria-describedby="documento-hint documento-error"
+                    value="{{ request.form.get('documento', '') }}"
+                >
+                <small id="documento-hint" class="nc-form-hint">
+                    Opcional, mas recomendado para relatórios fiscais
+                </small>
+                <div class="nc-form-error" id="documento-error" style="display:none;" role="alert"></div>
+            </div>
+            
+            <!-- Nome Completo -->
             <div class="nc-form-group">
                 <label for="nome" class="nc-sr-only">Seu nome completo</label>
                 <input 
                     type="text" 
                     id="nome" 
                     name="nome" 
-                    placeholder="Seu nome" 
+                    placeholder="Seu nome completo *" 
                     required
                     aria-required="true"
+                    aria-describedby="nome-hint nome-error"
                     autocomplete="name"
                     maxlength="120"
+                    value="{{ request.form.get('nome', '') }}"
                 >
+                <small id="nome-hint" class="nc-form-hint">
+                    Como você prefere ser chamado
+                </small>
+                <div class="nc-form-error" id="nome-error" style="display:none;" role="alert"></div>
             </div>
             
+            <!-- E-mail -->
             <div class="nc-form-group">
                 <label for="email" class="nc-sr-only">Seu e-mail</label>
                 <input 
                     type="email" 
                     id="email" 
                     name="email" 
-                    placeholder="Seu e-mail" 
+                    placeholder="Seu e-mail *" 
                     autocomplete="username" 
                     required
                     aria-required="true"
+                    aria-describedby="email-hint email-error"
                     maxlength="150"
+                    value="{{ request.form.get('email', '') }}"
                 >
+                <small id="email-hint" class="nc-form-hint">
+                    Usaremos este e-mail para login e comunicações
+                </small>
+                <div class="nc-form-error" id="email-error" style="display:none;" role="alert"></div>
             </div>
             
+            <!-- Senha com Toggle de Visibilidade -->
             <div class="nc-form-group">
                 <label for="senha" class="nc-sr-only">Senha</label>
-                <input 
-                    type="password" 
-                    id="senha" 
-                    name="senha" 
-                    placeholder="Senha" 
-                    autocomplete="new-password" 
-                    required
-                    aria-required="true"
-                    aria-describedby="senha-requisitos"
-                    minlength="8"
-                >
+                <div class="nc-password-wrapper" style="position: relative;">
+                    <input 
+                        type="password" 
+                        id="senha" 
+                        name="senha" 
+                        placeholder="Senha *" 
+                        autocomplete="new-password" 
+                        required
+                        aria-required="true"
+                        aria-describedby="senha-requisitos senha-error"
+                        minlength="8"
+                        style="padding-right: 2.5rem;"
+                    >
+                    <!-- ✅ NOVO: Botão para mostrar/ocultar senha -->
+                    <button type="button" 
+                            id="toggleSenha" 
+                            class="nc-password-toggle"
+                            aria-label="Mostrar senha"
+                            style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.25rem;"
+                            tabindex="-1">
+                        👁️
+                    </button>
+                </div>
                 <div id="senha-requisitos" class="nc-password-requirements" aria-live="polite">
                     <small>A senha deve ter:</small>
-                    <ul>
-                        <li id="req-length">⚪ Mínimo 8 caracteres</li>
-                        <li id="req-upper">⚪ Uma letra maiúscula</li>
-                        <li id="req-lower">⚪ Uma letra minúscula</li>
-                        <li id="req-number">⚪ Um número</li>
+                    <ul style="margin: 0.25rem 0 0 1rem; padding: 0; font-size: 0.75rem;">
+                        <li id="req-length" style="color: #6b7280;">⚪ Mínimo 8 caracteres</li>
+                        <li id="req-upper" style="color: #6b7280;">⚪ Uma letra maiúscula</li>
+                        <li id="req-lower" style="color: #6b7280;">⚪ Uma letra minúscula</li>
+                        <li id="req-number" style="color: #6b7280;">⚪ Um número</li>
+                        <li id="req-special" style="color: #6b7280;">⚪ Um caractere especial (!@#$%...)</li>
                     </ul>
                 </div>
+                <div class="nc-form-error" id="senha-error" style="display:none;" role="alert"></div>
             </div>
             
+            <!-- ✅ NOVO: Confirmação de Senha -->
+            <div class="nc-form-group">
+                <label for="senha_confirm" class="nc-sr-only">Confirmar senha</label>
+                <div class="nc-password-wrapper" style="position: relative;">
+                    <input 
+                        type="password" 
+                        id="senha_confirm" 
+                        name="senha_confirm" 
+                        placeholder="Confirmar senha *" 
+                        autocomplete="new-password" 
+                        required
+                        aria-required="true"
+                        aria-describedby="senha-confirm-error"
+                        minlength="8"
+                        style="padding-right: 2.5rem;"
+                    >
+                    <button type="button" 
+                            id="toggleSenhaConfirm" 
+                            class="nc-password-toggle"
+                            aria-label="Mostrar senha"
+                            style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.25rem;"
+                            tabindex="-1">
+                        👁️
+                    </button>
+                </div>
+                <div class="nc-form-error" id="senha-confirm-error" style="display:none;" role="alert"></div>
+            </div>
+            
+            <!-- Termos de Uso -->
             <div class="nc-form-group nc-form-group-checkbox">
                 <div class="nc-checkbox-wrapper">
                     <input 
@@ -95,31 +212,287 @@
                         id="termos" 
                         name="termos" 
                         required
-                        aria-describedby="termos-hint"
+                        aria-describedby="termos-hint termos-error"
                     >
                     <label for="termos" class="nc-checkbox-label">
-                        Concordo com os Termos de Uso e Política de Privacidade
+                        Concordo com os <a href="#" target="_blank" class="nc-link">Termos de Uso</a> e <a href="#" target="_blank" class="nc-link">Política de Privacidade</a> *
                     </label>
                 </div>
                 <small id="termos-hint" class="nc-form-hint">
                     🔒 Seus dados financeiros são criptografados e usados apenas para conciliação.
                 </small>
+                <div class="nc-form-error" id="termos-error" style="display:none;" role="alert"></div>
             </div>
             
-            <button type="submit" class="nc-btn-primary" id="btn-registrar">
+            <!-- Botão de Submit com Loading State -->
+            <button type="submit" class="nc-btn-primary" id="btn-registrar" style="width: 100%;">
                 <span class="btn-text">📝 Criar conta</span>
                 <span class="btn-loading" style="display:none;">
                     <span class="spinner" aria-hidden="true"></span> Criando conta...
                 </span>
             </button>
+            
+            <!-- ✅ NOVO: Aviso de segurança -->
+            <p class="nc-muted" style="font-size: 0.75rem; text-align: center; margin-top: 1rem;">
+                🔒 Ambiente seguro • Seus dados estão protegidos
+            </p>
         </form>
         
-        <p class="nc-login-register">
-            Já tem acesso?
+        <p class="nc-login-register" style="margin-top: 1.5rem; text-align: center;">
+            Já tem acesso? 
             <a href="{{ url_for('auth.login_page') }}">Entrar</a>
         </p>
+        
+        <!-- ✅ NOVO: Links úteis -->
+        <div class="nc-login-help" style="margin-top: 1rem; text-align: center; font-size: 0.875rem;">
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-link">← Voltar ao site</a>
+        </div>
     </div>
     
+    <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/registrar.js') }}" defer></script>
+    
+    <!-- ✅ NOVO: Script inline para validação em tempo real -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('registroForm');
+        const btnRegistrar = document.getElementById('btn-registrar');
+        const senhaInput = document.getElementById('senha');
+        const senhaConfirmInput = document.getElementById('senha_confirm');
+        const toggleSenha = document.getElementById('toggleSenha');
+        const toggleSenhaConfirm = document.getElementById('toggleSenhaConfirm');
+        const emailInput = document.getElementById('email');
+        const documentoInput = document.getElementById('documento');
+        
+        // ✅ Toggle de visibilidade de senha
+        function setupPasswordToggle(toggle, input) {
+            if (toggle && input) {
+                toggle.addEventListener('click', function() {
+                    const isPassword = input.type === 'password';
+                    input.type = isPassword ? 'text' : 'password';
+                    toggle.textContent = isPassword ? '🙈' : '👁️';
+                    toggle.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+                    input.focus();
+                });
+            }
+        }
+        setupPasswordToggle(toggleSenha, senhaInput);
+        setupPasswordToggle(toggleSenhaConfirm, senhaConfirmInput);
+        
+        // ✅ Validação de senha em tempo real
+        if (senhaInput) {
+            senhaInput.addEventListener('input', function() {
+                const senha = this.value;
+                atualizarRequisitosSenha(senha);
+            });
+            
+            senhaInput.addEventListener('blur', function() {
+                validarSenha();
+            });
+        }
+        
+        // ✅ Validação de confirmação de senha
+        if (senhaConfirmInput) {
+            senhaConfirmInput.addEventListener('input', function() {
+                validarConfirmacaoSenha();
+            });
+            
+            senhaConfirmInput.addEventListener('blur', function() {
+                validarConfirmacaoSenha();
+            });
+        }
+        
+        // ✅ Validação de email em tempo real
+        if (emailInput) {
+            emailInput.addEventListener('blur', function() {
+                const email = this.value.trim();
+                const errorDiv = document.getElementById('email-error');
+                
+                if (email && !isValidEmail(email)) {
+                    errorDiv.textContent = '⚠️ Digite um e-mail válido';
+                    errorDiv.style.display = 'block';
+                    this.setAttribute('aria-invalid', 'true');
+                } else {
+                    errorDiv.style.display = 'none';
+                    this.setAttribute('aria-invalid', 'false');
+                }
+            });
+        }
+        
+        // ✅ Máscara de CNPJ em tempo real
+        if (documentoInput) {
+            documentoInput.addEventListener('input', function(e) {
+                let valor = e.target.value.replace(/\D/g, '');
+                
+                if (valor.length <= 14) {
+                    valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                    valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                    valor = valor.replace(/(\d{3})(\d)/, '$1/$2');
+                    valor = valor.replace(/(\d{4})(\d)/, '$1-$2');
+                }
+                
+                e.target.value = valor.substr(0, 18);
+            });
+            
+            documentoInput.addEventListener('blur', function() {
+                const valor = this.value.replace(/\D/g, '');
+                if (valor.length === 14 && !validarCNPJ(valor)) {
+                    const errorDiv = document.getElementById('documento-error');
+                    if (errorDiv) {
+                        errorDiv.textContent = '⚠️ CNPJ inválido';
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            });
+        }
+        
+        // ✅ Validação de termos
+        const termosCheckbox = document.getElementById('termos');
+        if (termosCheckbox) {
+            termosCheckbox.addEventListener('change', function() {
+                const errorDiv = document.getElementById('termos-error');
+                if (!this.checked) {
+                    errorDiv.textContent = '⚠️ Você precisa aceitar os termos';
+                    errorDiv.style.display = 'block';
+                } else {
+                    errorDiv.style.display = 'none';
+                }
+            });
+        }
+        
+        // ✅ Loading state no submit
+        if (form && btnRegistrar) {
+            form.addEventListener('submit', function(e) {
+                // Validações antes de submit
+                let hasError = false;
+                
+                if (!document.getElementById('empresa').value.trim()) {
+                    showError('empresa-error', '⚠️ Nome da empresa é obrigatório');
+                    hasError = true;
+                }
+                
+                if (!emailInput.value.trim()) {
+                    showError('email-error', '⚠️ E-mail é obrigatório');
+                    hasError = true;
+                } else if (!isValidEmail(emailInput.value.trim())) {
+                    showError('email-error', '⚠️ Digite um e-mail válido');
+                    hasError = true;
+                }
+                
+                if (!validarSenha()) {
+                    hasError = true;
+                }
+                
+                if (!validarConfirmacaoSenha()) {
+                    hasError = true;
+                }
+                
+                if (!termosCheckbox.checked) {
+                    showError('termos-error', '⚠️ Você precisa aceitar os termos');
+                    hasError = true;
+                }
+                
+                if (hasError) {
+                    e.preventDefault();
+                    return;
+                }
+                
+                // Ativar loading state
+                btnRegistrar.disabled = true;
+                btnRegistrar.querySelector('.btn-text').style.display = 'none';
+                btnRegistrar.querySelector('.btn-loading').style.display = 'inline';
+                
+                // Prevenir múltiplos submits
+                const inputs = form.querySelectorAll('input, select, button');
+                inputs.forEach(input => {
+                    if (input !== btnRegistrar) {
+                        input.disabled = true;
+                    }
+                });
+            });
+        }
+        
+        // ✅ Helpers
+        function atualizarRequisitosSenha(senha) {
+            const reqLength = document.getElementById('req-length');
+            const reqUpper = document.getElementById('req-upper');
+            const reqLower = document.getElementById('req-lower');
+            const reqNumber = document.getElementById('req-number');
+            const reqSpecial = document.getElementById('req-special');
+            
+            if (reqLength) reqLength.style.color = senha.length >= 8 ? '#16a34a' : '#6b7280';
+            if (reqUpper) reqUpper.style.color = /[A-Z]/.test(senha) ? '#16a34a' : '#6b7280';
+            if (reqLower) reqLower.style.color = /[a-z]/.test(senha) ? '#16a34a' : '#6b7280';
+            if (reqNumber) reqNumber.style.color = /\d/.test(senha) ? '#16a34a' : '#6b7280';
+            if (reqSpecial) reqSpecial.style.color = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha) ? '#16a34a' : '#6b7280';
+        }
+        
+        function validarSenha() {
+            const senha = senhaInput.value;
+            const errorDiv = document.getElementById('senha-error');
+            const isValid = senha.length >= 8 && 
+                           /[A-Z]/.test(senha) && 
+                           /[a-z]/.test(senha) && 
+                           /\d/.test(senha) && 
+                           /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha);
+            
+            if (!isValid) {
+                errorDiv.textContent = '⚠️ A senha não atende aos requisitos';
+                errorDiv.style.display = 'block';
+                senhaInput.setAttribute('aria-invalid', 'true');
+                return false;
+            } else {
+                errorDiv.style.display = 'none';
+                senhaInput.setAttribute('aria-invalid', 'false');
+                return true;
+            }
+        }
+        
+        function validarConfirmacaoSenha() {
+            const errorDiv = document.getElementById('senha-confirm-error');
+            
+            if (senhaConfirmInput.value && senhaConfirmInput.value !== senhaInput.value) {
+                errorDiv.textContent = '⚠️ As senhas não coincidem';
+                errorDiv.style.display = 'block';
+                senhaConfirmInput.setAttribute('aria-invalid', 'true');
+                return false;
+            } else if (senhaConfirmInput.value) {
+                errorDiv.style.display = 'none';
+                senhaConfirmInput.setAttribute('aria-invalid', 'false');
+                return true;
+            }
+            return true;
+        }
+        
+        function showError(elementId, message) {
+            const errorDiv = document.getElementById(elementId);
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+        
+        function validarCNPJ(cnpj) {
+            cnpj = cnpj.replace(/\D/g, '');
+            if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
+            
+            let soma = 0, pesos1 = [5,4,3,2,9,8,7,6,5,4,3,2];
+            for (let i = 0; i < 12; i++) soma += parseInt(cnpj[i]) * pesos1[i];
+            let digito1 = 11 - (soma % 11);
+            if (digito1 >= 10) digito1 = 0;
+            
+            soma = 0; let pesos2 = [6,5,4,3,2,9,8,7,6,5,4,3,2];
+            for (let i = 0; i < 13; i++) soma += parseInt(cnpj[i]) * pesos2[i];
+            let digito2 = 11 - (soma % 11);
+            if (digito2 >= 10) digito2 = 0;
+            
+            return parseInt(cnpj[12]) === digito1 && parseInt(cnpj[13]) === digito2;
+        }
+    });
+    </script>
 </body>
 </html>
