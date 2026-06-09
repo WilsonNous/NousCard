@@ -200,14 +200,12 @@ def arquivos_importados_page():
     arquivos = listar_arquivos_importados(
         empresa_id, 
         page=page, 
-        per_page=per_page,
-        tipo=tipo
+        per_page=per_page
     )
     
     return render_template(
         "arquivos_importados.html", 
         arquivos=arquivos,
-        tipo=tipo,
         page=page,
         per_page=per_page
     )
