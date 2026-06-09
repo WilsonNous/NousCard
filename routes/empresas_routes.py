@@ -352,11 +352,12 @@ def excluir_empresa(empresa_id):
     return redirect(url_for("empresas.listar_empresas"))
 
 # ============================================================
-# DETALHES DA EMPRESA (NOVO - ÚTIL PARA AUDITORIA)
+# ✅ DETALHES DA EMPRESA (CORRIGIDO: endpoint bate com template)
 # ============================================================
-@empresas_bp.route("/<int:empresa_id>")
+@empresas_bp.route("/<int:empresa_id>", endpoint="empresa_detalhe")
 @master_required
-def detalhes_empresa(empresa_id):
+def empresa_detalhe(empresa_id):
+    """Página de detalhe de uma empresa específica"""
     empresa = Empresa.query.get_or_404(empresa_id)
     
     # Contagens úteis para auditoria
