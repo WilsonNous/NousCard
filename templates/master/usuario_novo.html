@@ -1,11 +1,93 @@
 {% extends "base.html" %}
 
-{% block title %}Novo Usuário - {{ empresa.nome }} - Master - NousCard{% endblock %}
+{% block title %}Novo Usuário - {{ empresa.nome | e }} - Master - NousCard{% endblock %}
+
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para formulário -->
+<style>
+    .nc-password-requirements {
+        background: var(--gray-lightest);
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+    }
+    .nc-password-requirements ul {
+        list-style: none;
+        margin: 0.25rem 0 0 0;
+        padding: 0;
+    }
+    .nc-password-requirements li {
+        padding: 0.125rem 0;
+        transition: color 0.2s;
+    }
+    .nc-password-requirements li.valid {
+        color: #16a34a !important;
+    }
+    .nc-password-requirements li.valid::before {
+        content: "✅ ";
+    }
+    
+    .nc-form-error {
+        font-size: 0.875rem;
+        color: #dc2626;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    
+    .nc-password-wrapper {
+        position: relative;
+    }
+    .nc-password-wrapper input {
+        padding-right: 2.5rem;
+    }
+    .nc-password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.25rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .nc-password-toggle:hover {
+        opacity: 1;
+    }
+    .nc-password-toggle:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+    
+    .btn-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    .btn-loading .btn-text {
+        visibility: hidden;
+    }
+    .btn-loading .spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: block !important;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <section class="nc-section">
-    <h2>👤 Criar Novo Usuário</h2>
-    <p class="nc-subtitle">Empresa: <strong>{{ empresa.nome | e }}</strong></p>
+    <div class="nc-section-header">
+        <h2>👤 Criar Novo Usuário</h2>
+        <a href="{{ url_for('master.empresa_ver', empresa_id=empresa.id) }}" class="nc-btn nc-btn-outline nc-btn-sm">← Voltar</a>
+    </div>
+    
+    <p class="nc-subtitle">Empresa: <strong>{{ empresa.nome | e }}</strong> (ID: {{ empresa.id }})</p>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -17,35 +99,335 @@
         {% endif %}
     {% endwith %}
     
-    <form method="POST" class="nc-form" novalidate>
+    <form method="POST" class="nc-form" id="usuarioForm" novalidate>
+        <!-- ✅ CRÍTICO: Token CSRF -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <!-- Nome Completo -->
         <div class="nc-form-group">
-            <label for="nome" class="nc-form-label">Nome Completo *</label>
-            <input type="text" id="nome" name="nome" required maxlength="120" autocomplete="name">
+            <label for="nome" class="nc-form-label">
+                Nome Completo <span style="color: #dc2626;">*</span>
+            </label>
+            <input 
+                type="text" 
+                id="nome" 
+                name="nome" 
+                required 
+                maxlength="120" 
+                autocomplete="name"
+                aria-required="true"
+                aria-describedby="nome-hint nome-error"
+                placeholder="Ex: João da Silva"
+                value="{{ request.form.get('nome', '') }}"
+            >
+            <small id="nome-hint" class="nc-form-hint">
+                Nome completo do usuário
+            </small>
+            <div id="nome-error" class="nc-form-error" role="alert"></div>
         </div>
         
+        <!-- E-mail -->
         <div class="nc-form-group">
-            <label for="email" class="nc-form-label">E-mail *</label>
-            <input type="email" id="email" name="email" required maxlength="150" autocomplete="username">
+            <label for="email" class="nc-form-label">
+                E-mail <span style="color: #dc2626;">*</span>
+            </label>
+            <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                required 
+                maxlength="150" 
+                autocomplete="username"
+                aria-required="true"
+                aria-describedby="email-hint email-error"
+                placeholder="usuario@empresa.com.br"
+                value="{{ request.form.get('email', '') }}"
+            >
+            <small id="email-hint" class="nc-form-hint">
+                Será usado para login e comunicações
+            </small>
+            <div id="email-error" class="nc-form-error" role="alert"></div>
         </div>
         
+        <!-- Senha com Toggle e Requisitos -->
         <div class="nc-form-group">
-            <label for="senha" class="nc-form-label">Senha *</label>
-            <input type="password" id="senha" name="senha" required minlength="8" autocomplete="new-password">
-            <span class="nc-form-hint">Mínimo 8 caracteres, com letra maiúscula, minúscula e número</span>
+            <label for="senha" class="nc-form-label">
+                Senha <span style="color: #dc2626;">*</span>
+            </label>
+            <div class="nc-password-wrapper">
+                <input 
+                    type="password" 
+                    id="senha" 
+                    name="senha" 
+                    required 
+                    minlength="8" 
+                    autocomplete="new-password"
+                    aria-required="true"
+                    aria-describedby="senha-requisitos senha-error"
+                    style="padding-right: 2.5rem;"
+                >
+                <button type="button" 
+                        id="toggleSenha" 
+                        class="nc-password-toggle"
+                        aria-label="Mostrar senha"
+                        tabindex="-1">
+                    👁️
+                </button>
+            </div>
+            <div id="senha-requisitos" class="nc-password-requirements" aria-live="polite">
+                <small>A senha deve ter:</small>
+                <ul>
+                    <li id="req-length" style="color: #6b7280;">⚪ Mínimo 8 caracteres</li>
+                    <li id="req-upper" style="color: #6b7280;">⚪ Uma letra maiúscula</li>
+                    <li id="req-lower" style="color: #6b7280;">⚪ Uma letra minúscula</li>
+                    <li id="req-number" style="color: #6b7280;">⚪ Um número</li>
+                    <li id="req-special" style="color: #6b7280;">⚪ Um caractere especial (!@#$%...)</li>
+                </ul>
+            </div>
+            <div id="senha-error" class="nc-form-error" role="alert"></div>
         </div>
         
+        <!-- ✅ NOVO: Confirmação de Senha -->
+        <div class="nc-form-group">
+            <label for="senha_confirm" class="nc-form-label">
+                Confirmar Senha <span style="color: #dc2626;">*</span>
+            </label>
+            <div class="nc-password-wrapper">
+                <input 
+                    type="password" 
+                    id="senha_confirm" 
+                    name="senha_confirm" 
+                    required 
+                    minlength="8" 
+                    autocomplete="new-password"
+                    aria-required="true"
+                    aria-describedby="senha-confirm-error"
+                    style="padding-right: 2.5rem;"
+                >
+                <button type="button" 
+                        id="toggleSenhaConfirm" 
+                        class="nc-password-toggle"
+                        aria-label="Mostrar senha"
+                        tabindex="-1">
+                    👁️
+                </button>
+            </div>
+            <div id="senha-confirm-error" class="nc-form-error" role="alert"></div>
+        </div>
+        
+        <!-- Admin Checkbox -->
         <div class="nc-form-group nc-form-group-checkbox">
             <div class="nc-checkbox-wrapper">
-                <input type="checkbox" id="admin" name="admin" value="1">
-                <label for="admin" class="nc-checkbox-label">Administrador</label>
+                <input type="checkbox" id="admin" name="admin" value="1" {{ 'checked' if request.form.get('admin') else '' }}>
+                <label for="admin" class="nc-checkbox-label">
+                    Administrador da Empresa
+                </label>
             </div>
-            <span class="nc-form-hint">Marcado: pode gerenciar usuários desta empresa</span>
+            <span class="nc-form-hint">
+                🔑 Marcado: pode gerenciar usuários e configurações desta empresa
+            </span>
         </div>
         
-        <div class="nc-form-actions">
-            <button type="submit" class="nc-btn nc-btn-primary">Criar Usuário</button>
+        <!-- Ações -->
+        <div class="nc-form-actions" style="margin-top: 1.5rem;">
+            <button type="submit" class="nc-btn nc-btn-primary" id="btn-criar">
+                <span class="btn-text">✅ Criar Usuário</span>
+                <span class="btn-loading" style="display:none;">
+                    <span class="spinner" aria-hidden="true"></span> Criando...
+                </span>
+            </button>
             <a href="{{ url_for('master.empresa_ver', empresa_id=empresa.id) }}" class="nc-btn nc-btn-outline">Cancelar</a>
         </div>
+        
+        <!-- ✅ NOVO: Aviso de segurança -->
+        <p class="nc-muted" style="font-size: 0.75rem; text-align: center; margin-top: 1rem;">
+            🔒 O usuário receberá um e-mail de boas-vindas com instruções de acesso
+        </p>
     </form>
 </section>
+
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/master.js') }}" defer></script>
+
+<!-- ✅ NOVO: Script inline para validação em tempo real -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('usuarioForm');
+    const btnCriar = document.getElementById('btn-criar');
+    const senhaInput = document.getElementById('senha');
+    const senhaConfirmInput = document.getElementById('senha_confirm');
+    const toggleSenha = document.getElementById('toggleSenha');
+    const toggleSenhaConfirm = document.getElementById('toggleSenhaConfirm');
+    const emailInput = document.getElementById('email');
+    
+    // ✅ Toggle de visibilidade de senha
+    function setupPasswordToggle(toggle, input) {
+        if (toggle && input) {
+            toggle.addEventListener('click', function() {
+                const isPassword = input.type === 'password';
+                input.type = isPassword ? 'text' : 'password';
+                toggle.textContent = isPassword ? '🙈' : '👁️';
+                toggle.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+                input.focus();
+            });
+        }
+    }
+    setupPasswordToggle(toggleSenha, senhaInput);
+    setupPasswordToggle(toggleSenhaConfirm, senhaConfirmInput);
+    
+    // ✅ Validação de senha em tempo real
+    if (senhaInput) {
+        senhaInput.addEventListener('input', function() {
+            const senha = this.value;
+            atualizarRequisitosSenha(senha);
+        });
+        
+        senhaInput.addEventListener('blur', function() {
+            validarSenha();
+        });
+    }
+    
+    // ✅ Validação de confirmação de senha
+    if (senhaConfirmInput) {
+        senhaConfirmInput.addEventListener('input', function() {
+            validarConfirmacaoSenha();
+        });
+        
+        senhaConfirmInput.addEventListener('blur', function() {
+            validarConfirmacaoSenha();
+        });
+    }
+    
+    // ✅ Validação de email em tempo real
+    if (emailInput) {
+        emailInput.addEventListener('blur', function() {
+            const email = this.value.trim();
+            const errorDiv = document.getElementById('email-error');
+            
+            if (email && !isValidEmail(email)) {
+                errorDiv.textContent = '⚠️ Digite um e-mail válido';
+                errorDiv.style.display = 'block';
+                this.setAttribute('aria-invalid', 'true');
+            } else {
+                errorDiv.style.display = 'none';
+                this.setAttribute('aria-invalid', 'false');
+            }
+        });
+    }
+    
+    // ✅ Loading state no submit
+    if (form && btnCriar) {
+        form.addEventListener('submit', function(e) {
+            let hasError = false;
+            
+            // Validações antes de submit
+            const nome = document.getElementById('nome').value.trim();
+            const email = emailInput.value.trim();
+            
+            if (!nome) {
+                showError('nome-error', '⚠️ Nome completo é obrigatório');
+                hasError = true;
+            }
+            
+            if (!email) {
+                showError('email-error', '⚠️ E-mail é obrigatório');
+                hasError = true;
+            } else if (!isValidEmail(email)) {
+                showError('email-error', '⚠️ Digite um e-mail válido');
+                hasError = true;
+            }
+            
+            if (!validarSenha()) {
+                hasError = true;
+            }
+            
+            if (!validarConfirmacaoSenha()) {
+                hasError = true;
+            }
+            
+            if (hasError) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Ativar loading state
+            btnCriar.disabled = true;
+            btnCriar.querySelector('.btn-text').style.display = 'none';
+            btnCriar.querySelector('.btn-loading').style.display = 'inline';
+            
+            // Prevenir múltiplos submits
+            const inputs = form.querySelectorAll('input, select, button');
+            inputs.forEach(input => {
+                if (input !== btnCriar) {
+                    input.disabled = true;
+                }
+            });
+        });
+    }
+    
+    // ✅ Helpers
+    function atualizarRequisitosSenha(senha) {
+        const reqLength = document.getElementById('req-length');
+        const reqUpper = document.getElementById('req-upper');
+        const reqLower = document.getElementById('req-lower');
+        const reqNumber = document.getElementById('req-number');
+        const reqSpecial = document.getElementById('req-special');
+        
+        if (reqLength) reqLength.style.color = senha.length >= 8 ? '#16a34a' : '#6b7280';
+        if (reqUpper) reqUpper.style.color = /[A-Z]/.test(senha) ? '#16a34a' : '#6b7280';
+        if (reqLower) reqLower.style.color = /[a-z]/.test(senha) ? '#16a34a' : '#6b7280';
+        if (reqNumber) reqNumber.style.color = /\d/.test(senha) ? '#16a34a' : '#6b7280';
+        if (reqSpecial) reqSpecial.style.color = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha) ? '#16a34a' : '#6b7280';
+    }
+    
+    function validarSenha() {
+        const senha = senhaInput.value;
+        const errorDiv = document.getElementById('senha-error');
+        const isValid = senha.length >= 8 && 
+                       /[A-Z]/.test(senha) && 
+                       /[a-z]/.test(senha) && 
+                       /\d/.test(senha) && 
+                       /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha);
+        
+        if (!isValid) {
+            errorDiv.textContent = '⚠️ A senha não atende aos requisitos';
+            errorDiv.style.display = 'block';
+            senhaInput.setAttribute('aria-invalid', 'true');
+            return false;
+        } else {
+            errorDiv.style.display = 'none';
+            senhaInput.setAttribute('aria-invalid', 'false');
+            return true;
+        }
+    }
+    
+    function validarConfirmacaoSenha() {
+        const errorDiv = document.getElementById('senha-confirm-error');
+        
+        if (senhaConfirmInput.value && senhaConfirmInput.value !== senhaInput.value) {
+            errorDiv.textContent = '⚠️ As senhas não coincidem';
+            errorDiv.style.display = 'block';
+            senhaConfirmInput.setAttribute('aria-invalid', 'true');
+            return false;
+        } else if (senhaConfirmInput.value) {
+            errorDiv.style.display = 'none';
+            senhaConfirmInput.setAttribute('aria-invalid', 'false');
+            return true;
+        }
+        return true;
+    }
+    
+    function showError(elementId, message) {
+        const errorDiv = document.getElementById(elementId);
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    }
+    
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+});
+</script>
 {% endblock %}
