@@ -2,13 +2,187 @@
 
 {% block title %}Importar Arquivos - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para upload -->
+<style>
+    .nc-dropzone {
+        border: 2px dashed var(--gray-light);
+        border-radius: 8px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: var(--gray-lightest);
+    }
+    
+    .nc-dropzone:hover,
+    .nc-dropzone.dragover {
+        border-color: var(--primary);
+        background: rgba(24, 119, 242, 0.05);
+    }
+    
+    .nc-dropzone.dragover {
+        transform: scale(1.02);
+    }
+    
+    .nc-dropzone:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+    
+    .nc-dropzone-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+    
+    .nc-file-list {
+        margin: 1rem 0;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .file-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem;
+        background: var(--gray-lightest);
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .file-item .file-info {
+        flex: 1;
+        overflow: hidden;
+    }
+    
+    .file-item .file-name {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .file-item .file-size {
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+    }
+    
+    .file-item .file-type {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-left: 0.5rem;
+    }
+    .file-type-venda { background: #dbeafe; color: #1e40af; }
+    .file-type-banco { background: #dcfce7; color: #166534; }
+    
+    .file-item .btn-remove {
+        background: none;
+        border: none;
+        color: #dc2626;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+    .file-item .btn-remove:hover {
+        color: #991b1b;
+    }
+    
+    .nc-upload-result {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    .nc-upload-result.success {
+        background: #dcfce7;
+        border: 1px solid #16a34a;
+        color: #166534;
+    }
+    .nc-upload-result.error {
+        background: #fee2e2;
+        border: 1px solid #dc2626;
+        color: #991b1b;
+    }
+    
+    .upload-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .stat-item {
+        background: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        text-align: center;
+    }
+    .stat-item .value {
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: var(--primary);
+    }
+    .stat-item .label {
+        font-size: 0.75rem;
+        color: var(--gray-dark);
+    }
+    
+    .upload-help {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: var(--gray-lightest);
+        border-radius: 8px;
+    }
+    .upload-help h4 {
+        margin-bottom: 0.5rem;
+    }
+    .upload-help ul {
+        margin: 0.5rem 0 0 1.5rem;
+        padding: 0;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="nc-section">
-    <h2>Importar arquivos</h2>
-    <p>Envie os arquivos da maquininha e do banco (CSV, Excel ou OFX). Nós cuidamos do resto.</p>
-
+    <div class="nc-section-header">
+        <h2>⬆️ Importar Arquivos</h2>
+        <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-btn nc-btn-outline nc-btn-sm">
+            📂 Ver Arquivos Importados
+        </a>
+    </div>
+    
+    <p class="nc-muted">
+        Envie os arquivos da maquininha e do banco (CSV, Excel ou OFX). 
+        Nós cuidamos da conciliação automaticamente.
+    </p>
+    
     <form id="uploadForm" class="nc-upload-form" method="POST" enctype="multipart/form-data">
-        <div id="dropZone" class="nc-dropzone" role="button" tabindex="0" aria-label="Área para arrastar e soltar arquivos. Formatos aceitos: CSV, Excel, OFX. Tamanho máximo: 10MB por arquivo.">
+        <!-- ✅ CRÍTICO: Token CSRF -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <!-- Tipo de arquivo (opcional, para melhor classificação) -->
+        <div class="nc-form-group" style="margin-bottom: 1rem;">
+            <label class="nc-form-label">Tipo de Arquivo (opcional)</label>
+            <div style="display: flex; gap: 1rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="radio" name="tipo_arquivo" value="venda" checked>
+                    <span>📊 Vendas (Maquininha)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="radio" name="tipo_arquivo" value="banco">
+                    <span>🏦 Recebimentos (Banco)</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Dropzone -->
+        <div id="dropZone" class="nc-dropzone" role="button" tabindex="0" 
+             aria-label="Área para arrastar e soltar arquivos. Formatos aceitos: CSV, Excel, OFX. Tamanho máximo: 10MB por arquivo.">
             <span class="nc-dropzone-icon" aria-hidden="true">📁</span>
             <span class="nc-dropzone-text">
                 Arraste e solte seus arquivos aqui<br>
@@ -17,34 +191,103 @@
             <span class="nc-dropzone-hint" aria-hidden="true">
                 <small>CSV, Excel ou OFX • Máx. 10MB • Até 10 arquivos</small>
             </span>
-            <input type="file" id="fileInput" name="files" multiple hidden accept=".csv,.xlsx,.xls,.ofx">
+            <input type="file" id="fileInput" name="files" multiple hidden 
+                   accept=".csv,.xlsx,.xls,.ofx">
         </div>
         
-        <div id="fileList" class="nc-file-list" aria-live="polite" style="display:none;"></div>
+        <!-- ✅ NOVO: Lista de arquivos selecionados com preview -->
+        <div id="fileList" class="nc-file-list" aria-live="polite" style="display:none;">
+            <h4 class="nc-subtitle" style="margin-bottom: 0.5rem;">Arquivos Selecionados:</h4>
+            <!-- Preenchido via JS -->
+        </div>
+        
+        <!-- Erros -->
         <div id="uploadErrors" class="nc-error-list" role="alert" aria-live="assertive" style="display:none;"></div>
         
-        <div id="uploadProgress" class="nc-progress" style="display:none;" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        <!-- Progresso -->
+        <div id="uploadProgress" class="nc-progress" style="display:none;" 
+             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
             <div class="nc-progress-bar"></div>
             <span class="nc-progress-text">0%</span>
         </div>
         
-        <div class="nc-upload-actions">
-            <button type="submit" class="nc-btn-primary" id="btn-upload">
-                <span class="btn-text">Enviar e analisar</span>
+        <!-- Ações -->
+        <div class="nc-upload-actions" style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+            <button type="submit" class="nc-btn nc-btn-primary" id="btn-upload">
+                <span class="btn-text">📤 Enviar e Analisar</span>
                 <span class="btn-loading" style="display:none;">
                     <span class="spinner" aria-hidden="true"></span> Enviando...
                 </span>
             </button>
-            <button type="button" id="btn-cancel" class="nc-btn-danger" style="display:none;">⏹️ Cancelar</button>
+            <button type="button" id="btn-cancel" class="nc-btn nc-btn-secondary" style="display:none;">
+                ⏹️ Cancelar
+            </button>
         </div>
     </form>
     
-    <div id="uploadResult" class="nc-upload-result" role="status" aria-live="polite" aria-atomic="true"></div>
+    <!-- ✅ NOVO: Resultado com estatísticas -->
+    <div id="uploadResult" class="nc-upload-result" role="status" aria-live="polite" aria-atomic="true" style="display:none;"></div>
+    
+    <!-- ✅ NOVO: Ajuda e modelos -->
+    <div class="upload-help">
+        <h4>📚 Precisa de ajuda?</h4>
+        <ul>
+            <li><strong>CSV de Vendas:</strong> Deve conter colunas como Data, Valor, Bandeira, NSU</li>
+            <li><strong>Extrato Bancário:</strong> Deve conter Data, Descrição, Valor de recebimento</li>
+            <li><strong>Formatos suportados:</strong> CSV (ponto-e-vírgula ou vírgula), Excel (.xlsx, .xls), OFX</li>
+        </ul>
+        <p style="margin-top: 0.5rem;">
+            <a href="#" class="nc-link">📥 Baixar modelo de CSV de vendas</a> •
+            <a href="#" class="nc-link">📥 Baixar modelo de extrato bancário</a>
+        </p>
+    </div>
+    
+    <!-- ✅ NOVO: Últimos uploads -->
+    <div class="upload-history" style="margin-top: 2rem;">
+        <h4 class="nc-subtitle">📜 Últimos Uploads</h4>
+        <div id="ultimosUploads">
+            <!-- Carregado via JS ou backend -->
+            <p class="nc-muted">Carregando histórico...</p>
+        </div>
+    </div>
     
     <noscript>
         <p class="nc-warning">⚠️ JavaScript está desabilitado. O upload funcionará, mas sem feedback em tempo real.</p>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="file" name="files" multiple accept=".csv,.xlsx,.xls,.ofx">
+            <button type="submit" class="nc-btn nc-btn-primary">Enviar</button>
+        </form>
     </noscript>
 </section>
 
+<!-- Scripts -->
 <script src="{{ url_for('static', filename='js/operacoes.js') }}" defer></script>
+
+<!-- ✅ NOVO: Script inline para helpers -->
+<script>
+// Helper para formatar tamanho de arquivo
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Helper para detectar tipo de arquivo pelo nome
+function detectFileType(filename) {
+    const lower = filename.toLowerCase();
+    if (lower.includes('venda') || lower.includes('sales') || lower.includes('adquirente')) {
+        return 'venda';
+    } else if (lower.includes('extrato') || lower.includes('banco') || lower.includes('recebimento')) {
+        return 'banco';
+    }
+    return 'desconhecido';
+}
+
+// Expor funções globalmente
+window.formatFileSize = formatFileSize;
+window.detectFileType = detectFileType;
+</script>
 {% endblock %}
