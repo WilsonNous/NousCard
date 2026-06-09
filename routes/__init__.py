@@ -175,19 +175,7 @@ def register_blueprints(app: Flask):
                 logger.info(f"⏭️ Blueprint '{description}' pulado (feature flag: {feature_flag}=False)")
             skipped += 1
             continue
-        
-        # ✅ Verificar duplicatas antes de registrar
-        conflicts = _check_duplicate_routes(app, blueprint, prefix)
-        if conflicts:
-            error_msg = f"❌ Rotas conflitantes ao registrar {description}:\n" + "\n".join(f"   - {c}" for c in conflicts)
-            if required:
-                logger.error(error_msg)
-                raise RuntimeError(f"Não é possível registrar blueprint: {description}")
-            else:
-                logger.warning(f"⚠️ {error_msg}\n   Blueprint opcional, continuando...")
-                skipped += 1
-                continue
-        
+              
         try:
             # ✅ Timing do registro
             bp_start = time.time()
