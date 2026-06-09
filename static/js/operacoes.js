@@ -114,7 +114,12 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        
+        // ✅ DEBUG: Verificar quais elementos foram encontrados
+        console.log('🔍 DEBUG DOM Elements:');
+        console.log('   dropZone:', document.getElementById("dropZone") ? '✅' : '❌');
+        console.log('   fileInput:', document.getElementById("fileInput") ? '✅' : '❌');
+        console.log('   uploadForm:', document.getElementById("uploadForm") ? '✅' : '❌');
+        console.log('   uploadResult:', document.getElementById("uploadResult") ? '✅' : '❌');
         // ============================================================
         // ELEMENTOS DO DOM
         // ============================================================
