@@ -1,4 +1,4 @@
-# routes/empresas_routes.py - VERSÃO COMPLETA, CORRIGIDA E COM SERIALIZAÇÃO
+# routes/empresas_routes.py - VERSÃO COMPLETA, CORRIGIDA E TOLERANTE
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
 from models import db, Empresa, Usuario, LogAuditoria
@@ -82,18 +82,26 @@ def log_acao_empresa(acao: str, empresa, detalhes_extra: str = ""):
         logger.error(f"Erro ao preparar log de auditoria: {str(e)}")
 
 # ============================================================
-# SERIALIZAÇÃO (NOVO)
+# ✅ SERIALIZAÇÃO TOLERANTE A CAMPOS AUSENTES
 # ============================================================
 def empresa_para_dict(empresa):
-    """Converte objeto Empresa para dict serializável em JSON"""
+    """
+    Converte objeto Empresa para dict serializável em JSON.
+    ✅ Usa getattr() para campos opcionais que podem não existir no modelo.
+    """
+    def safe_iso(attr_name):
+        """Retorna ISO format de um atributo ou None se não existir/None"""
+        val = getattr(empresa, attr_name, None)
+        return val.isoformat() if val else None
+    
     return {
         "id": empresa.id,
         "nome": empresa.nome,
         "documento": empresa.documento or "",
         "ativo": empresa.ativo,
-        "logo_url": empresa.logo_url or "",
-        "criado_em": empresa.criado_em.isoformat() if empresa.criado_em else None,
-        "atualizado_em": empresa.atualizado_em.isoformat() if empresa.atualizado_em else None,
+        "logo_url": getattr(empresa, 'logo_url', None) or "",
+        "criado_em": safe_iso('criado_em'),
+        "atualizado_em": safe_iso('atualizado_em'),
     }
 
 def calcular_stats_empresa(empresa):
@@ -114,7 +122,7 @@ def calcular_stats_empresa(empresa):
         }
 
 # ============================================================
-# LISTAR EMPRESAS (COM SERIALIZAÇÃO)
+# LISTAR EMPRESAS
 # ============================================================
 @empresas_bp.route("/")
 @master_required
@@ -138,6 +146,11 @@ def listar_empresas():
             )
         )
     
+    # ✅ Validação do campo de ordenação (evitar erro se campo não existir)
+    campos_validos = {'id', 'nome', 'documento', 'ativo', 'criado_em'}
+    if order_by not in campos_validos:
+        order_by = 'criado_em'
+    
     order_column = getattr(Empresa, order_by, Empresa.criado_em)
     if order_dir == 'desc':
         query = query.order_by(order_column.desc())
@@ -146,13 +159,20 @@ def listar_empresas():
     
     empresas = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    # ✅ Serializar itens para o template
+    # ✅ Serializar com função tolerante
     empresas_json = [empresa_para_dict(e) for e in empresas.items]
+    
+    # ✅ Calcular total de usuários (se modelo Usuario existir)
+    try:
+        total_usuarios = Usuario.query.count()
+    except Exception:
+        total_usuarios = 0
     
     return render_template(
         "empresas_listar.html", 
         empresas=empresas,
-        empresas_json=empresas_json,  # <-- NOVO CAMPO
+        empresas_json=empresas_json,
+        total_usuarios=total_usuarios,  # ✅ Passar total_usuarios para o template
         search=search,
         order_by=order_by,
         order_dir=order_dir,
@@ -301,7 +321,11 @@ def editar_empresa(empresa_id):
         empresa.nome = nome
         empresa.documento = documento or None
         empresa.ativo = ativa
-        empresa.atualizado_em = datetime.now(timezone.utc)
+        
+        # ✅ Usar setattr para campo que pode não existir
+        if hasattr(empresa, 'atualizado_em'):
+            empresa.atualizado_em = datetime.now(timezone.utc)
+        
         log_acao_empresa("master_editou_empresa", empresa, f"Ativa: {ativa}")
         db.session.commit()
         flash("Empresa atualizada com sucesso", "success")
@@ -335,8 +359,13 @@ def excluir_empresa(empresa_id):
     
     try:
         empresa.ativo = False
-        empresa.excluido_em = datetime.now(timezone.utc)
-        empresa.excluido_por = g.user.id
+        
+        # ✅ Usar setattr para campos que podem não existir
+        if hasattr(empresa, 'excluido_em'):
+            empresa.excluido_em = datetime.now(timezone.utc)
+        if hasattr(empresa, 'excluido_por'):
+            empresa.excluido_por = g.user.id
+        
         log_acao_empresa("master_excluiu_empresa", empresa, "Soft delete")
         db.session.commit()
         flash("Empresa excluída com sucesso", "success")
@@ -418,7 +447,7 @@ def api_consultar_cnpj():
         return jsonify({"ok": False, "message": "Erro interno ao consultar CNPJ"}), 500
 
 # ============================================================
-# API: UPLOAD DE LOGO
+# API: UPLOAD DE LOGO (TOLERANTE A CAMPO AUSENTE)
 # ============================================================
 @empresas_bp.route("/api/upload-logo", methods=["POST"])
 @master_required
@@ -452,6 +481,13 @@ def api_upload_logo():
     if size > 2 * 1024 * 1024:
         return jsonify({"ok": False, "message": "Arquivo muito grande. Máximo: 2MB"}), 400
     
+    # ✅ Verificar se o modelo tem campo logo_url
+    if not hasattr(empresa, 'logo_url'):
+        return jsonify({
+            "ok": False, 
+            "message": "Funcionalidade de logo não disponível. Execute a migração do banco de dados."
+        }), 501
+    
     try:
         filename = f"logo_{empresa_id}_{secrets.token_hex(8)}{ext}"
         upload_dir = os.path.join('static', 'uploads', 'logos')
@@ -461,7 +497,10 @@ def api_upload_logo():
         
         logo_url = f"/static/uploads/logos/{filename}"
         empresa.logo_url = logo_url
-        empresa.atualizado_em = datetime.now(timezone.utc)
+        
+        if hasattr(empresa, 'atualizado_em'):
+            empresa.atualizado_em = datetime.now(timezone.utc)
+        
         log_acao_empresa("master_upload_logo", empresa, f"Logo: {filename}")
         db.session.commit()
         
