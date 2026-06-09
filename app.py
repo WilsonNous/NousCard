@@ -132,6 +132,16 @@ def create_app(config_class=Config):
     # ---------------------------------------------------------
     register_blueprints(app)
 
+    # ✅ REGISTRAR FILTERS JINJA2 PERSONALIZADOS (PARA TEMPLATES)
+    try:
+        from utils.filters import register_filters
+        register_filters(app)
+        app.logger.info("✅ Custom Jinja2 filters registered")
+    except ImportError as e:
+        app.logger.warning(f"⚠️ Custom filters not loaded: {str(e)}")
+    except Exception as e:
+        app.logger.error(f"❌ Error registering filters: {str(e)}")
+
     # ---------------------------------------------------------
     # CONTEXT PROCESSORS (VARIÁVEIS GLOBAIS PARA TEMPLATES)
     # ---------------------------------------------------------
