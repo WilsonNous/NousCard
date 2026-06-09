@@ -55,3 +55,20 @@ def register_filters(app):
     
     # ✅ Adicionar mais filters aqui no futuro se necessário:
     # app.jinja_env.filters['outro_filter'] = outra_funcao
+
+
+def date_br(value):
+    """Formata datetime para DD/MM/YYYY"""
+    if not value:
+        return "—"
+    return value.strftime("%d/%m/%Y") if hasattr(value, 'strftime') else str(value)
+
+def percent_br(value):
+    """Formata decimal como porcentagem brasileira"""
+    if value is None:
+        return "0%"
+    return f"{float(value)*100:.2f}%".replace(".", ",")
+
+# No register_filters():
+app.jinja_env.filters['date_br'] = date_br
+app.jinja_env.filters['percent_br'] = percent_br
