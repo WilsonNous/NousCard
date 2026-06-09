@@ -1,4 +1,4 @@
-# routes/auth_routes.py - VERSÃO APRIMORADA COM SEGURANÇA REFORÇADA
+# routes/auth_routes.py - VERSÃO COM EMAIL-VALIDATOR INTEGRADO
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, g  
 from flask_login import login_user, logout_user, login_required, current_user
@@ -6,6 +6,7 @@ from models import Usuario, Empresa, db
 from utils.auth_middleware import iniciar_sessao_segura
 from datetime import datetime, timezone, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+from email_validator import validate_email, EmailNotValidError  # ✅ NOVO: Import da biblioteca robusta
 import logging
 import re
 import time
@@ -45,13 +46,39 @@ def check_auth_rate_limit(identifier: str) -> bool:
 # ============================================================
 # VALIDAÇÕES
 # ============================================================
-def validar_email(email: str) -> bool:
-    """Valida formato de email com regex"""
+
+def validar_email(email: str) -> tuple[bool, str]:
+    """
+    Valida email usando biblioteca robusta email-validator.
+    
+    Args:
+        email: Email a validar
+        
+    Returns:
+        tuple: (is_valid: bool, normalized_email_or_error: str)
+            - Se válido: (True, email_normalizado)
+            - Se inválido: (False, mensagem_de_erro)
+    """
     if not email:
-        return False
-    # Regex simples mas eficaz para formato básico de email
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
+        return False, "Email é obrigatório"
+    
+    try:
+        # validate_email normaliza e valida o email
+        # Retorna objeto com .email (normalizado) e .ascii_email
+        valid = validate_email(email, check_deliverability=False)  # check_deliverability=True para verificar se domínio existe
+        return True, valid.email.lower()  # Retorna email normalizado em lowercase
+    except EmailNotValidError as e:
+        # Mensagem amigável para o usuário
+        error_msg = str(e)
+        # Traduzir mensagens técnicas para português se necessário
+        if "ascii" in error_msg.lower():
+            return False, "Email não pode conter caracteres especiais"
+        elif "local part" in error_msg.lower():
+            return False, "Parte local do email inválida"
+        elif "domain" in error_msg.lower():
+            return False, "Domínio do email inválido"
+        return False, f"Formato de email inválido: {error_msg}"
+
 
 def validar_senha_forte(senha: str):
     """
@@ -69,6 +96,7 @@ def validar_senha_forte(senha: str):
     if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", senha):
         return False, "Precisa de caractere especial (!@#$%...)"
     return True, "Senha válida"
+
 
 def validar_csrf_token():
     """Valida token CSRF manualmente (para APIs ou forms sem Flask-WTF)"""
@@ -92,6 +120,7 @@ def login_page():
         return redirect(url_for("dashboard.dashboard"))
     return render_template("login.html")
 
+
 @auth_bp.route("/login", methods=["POST"])
 def login_post():
     # ✅ Rate limiting por IP
@@ -105,13 +134,19 @@ def login_post():
         if not validar_csrf_token():
             return render_template("login.html", error="Erro de segurança. Recarregue a página."), 403
     
-    email = (request.form.get("email") or "").strip().lower()
+    email_raw = (request.form.get("email") or "").strip()
     senha = request.form.get("senha") or ""
     
-    # ✅ Validar formato de email antes de query
-    if not validar_email(email):
-        logger.warning(f"Formato de email inválido: {email[:20]}...")
-        return render_template("login.html", error="Email inválido.")
+    # ✅ Validar formato de email usando email-validator
+    email_valido, email_result = validar_email(email_raw)
+    
+    if not email_valido:
+        # Log detalhado para debug (sem expor dados sensíveis em produção)
+        logger.warning(f"Email inválido: raw={repr(email_raw)[:50]}, erro={email_result}")
+        return render_template("login.html", error=f"Email inválido: {email_result}")
+    
+    # Usar email normalizado para a query (consistência)
+    email = email_result
     
     usuario = Usuario.query.filter_by(email=email).first()
     
@@ -145,6 +180,7 @@ def login_post():
     logger.info(f"✅ Login bem-sucedido: {email}, ip={ip}")
     return redirect(url_for("dashboard.dashboard"))
 
+
 # ============================================================
 # LOGOUT
 # ============================================================
@@ -154,6 +190,7 @@ def logout():
     session.clear()
     logger.info(f"Logout: {usuario_email}")
     return redirect(url_for("auth.login_page"))
+
 
 # ============================================================
 # REGISTRO
@@ -179,16 +216,21 @@ def registrar():
     # Coletar e sanitizar dados
     empresa_nome = (request.form.get("empresa") or "").strip()
     nome = (request.form.get("nome") or "").strip()
-    email = (request.form.get("email") or "").strip().lower()
+    email_raw = (request.form.get("email") or "").strip()
     senha = request.form.get("senha") or ""
     termos = request.form.get("termos")
     
     # Validações
-    if not all([empresa_nome, nome, email, senha]):
+    if not all([empresa_nome, nome, email_raw, senha]):
         return render_template("registrar.html", error="Preencha todos os campos obrigatórios.")
     
-    if not validar_email(email):
-        return render_template("registrar.html", error="Formato de email inválido.")
+    # ✅ Validar email com email-validator
+    email_valido, email_result = validar_email(email_raw)
+    if not email_valido:
+        return render_template("registrar.html", error=f"Email inválido: {email_result}")
+    
+    # Usar email normalizado
+    email = email_result
     
     if not termos:
         return render_template("registrar.html", error="Você deve aceitar os Termos de Uso e Política de Privacidade.")
@@ -239,6 +281,7 @@ def registrar():
     
     return redirect(url_for("auth.login_page"))
 
+
 # ============================================================
 # RECUPERAÇÃO DE SENHA (PLACEHOLDER - IMPLEMENTAR QUANDO NECESSÁRIO)
 # ============================================================
@@ -251,10 +294,14 @@ def recuperar_senha():
     if request.method == "GET":
         return render_template("recuperar_senha.html")
     
-    email = (request.form.get("email") or "").strip().lower()
+    email_raw = (request.form.get("email") or "").strip()
     
-    if not validar_email(email):
-        return render_template("recuperar_senha.html", error="Email inválido.")
+    # ✅ Validar com email-validator
+    email_valido, email_result = validar_email(email_raw)
+    if not email_valido:
+        return render_template("recuperar_senha.html", error=f"Email inválido: {email_result}")
+    
+    email = email_result
     
     # ✅ Mensagem genérica para não revelar se email existe
     # (implementar envio real de email quando tiver SMTP configurado)
