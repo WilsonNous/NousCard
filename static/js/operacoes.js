@@ -542,12 +542,15 @@
                 uploadResult.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
             
+            // static/js/operacoes.js - Função carregarHistoricoUploads()
+            
             function carregarHistoricoUploads() {
                 if (!historyList) return;
                 
                 historyList.innerHTML = '<p class="nc-muted">Carregando histórico...</p>';
                 
-                fetch('/api/operacoes/ultimos-uploads')
+                // ✅ ✅ ✅ CORREÇÃO: URL deve bater com o blueprint prefix ✅ ✅ ✅
+                fetch('/operacoes/api/ultimos-uploads')  // ← ANTES: '/api/operacoes/ultimos-uploads'
                     .then(r => r.json())
                     .then(data => {
                         if (data.ok && data.uploads && data.uploads.length > 0) {
@@ -575,11 +578,6 @@
                         historyList.innerHTML = '<p class="nc-muted">Não foi possível carregar histórico.</p>';
                     });
             }
-            
-            if (historyList) {
-                carregarHistoricoUploads();
-            }
-
         } // 🔥 FECHAMENTO DO IF DRAG & DROP
 
 
