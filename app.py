@@ -6,17 +6,18 @@
 
 # app.py
 from utils.context_processors import inject_global_vars
-from flask import Flask, g, request, redirect, url_for, session
+from flask import Flask, g, request, redirect, url_for, session, jsonify
 from config import Config
 from models.base import db, init_db, cleanup_session  # ✅ ÚNICO import do db
 from routes import register_blueprints
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask_migrate import Migrate
 from flask_login import LoginManager
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 import sys
+import secrets
 
 # Sentry (import condicional)
 try:
@@ -41,6 +42,24 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     
+    # ✅ VALIDAÇÃO CRÍTICA: SECRET_KEY em produção
+    if os.getenv("FLASK_ENV") == "production" and not app.config.get("SECRET_KEY"):
+        raise RuntimeError(
+            "SECRET_KEY não definida em produção! "
+            "Defina uma chave segura em config.py ou via variável de ambiente."
+        )
+    
+    # ✅ CONFIGURAÇÕES DE SESSÃO SEGURA
+    if os.getenv("FLASK_ENV") == "production":
+        app.config.update(
+            SESSION_COOKIE_SECURE=True,          # Só envia cookie via HTTPS
+            SESSION_COOKIE_HTTPONLY=True,         # Previne acesso via JavaScript
+            SESSION_COOKIE_SAMESITE='Lax',        # Previne CSRF via cookies
+            PERMANENT_SESSION_LIFETIME=timedelta(hours=8),  # Timeout de sessão
+            WTF_CSRF_ENABLED=True,                # ✅ Habilita CSRF protection do Flask-WTF
+            WTF_CSRF_TIME_LIMIT=None              # Tokens não expiram (renovados por request)
+        )
+    
     # Registrar context processor
     app.context_processor(inject_global_vars)
     
@@ -54,11 +73,23 @@ def create_app(config_class=Config):
                 integrations=[FlaskIntegration()],
                 traces_sample_rate=0.1,
                 environment=os.getenv("FLASK_ENV", "production"),
-                send_default_pii=False
+                send_default_pii=False,
+                # ✅ Adicionar tags customizadas para métricas de negócio
+                before_send=lambda event, hint: add_business_tags(event)
             )
             app.logger.info("Sentry initialized")
         except Exception as e:
             app.logger.warning(f"Sentry init failed: {str(e)}")
+    
+    def add_business_tags(event):
+        """Adiciona tags de negócio para métricas no Sentry"""
+        try:
+            if hasattr(g, 'user') and g.user:
+                event.setdefault('tags', {})['user_role'] = 'master' if g.user.master else 'admin' if g.user.admin else 'user'
+                event['tags']['empresa_id'] = getattr(g.user, 'empresa_id', None)
+        except:
+            pass  # Não falhar o evento por erro de tagging
+        return event
 
     # ---------------------------------------------------------
     # BANCO DE DADOS (INICIALIZAÇÃO ÚNICA)
@@ -81,6 +112,9 @@ def create_app(config_class=Config):
     login_manager.login_view = "auth.login_page"
     login_manager.login_message = "Por favor, faça login para acessar esta página."
     login_manager.login_message_category = "info"
+    
+    # ✅ Configurar remember me duration
+    login_manager.remember_cookie_duration = timedelta(days=7)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -118,7 +152,17 @@ def create_app(config_class=Config):
         return {
             "current_year": datetime.now(timezone.utc).year,
             "app_version": "1.0.0",
+            # ✅ CSRF token disponível para todos os templates
+            "csrf_token": session.get('csrf_token', ''),
         }
+    
+    # ✅ Helper para gerar token CSRF se não existir
+    @app.before_request
+    def ensure_csrf_token():
+        """Garante que token CSRF exista na sessão"""
+        if 'csrf_token' not in session:
+            session['csrf_token'] = secrets.token_urlsafe(32)
+            session.modified = True
 
     # ---------------------------------------------------------
     # HEALTH CHECK (MONITORAMENTO E LOAD BALANCER)
@@ -127,26 +171,34 @@ def create_app(config_class=Config):
     def health_check():
         """Endpoint para verificar saúde da aplicação"""
         db_status = "fail"
+        db_latency_ms = None
         
         try:
             from sqlalchemy import text
+            start = datetime.now()
             result = db.session.execute(text("SELECT 1"))
             if result.scalar() == 1:
                 db_status = "ok"
+                db_latency_ms = (datetime.now() - start).total_seconds() * 1000
         except Exception as e:
             app.logger.error(f"Health check DB failed: {str(e)}")
             db_status = "fail"
         
         status_code = 200 if db_status == "ok" else 503
         
-        return {
+        # ✅ Log estruturado para monitoramento (ex: Prometheus, Datadog)
+        if db_status == "fail":
+            app.logger.warning(f"Health check degraded: db_latency={db_latency_ms}ms")
+        
+        return jsonify({
             "status": "ok" if db_status == "ok" else "degraded",
             "app": "NousCard",
             "version": "1.0.0",
             "database": db_status,
+            "db_latency_ms": db_latency_ms,
             "python": sys.version.split()[0],
             "timestamp": datetime.now(timezone.utc).isoformat()
-        }, status_code
+        }), status_code
 
     # ---------------------------------------------------------
     # FORCE HTTPS (REDIRECIONAMENTO EM PRODUÇÃO)
@@ -160,7 +212,8 @@ def create_app(config_class=Config):
         if request.path == "/health":
             return None
             
-        if not request.is_secure and not request.headers.get("X-Forwarded-Proto") == "https":
+        # Verificar se já é HTTPS ou se proxy já fez upgrade
+        if not request.is_secure and request.headers.get("X-Forwarded-Proto") != "https":
             url = request.url.replace("http://", "https://", 1)
             return redirect(url, code=301)
         
@@ -178,14 +231,13 @@ def create_app(config_class=Config):
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
-        # CSP ajustado para permitir CDN do Chart.js
+        # ✅ CSP corrigido: connect-src unificado
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' https: data:; "
             "font-src 'self' data:; "
-            "connect-src 'self';"
             "connect-src 'self' https://cdn.jsdelivr.net;"
         )
         
@@ -231,6 +283,9 @@ def create_app(config_class=Config):
         app.logger.info("=== NousCard startup ===")
         app.logger.info(f"Environment: {os.getenv('FLASK_ENV')}")
         app.logger.info(f"Python: {sys.version.split()[0]}")
+        
+        # ✅ Log de métricas de negócio (ex: para Prometheus)
+        # app.logger.info('nouscard_startup{version="1.0.0"} 1')
 
     # ---------------------------------------------------------
     # TEARDOWN: LIMPEZA DE SESSÃO APÓS CADA REQUEST
@@ -248,29 +303,43 @@ def create_app(config_class=Config):
     def not_found_error(error):
         """Handler para erro 404"""
         if request.path.startswith('/api/'):
-            return {"error": "Recurso não encontrado", "status": 404}, 404
-        # Import tardio para evitar circular import
-        from flask import render_template
-        return render_template("erro.html", mensagem="Página não encontrada."), 404
+            return jsonify({"error": "Recurso não encontrado", "status": 404}), 404
+        
+        try:
+            from flask import render_template
+            return render_template("erro.html", mensagem="Página não encontrada.", error_code=404), 404
+        except Exception as e:
+            # Fallback se template falhar
+            app.logger.error(f"Erro ao renderizar 404: {str(e)}")
+            return jsonify({"error": "Página não encontrada"}), 404
 
     @app.errorhandler(500)
     def internal_error(error):
         """Handler para erro 500"""
         db.session.rollback()
-        app.logger.error(f"Internal error: {str(error)}")
+        app.logger.error(f"Internal error: {str(error)}", exc_info=True)
         
         if request.path.startswith('/api/'):
-            return {"error": "Erro interno do servidor", "status": 500}, 500
-        from flask import render_template
-        return render_template("erro.html", mensagem="Ocorreu um erro interno. Tente novamente."), 500
+            return jsonify({"error": "Erro interno do servidor", "status": 500}), 500
+        
+        try:
+            from flask import render_template
+            return render_template("erro.html", mensagem="Ocorreu um erro interno. Tente novamente.", error_code=500), 500
+        except Exception as e:
+            # Fallback crítico
+            app.logger.critical(f"Fallback error handler failed: {str(e)}")
+            return jsonify({"error": "Erro crítico no servidor"}), 500
 
     @app.errorhandler(403)
     def forbidden_error(error):
         """Handler para erro 403"""
         if request.path.startswith('/api/'):
-            return {"error": "Acesso negado", "status": 403}, 403
-        from flask import render_template
-        return render_template("erro.html", mensagem="Acesso negado."), 403
+            return jsonify({"error": "Acesso negado", "status": 403}), 403
+        try:
+            from flask import render_template
+            return render_template("erro.html", mensagem="Acesso negado.", error_code=403), 403
+        except:
+            return jsonify({"error": "Acesso negado"}), 403
 
     # ---------------------------------------------------------
     # SHELL CONTEXT (PARA flask shell)
