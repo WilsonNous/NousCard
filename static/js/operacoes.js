@@ -1,7 +1,6 @@
 // ============================================================
-//  OPERAÇÕES • NousCard (VERSÃO SEGURA E COMPLETA)
+//  OPERAÇÕES • NousCard (VERSÃO SEGURA E COMPLETA - CORRIGIDA)
 // ============================================================
-// ✅ Integração total com templates HTML corrigidos
 
 (function() {
     'use strict';
@@ -35,9 +34,6 @@
     // UTILITÁRIOS SEGUROS
     // ============================================================
 
-    /**
-     * Escapa HTML para prevenir XSS
-     */
     function escapeHtml(text) {
         if (text === null || text === undefined) return '';
         const map = {
@@ -50,9 +46,6 @@
         return String(text).replace(/[&<>"']/g, m => map[m]);
     }
 
-    /**
-     * Formata moeda com precisão
-     */
     window.formatCurrency = function(value) {
         if (value === null || value === undefined || value === '') return '—';
         const num = typeof value === 'string' 
@@ -67,25 +60,16 @@
         }).format(num);
     };
 
-    /**
-     * Obtém token CSRF
-     */
     function getCsrfToken() {
         return document.querySelector('meta[name="csrf-token"]')?.content ||
                document.querySelector('input[name="csrf_token"]')?.value ||
                '';
     }
 
-    /**
-     * Obtém empresa_id de forma segura
-     */
     function getEmpresaId() {
         return document.body.dataset.empresaId || null;
     }
     
-    /**
-     * Formata tamanho de arquivo
-     */
     window.formatFileSize = function(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -94,9 +78,6 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
     
-    /**
-     * Detecta tipo de arquivo pelo nome para badge
-     */
     function detectFileType(filename) {
         const lower = filename.toLowerCase();
         if (lower.includes('venda') || lower.includes('sales') || lower.includes('adquirente') || lower.includes('cielo') || lower.includes('rede')) {
@@ -107,13 +88,9 @@
         return { label: '📁 Arquivo', class: 'file-type-unknown' };
     }
 
-    /**
-     * Valida arquivo antes do upload
-     */
     function validarArquivo(file) {
         const errors = [];
 
-        // Validar extensão
         const hasValidExtension = AppConfig.allowedExtensions.some(ext => 
             file.name.toLowerCase().endsWith(ext)
         );
@@ -121,22 +98,18 @@
             errors.push(`Extensão não permitida: ${file.name}`);
         }
 
-        // Validar tipo MIME (se disponível)
         if (file.type && !AppConfig.allowedMimeTypes.includes(file.type) && !hasValidExtension) {
             errors.push(`Tipo de arquivo não permitido: ${file.name}`);
         }
 
-        // Validar tamanho
         if (file.size > AppConfig.maxSize) {
             errors.push(`Arquivo muito grande: ${file.name} (${formatFileSize(file.size)}) - Máx: 10MB`);
         }
 
-        // Validar nome (prevenir path traversal e nomes maliciosos)
         if (file.name.includes('/') || file.name.includes('\\') || file.name.startsWith('.') || file.name.length > 255) {
             errors.push(`Nome de arquivo inválido: ${file.name}`);
         }
         
-        // Validar duplicata por nome
         if (operacoesState.selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
             errors.push(`Arquivo já selecionado: ${file.name}`);
         }
@@ -167,14 +140,12 @@
 
         if (dropZone && fileInput && uploadForm) {
 
-            // Clique na zona abre o seletor
             dropZone.addEventListener("click", () => {
                 if (!operacoesState.isProcessing) {
                     fileInput.click();
                 }
             });
             
-            // Suporte a teclado para acessibilidade
             dropZone.addEventListener("keydown", (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -185,7 +156,6 @@
             dropZone.setAttribute('role', 'button');
             dropZone.setAttribute('aria-label', 'Área para arrastar e soltar arquivos ou clique para selecionar');
 
-            // Drag & Drop handlers
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 dropZone.addEventListener(eventName, e => {
                     e.preventDefault();
@@ -207,7 +177,6 @@
                 }, false);
             });
 
-            // Handle do drop
             dropZone.addEventListener('drop', e => {
                 if (operacoesState.isProcessing) return;
                 
@@ -217,19 +186,17 @@
                 }
             }, false);
 
-            // Handle da seleção via input
             fileInput.addEventListener('change', e => {
                 if (operacoesState.isProcessing) return;
                 handleFileSelection(e.target.files);
             });
 
-            // Validar e mostrar preview dos arquivos
+            // ✅ ✅ ✅ FUNÇÃO CORRIGIDA: handleFileSelection ✅ ✅ ✅
             function handleFileSelection(files) {
                 const errors = [];
                 const validFiles = [];
                 const newFiles = Array.from(files);
 
-                // Validar quantidade máxima
                 if (operacoesState.selectedFiles.length + newFiles.length > AppConfig.maxFiles) {
                     errors.push(`Máximo de ${AppConfig.maxFiles} arquivos permitidos.`);
                 }
@@ -243,7 +210,6 @@
                     }
                 });
 
-                // Mostrar erros
                 if (errors.length && uploadErrors) {
                     uploadErrors.innerHTML = errors.map(err => 
                         `<div>❌ ${escapeHtml(err)}</div>`
@@ -255,17 +221,21 @@
                     uploadErrors.innerHTML = '';
                 }
 
-                // Adicionar arquivos válidos ao estado
                 if (validFiles.length) {
                     operacoesState.selectedFiles = [...operacoesState.selectedFiles, ...validFiles];
+                    
+                    // ✅ ✅ ✅ CORREÇÃO CRÍTICA: Atualizar fileInput.files para o submit funcionar ✅ ✅ ✅
+                    const dt = new DataTransfer();
+                    operacoesState.selectedFiles.forEach(f => dt.items.add(f));
+                    fileInput.files = dt.files;
+                    // ✅ ✅ ✅ FIM DA CORREÇÃO ✅ ✅ ✅
+                    
                     updateFileList();
                 }
 
-                // Resetar input para permitir re-selecionar mesmo arquivo
                 fileInput.value = '';
             }
             
-            // Atualizar preview da lista de arquivos
             function updateFileList() {
                 if (!fileList) return;
                 
@@ -302,12 +272,10 @@
                 `;
             }
             
-            // Expor função globalmente para remover arquivo
             window.removerArquivo = function(index) {
                 operacoesState.selectedFiles.splice(index, 1);
                 updateFileList();
                 
-                // Atualizar input files para o submit
                 const dt = new DataTransfer();
                 operacoesState.selectedFiles.forEach(f => dt.items.add(f));
                 fileInput.files = dt.files;
@@ -327,13 +295,11 @@
 
                 const files = fileInput.files;
                 
-                // Validar seleção
                 if (!files || !files.length) {
                     mostrarResultado('error', 'Nenhum arquivo selecionado.');
                     return;
                 }
 
-                // Validar novamente antes de enviar
                 const allErrors = [];
                 Array.from(files).forEach(f => {
                     allErrors.push(...validarArquivo(f));
@@ -343,17 +309,14 @@
                     return;
                 }
 
-                // UI: Loading state
                 operacoesState.isProcessing = true;
                 mostrarLoading();
                 
-                // Desabilitar controles durante upload
                 if (btnUpload) btnUpload.disabled = true;
                 if (btnCancel) btnCancel.style.display = 'inline-block';
                 if (dropZone) dropZone.style.pointerEvents = 'none';
                 if (fileInput) fileInput.disabled = true;
 
-                // Obter tipo de arquivo selecionado (Vendas/Banco)
                 const tipoArquivo = document.querySelector('input[name="tipo_arquivo"]:checked')?.value || 'venda';
 
                 const formData = new FormData();
@@ -363,13 +326,11 @@
                 let xhr = null;
                 operacoesState.retryCount = 0;
 
-                // Função para tentar upload com retry
                 async function tentarUpload() {
                     return new Promise((resolve, reject) => {
                         xhr = new XMLHttpRequest();
                         operacoesState.uploadXHR = xhr;
                         
-                        // Progresso de upload
                         xhr.upload.addEventListener('progress', (e) => {
                             if (e.lengthComputable && uploadProgress) {
                                 const percent = Math.round((e.loaded / e.total) * 100);
@@ -386,7 +347,6 @@
                                     reject(new Error('Resposta inválida do servidor'));
                                 }
                             } else if (xhr.status >= 500 && operacoesState.retryCount < operacoesState.MAX_RETRY) {
-                                // ✅ Retry com backoff para erros de servidor
                                 operacoesState.retryCount++;
                                 const delay = Math.min(1000 * Math.pow(2, operacoesState.retryCount), 5000);
                                 console.log(`🔄 Retry ${operacoesState.retryCount}/${operacoesState.MAX_RETRY} em ${delay}ms...`);
@@ -415,7 +375,6 @@
 
                         xhr.open('POST', uploadForm.action || '/operacoes/upload');
                         
-                        // Adicionar CSRF token
                         const csrfToken = getCsrfToken();
                         if (csrfToken) {
                             xhr.setRequestHeader('X-CSRF-Token', csrfToken);
@@ -433,7 +392,6 @@
                 } catch (err) {
                     console.error("❌ Erro ao enviar arquivos:", err);
                     
-                    // Mensagens específicas por tipo de erro
                     let errorMsg = 'Erro ao enviar arquivos. Tente novamente.';
                     if (err.message.includes('413')) {
                         errorMsg = 'Arquivo muito grande. Máximo permitido: 10MB por arquivo.';
@@ -451,18 +409,15 @@
                     mostrarResultado('error', errorMsg);
                     
                 } finally {
-                    // Restaurar UI
                     operacoesState.isProcessing = false;
                     operacoesState.uploadXHR = null;
                     resetUploadUI();
                     
-                    // Se sucesso, limpar seleção
                     if (uploadResult?.querySelector('.nc-success')) {
                         operacoesState.selectedFiles = [];
                         updateFileList();
                         fileInput.value = '';
                         
-                        // Desabilitar form após sucesso para prevenir re-submit
                         if (uploadForm) {
                             uploadForm.querySelectorAll('input, button').forEach(el => {
                                 if (el.type !== 'hidden') el.disabled = true;
@@ -472,7 +427,6 @@
                 }
             });
 
-            // Cancelar upload
             if (btnCancel) {
                 btnCancel.addEventListener('click', () => {
                     if (operacoesState.uploadXHR && operacoesState.uploadXHR.readyState !== 4) {
@@ -483,7 +437,6 @@
                 });
             }
             
-            // Cleanup ao navegar para outra página
             window.addEventListener('beforeunload', () => {
                 if (operacoesState.uploadXHR && operacoesState.uploadXHR.readyState !== 4) {
                     operacoesState.uploadXHR.abort();
@@ -542,7 +495,6 @@
                     return;
                 }
 
-                // Construir resultado seguro com estatísticas
                 const resumo = `
                     <div class="nc-success" role="status">
                         <h3>✔ Arquivos processados com sucesso!</h3>
@@ -563,7 +515,6 @@
                 `;
                 mostrarResultado('success', resumo, true);
                 
-                // ✅ Carregar histórico de uploads após sucesso
                 if (historyList) {
                     carregarHistoricoUploads();
                 }
@@ -588,11 +539,9 @@
                 uploadResult.setAttribute('aria-live', 'polite');
                 uploadResult.style.display = 'block';
                 
-                // Rolar para o resultado
                 uploadResult.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
             
-            // ✅ Carregar histórico de uploads
             function carregarHistoricoUploads() {
                 if (!historyList) return;
                 
@@ -607,10 +556,10 @@
                                     ${data.uploads.map(u => `
                                         <div class="file-item" style="padding: 0.5rem; background: var(--gray-lightest); border-radius: 6px;">
                                             <div class="file-info">
-                                                <div class="file-name" title="${escapeHtml(u.nome_arquivo)}">${escapeHtml(u.nome_arquivo)}</div>
+                                                <div class="file-name" title="${escapeHtml(u.nome)}">${escapeHtml(u.nome)}</div>
                                                 <div class="file-meta">
-                                                    <span class="file-date">${escapeHtml(u.data_importacao)}</span>
-                                                    <span class="file-count">${u.total_registros} registros</span>
+                                                    <span class="file-date">${u.data ? new Date(u.data).toLocaleDateString('pt-BR') : '—'}</span>
+                                                    <span class="file-status">${escapeHtml(u.status)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -627,7 +576,6 @@
                     });
             }
             
-            // Carregar histórico ao iniciar
             if (historyList) {
                 carregarHistoricoUploads();
             }
@@ -663,7 +611,6 @@
                     return;
                 }
 
-                // UI: Loading
                 operacoesState.isProcessing = true;
                 conciliacaoResult.innerHTML = `
                     <div class="nc-loading" role="status" aria-live="polite" aria-busy="true">
@@ -677,7 +624,6 @@
                 }
                 if (btnConciliar) btnConciliar.disabled = true;
 
-                // Obter tipo de pagamento selecionado (se existir filtro)
                 const filtroTipo = document.getElementById('filtroTipoPagamento');
                 const tipoPagamento = filtroTipo?.value && filtroTipo.value !== 'todos' ? filtroTipo.value : null;
 
@@ -692,10 +638,9 @@
                         body: JSON.stringify({ 
                             tipo_pagamento: tipoPagamento 
                         }),
-                        signal: AbortSignal.timeout(60000) // 60s timeout
+                        signal: AbortSignal.timeout(60000)
                     });
 
-                    // Simular progresso visual enquanto aguarda resposta
                     let progressoVisual = 0;
                     const intervaloVisual = setInterval(() => {
                         if (progressoVisual < 90) {
@@ -711,7 +656,6 @@
                     if (!response.ok || (data.status !== "success" && !data.ok)) {
                         let errorMsg = data.message || data.error || "Erro ao processar conciliação";
                         
-                        // Mensagens específicas
                         if (response.status === 401) {
                             errorMsg = 'Sessão expirada. Faça login novamente.';
                             setTimeout(() => window.location.href = '/auth/login?expired=1', 2000);
@@ -724,12 +668,10 @@
                         throw new Error(errorMsg);
                     }
 
-                    // ✅ 100% de progresso
                     updateConciliacaoProgress(100, 'Concluído!');
                     
                     const r = data.resultado || {};
 
-                    // Resultado seguro
                     conciliacaoResult.innerHTML = `
                         <div class="nc-success" role="status">
                             <h3>✔ Conciliação concluída</h3>
@@ -748,7 +690,6 @@
                         </div>
                     `;
                     
-                    // Rolar para o resultado
                     conciliacaoResult.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
                 } catch (err) {
@@ -765,7 +706,6 @@
                     `;
                     
                 } finally {
-                    // Restaurar UI
                     operacoesState.isProcessing = false;
                     if (btnConciliar) btnConciliar.disabled = false;
                     if (conciliacaoProgress) {
@@ -775,7 +715,6 @@
             });
         }
         
-        // Helper para progresso da conciliação
         function updateConciliacaoProgress(percent, label = null) {
             if (!conciliacaoProgress) return;
             const bar = conciliacaoProgress.querySelector('.nc-progress-bar');
