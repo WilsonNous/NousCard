@@ -2,17 +2,115 @@
 
 {% block title %}{{ 'Editar empresa' if empresa else 'Nova empresa' }} - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para formulário de empresas -->
+<style>
+    .empresa-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin: 1.5rem 0;
+        padding: 1rem;
+        background: var(--gray-lightest);
+        border-radius: 8px;
+    }
+    .stat-item {
+        text-align: center;
+    }
+    .stat-item .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary);
+    }
+    .stat-item .label {
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+    }
+    
+    .nc-form-error {
+        font-size: 0.875rem;
+        color: #dc2626;
+        margin-top: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .nc-form-hint {
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+        margin-top: 0.25rem;
+        display: block;
+    }
+    
+    /* Loading state no botão */
+    .nc-btn.loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    .nc-btn.loading .btn-text {
+        visibility: hidden;
+    }
+    .nc-btn.loading .btn-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: block !important;
+    }
+    
+    /* Alerta de desativação */
+    .desativacao-alert {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        color: #92400e;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        display: none;
+    }
+    .desativacao-alert.visible {
+        display: block;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="nc-section">
-    <h2>
-        <span aria-hidden="true">🏢</span>
-        {{ 'Editar empresa' if empresa else 'Nova empresa' }}
-    </h2>
+    <div class="nc-section-header">
+        <h2>
+            <span aria-hidden="true">🏢</span>
+            {{ 'Editar empresa' if empresa else 'Nova empresa' }}
+        </h2>
+        <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-btn nc-btn-outline nc-btn-sm">← Voltar</a>
+    </div>
     
     {% if empresa %}
     <p class="nc-form-subtitle">Editando: <strong>{{ empresa.nome | e }}</strong> (ID: {{ empresa.id }})</p>
+    
+    <!-- ✅ NOVO: Estatísticas da empresa -->
+    <div class="empresa-stats">
+        <div class="stat-item">
+            <div class="value">{{ empresa.total_usuarios or 0 }}</div>
+            <div class="label">Usuários</div>
+        </div>
+        <div class="stat-item">
+            <div class="value">{{ empresa.total_vendas or 0 }}</div>
+            <div class="label">Vendas</div>
+        </div>
+        <div class="stat-item">
+            <div class="value">R$ {{ empresa.total_valor_vendas | currency_br if empresa.total_valor_vendas else '0,00' }}</div>
+            <div class="label">Valor Total</div>
+        </div>
+        <div class="stat-item">
+            <div class="value">{{ empresa.data_criacao | date_br if empresa.data_criacao else '—' }}</div>
+            <div class="label">Criada em</div>
+        </div>
+    </div>
     {% endif %}
     
+    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="nc-flash-messages" role="status" aria-live="polite">
@@ -27,6 +125,9 @@
     {% endwith %}
     
     <form method="post" class="nc-form" id="form-empresa" novalidate>
+        <!-- ✅ CRÍTICO: Token CSRF -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
         <div class="nc-form-group">
             <label for="nome" class="nc-form-label">
                 Nome da empresa
@@ -41,9 +142,20 @@
                 required
                 aria-required="true"
                 aria-invalid="{% if erros and 'nome' in erros %}true{% else %}false{% endif %}"
+                aria-describedby="nome-error"
                 autocomplete="organization"
                 maxlength="150"
+                placeholder="Ex: Minha Empresa Ltda"
             >
+            <!-- ✅ NOVO: Erro específico do campo -->
+            {% if erros and 'nome' in erros %}
+            <div id="nome-error" class="nc-form-error" role="alert">
+                <span aria-hidden="true">⚠️</span>
+                {{ erros.nome }}
+            </div>
+            {% else %}
+            <span class="nc-form-hint">Máximo de 150 caracteres</span>
+            {% endif %}
         </div>
         
         <div class="nc-form-group">
@@ -55,8 +167,16 @@
                 value="{{ empresa.documento if empresa else '' }}"
                 placeholder="00.000.000/0000-00"
                 maxlength="18"
+                aria-describedby="documento-hint documento-error"
             >
-            <span class="nc-form-hint">Opcional, mas recomendado para relatórios fiscais</span>
+            <span id="documento-hint" class="nc-form-hint">Opcional, mas recomendado para relatórios fiscais</span>
+            <!-- ✅ NOVO: Erro específico do campo -->
+            {% if erros and 'documento' in erros %}
+            <div id="documento-error" class="nc-form-error" role="alert">
+                <span aria-hidden="true">⚠️</span>
+                {{ erros.documento }}
+            </div>
+            {% endif %}
         </div>
         
         {% if empresa %}
@@ -68,22 +188,184 @@
                     name="ativa" 
                     value="1"
                     {% if empresa.ativo %}checked{% endif %}
+                    onchange="toggleDesativacaoAlert()"
                 >
                 <label for="ativa" class="nc-checkbox-label">Empresa ativa</label>
             </div>
             <span class="nc-form-hint">Desmarcar bloqueará o acesso de todos os usuários vinculados</span>
+            
+            <!-- ✅ NOVO: Alerta de desativação -->
+            <div id="desativacaoAlert" class="desativacao-alert" role="alert">
+                <strong>⚠️ Atenção:</strong> Ao desativar esta empresa, todos os <strong>{{ empresa.total_usuarios or 0 }} usuários</strong> vinculados perderão o acesso imediatamente. Esta ação pode ser revertida posteriormente.
+            </div>
         </div>
         {% endif %}
         
         <div class="nc-form-actions">
             <button type="submit" class="nc-btn nc-btn-primary" id="btn-salvar">
                 <span class="btn-text">💾 Salvar</span>
-                <span class="btn-loading" style="display:none;">Salvando...</span>
+                <span class="btn-loading" style="display:none;">⏳ Salvando...</span>
             </button>
             <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-btn nc-btn-outline">← Voltar</a>
         </div>
     </form>
 </section>
 
+<!-- ✅ NOVO: Modal de confirmação de desativação -->
+<div id="modalConfirmacaoDesativacao" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalDesativacaoTitulo">
+    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-content">
+        <div class="nc-modal-header">
+            <h3 id="modalDesativacaoTitulo">Confirmar Desativação</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalDesativacao()">✕</button>
+        </div>
+        <div class="nc-modal-body">
+            <p>Tem certeza que deseja desativar a empresa <strong>{{ empresa.nome | e if empresa else '' }}</strong>?</p>
+            <ul style="margin: 1rem 0; padding-left: 1.5rem;">
+                <li>Todos os {{ empresa.total_usuarios or 0 }} usuários perderão o acesso</li>
+                <li>Vendas e recebimentos existentes serão mantidos</li>
+                <li>A empresa poderá ser reativada posteriormente</li>
+            </ul>
+            <div class="nc-flash nc-flash-warning">
+                <strong>⚠️ Esta ação afetará todos os usuários imediatamente.</strong>
+            </div>
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalDesativacao()">Cancelar</button>
+            <button type="button" class="nc-btn nc-btn-danger" id="btnConfirmarDesativacao">✅ Confirmar Desativação</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
 <script src="{{ url_for('static', filename='js/empresas.js') }}" defer></script>
+
+<!-- ✅ NOVO: Script inline para UX -->
+<script>
+// Controle do alerta de desativação
+function toggleDesativacaoAlert() {
+    const checkbox = document.getElementById('ativa');
+    const alert = document.getElementById('desativacaoAlert');
+    const modal = document.getElementById('modalConfirmacaoDesativacao');
+    
+    if (!checkbox.checked && alert) {
+        alert.classList.add('visible');
+        // Opcional: mostrar modal de confirmação
+        // modal.style.display = 'block';
+    } else if (alert) {
+        alert.classList.remove('visible');
+    }
+}
+
+function fecharModalDesativacao() {
+    document.getElementById('modalConfirmacaoDesativacao').style.display = 'none';
+    // Re-marcar checkbox se usuário cancelar
+    document.getElementById('ativa').checked = true;
+    document.getElementById('desativacaoAlert').classList.remove('visible');
+}
+
+// Loading state no botão de salvar
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('form-empresa');
+    const btnSalvar = document.getElementById('btn-salvar');
+    const inputDocumento = document.getElementById('documento');
+    
+    // ✅ Máscara de CNPJ em tempo real
+    if (inputDocumento) {
+        inputDocumento.addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, '');
+            
+            // Aplica máscara de CNPJ
+            if (valor.length <= 14) {
+                valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{3})(\d)/, '$1/$2');
+                valor = valor.replace(/(\d{4})(\d)/, '$1-$2');
+            }
+            
+            e.target.value = valor.substr(0, 18);
+        });
+        
+        // Validação de CNPJ ao perder foco
+        inputDocumento.addEventListener('blur', function(e) {
+            const valor = e.target.value.replace(/\D/g, '');
+            if (valor.length === 14 && !validarCNPJ(valor)) {
+                const errorDiv = document.getElementById('documento-error');
+                if (!errorDiv) {
+                    const div = document.createElement('div');
+                    div.id = 'documento-error';
+                    div.className = 'nc-form-error';
+                    div.setAttribute('role', 'alert');
+                    div.innerHTML = '<span aria-hidden="true">⚠️</span> CNPJ inválido';
+                    e.target.parentNode.appendChild(div);
+                }
+                e.target.setAttribute('aria-invalid', 'true');
+            }
+        });
+    }
+    
+    // ✅ Loading state no submit
+    if (form && btnSalvar) {
+        form.addEventListener('submit', function(e) {
+            // Validação HTML5
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Ativar loading state
+            btnSalvar.classList.add('loading');
+            btnSalvar.disabled = true;
+            
+            // Prevenir múltiplos submits
+            const inputs = form.querySelectorAll('input, select, button');
+            inputs.forEach(input => {
+                if (input !== btnSalvar) {
+                    input.disabled = true;
+                }
+            });
+        });
+    }
+    
+    // Fechar modal com Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            fecharModalDesativacao();
+        }
+    });
+});
+
+// ✅ Validação de CNPJ (algoritmo completo)
+function validarCNPJ(cnpj) {
+    cnpj = cnpj.replace(/\D/g, '');
+    
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1+$/.test(cnpj)) return false; // Evita sequências
+    
+    // Calcula primeiro dígito verificador
+    let soma = 0;
+    const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    for (let i = 0; i < 12; i++) {
+        soma += parseInt(cnpj[i]) * pesos1[i];
+    }
+    let digito1 = 11 - (soma % 11);
+    if (digito1 >= 10) digito1 = 0;
+    
+    // Calcula segundo dígito verificador
+    soma = 0;
+    const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    for (let i = 0; i < 13; i++) {
+        soma += parseInt(cnpj[i]) * pesos2[i];
+    }
+    let digito2 = 11 - (soma % 11);
+    if (digito2 >= 10) digito2 = 0;
+    
+    return parseInt(cnpj[12]) === digito1 && parseInt(cnpj[13]) === digito2;
+}
+
+// Expor funções globalmente
+window.toggleDesativacaoAlert = toggleDesativacaoAlert;
+window.fecharModalDesativacao = fecharModalDesativacao;
+window.validarCNPJ = validarCNPJ;
+</script>
 {% endblock %}
