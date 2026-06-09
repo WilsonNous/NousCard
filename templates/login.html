@@ -3,24 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - NousCard</title>
+    <title>Login - NousCard{% if error %} - Erro{% endif %}</title>
+    
+    <!-- ✅ NOVO: Meta CSRF para JavaScript -->
+    {% if csrf_token %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    {% endif %}
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    
+    {% block extra_head %}{% endblock %}
 </head>
 
 <body class="nc-login-body">
     <div class="nc-login-box" role="main">
+        <!-- ✅ NOVO: Logo da marca -->
+        <div class="nc-login-logo" aria-hidden="true">
+            <span style="font-size: 2.5rem;">💳</span>
+            <h1 style="font-size: 1.5rem; margin: 0.5rem 0;">NousCard</h1>
+        </div>
+        
         <h1 class="nc-sr-only">Login - NousCard</h1>
         <h2 aria-hidden="true">Entrar</h2>
         
+        <!-- ✅ APRIMORADO: Mensagens de erro com mais contexto -->
         {% if error %}
         <div class="nc-error" id="login-error" role="alert" aria-live="polite">
             <span aria-hidden="true">❌</span>
             {{ error }}
+            {% if 'bloqueada' in error.lower() %}
+            <small class="nc-muted" style="display: block; margin-top: 0.5rem;">
+                ⏰ Aguarde alguns minutos antes de tentar novamente.
+            </small>
+            {% endif %}
         </div>
         {% endif %}
         
-        <form method="POST" action="{{ url_for('auth.login_post') }}" aria-describedby="{% if error %}login-error{% endif %}">
+        <!-- ✅ NOVO: Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="nc-flash nc-flash-{{ category }}" role="status">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('auth.login_post') }}" 
+              id="loginForm" 
+              novalidate
+              aria-describedby="{% if error %}login-error{% endif %}">
+            
+            <!-- ✅ CRÍTICO: Token CSRF -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <!-- Campo de Email -->
             <div class="nc-form-group">
                 <label for="email" class="nc-sr-only">E-mail</label>
                 <input 
@@ -31,13 +70,20 @@
                     autocomplete="username" 
                     required
                     aria-invalid="{% if error %}true{% else %}false{% endif %}"
+                    aria-describedby="email-hint"
                     autofocus
+                    value="{{ request.form.get('email', '') }}"
                 >
+                <small id="email-hint" class="nc-form-hint">
+                    Digite o e-mail cadastrado na sua conta
+                </small>
+                <div class="nc-form-error" id="email-error" style="display:none;" role="alert"></div>
             </div>
             
+            <!-- Campo de Senha com Toggle de Visibilidade -->
             <div class="nc-form-group">
                 <label for="senha" class="nc-sr-only">Senha</label>
-                <div class="nc-password-wrapper">
+                <div class="nc-password-wrapper" style="position: relative;">
                     <input 
                         type="password" 
                         id="senha" 
@@ -46,21 +92,143 @@
                         autocomplete="current-password" 
                         required
                         aria-invalid="{% if error %}true{% else %}false{% endif %}"
+                        aria-describedby="senha-hint"
+                        style="padding-right: 2.5rem;"
                     >
+                    <!-- ✅ NOVO: Botão para mostrar/ocultar senha -->
+                    <button type="button" 
+                            id="toggleSenha" 
+                            class="nc-password-toggle"
+                            aria-label="Mostrar senha"
+                            style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.25rem;"
+                            tabindex="-1">
+                        👁️
+                    </button>
                 </div>
+                <small id="senha-hint" class="nc-form-hint">
+                    Mínimo 8 caracteres
+                </small>
+                <div class="nc-form-error" id="senha-error" style="display:none;" role="alert"></div>
             </div>
             
-            <button type="submit" class="nc-btn-primary" id="btn-login">
-                <span class="btn-text">Entrar</span>
-                <span class="btn-loading" style="display:none;">⏳ Entrando...</span>
+            <!-- ✅ NOVO: Lembrar de mim e Link de recuperação -->
+            <div class="nc-login-options" style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; flex-wrap: wrap; gap: 0.5rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+                    <input type="checkbox" name="lembrar" value="1">
+                    <span>Lembrar de mim</span>
+                </label>
+                <a href="{{ url_for('auth.recuperar_senha') }}" class="nc-link" style="font-size: 0.875rem;">
+                    Esqueci minha senha
+                </a>
+            </div>
+            
+            <!-- Botão de Submit com Loading State -->
+            <button type="submit" class="nc-btn-primary" id="btn-login" style="width: 100%;">
+                <span class="btn-text">🔐 Entrar</span>
+                <span class="btn-loading" style="display:none;">
+                    <span class="spinner" aria-hidden="true"></span> Entrando...
+                </span>
             </button>
+            
+            <!-- ✅ NOVO: Aviso de segurança -->
+            <p class="nc-muted" style="font-size: 0.75rem; text-align: center; margin-top: 1rem;">
+                🔒 Ambiente seguro • Seus dados estão protegidos
+            </p>
         </form>
         
-        <p class="nc-login-forgot">
+        <p class="nc-login-forgot" style="margin-top: 1.5rem; text-align: center;">
+            Não tem uma conta? 
             <a href="{{ url_for('auth.registrar') }}">Criar nova conta</a>
         </p>
+        
+        <!-- ✅ NOVO: Links úteis -->
+        <div class="nc-login-help" style="margin-top: 1rem; text-align: center; font-size: 0.875rem;">
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-link">← Voltar ao site</a>
+        </div>
     </div>
     
+    <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
+    
+    <!-- ✅ NOVO: Script inline para funcionalidades básicas -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('loginForm');
+        const btnLogin = document.getElementById('btn-login');
+        const emailInput = document.getElementById('email');
+        const senhaInput = document.getElementById('senha');
+        const toggleSenha = document.getElementById('toggleSenha');
+        
+        // ✅ Toggle de visibilidade de senha
+        if (toggleSenha && senhaInput) {
+            toggleSenha.addEventListener('click', function() {
+                const isPassword = senhaInput.type === 'password';
+                senhaInput.type = isPassword ? 'text' : 'password';
+                toggleSenha.textContent = isPassword ? '🙈' : '👁️';
+                toggleSenha.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+                senhaInput.focus();
+            });
+        }
+        
+        // ✅ Validação de email em tempo real
+        if (emailInput) {
+            emailInput.addEventListener('blur', function() {
+                const email = this.value.trim();
+                const errorDiv = document.getElementById('email-error');
+                
+                if (email && !isValidEmail(email)) {
+                    errorDiv.textContent = '⚠️ Digite um e-mail válido';
+                    errorDiv.style.display = 'block';
+                    this.setAttribute('aria-invalid', 'true');
+                } else {
+                    errorDiv.style.display = 'none';
+                    this.setAttribute('aria-invalid', 'false');
+                }
+            });
+        }
+        
+        // ✅ Loading state no submit
+        if (form && btnLogin) {
+            form.addEventListener('submit', function(e) {
+                // Validação básica antes de submit
+                if (!emailInput.value.trim()) {
+                    e.preventDefault();
+                    const errorDiv = document.getElementById('email-error');
+                    errorDiv.textContent = '⚠️ E-mail é obrigatório';
+                    errorDiv.style.display = 'block';
+                    emailInput.focus();
+                    return;
+                }
+                
+                if (!senhaInput.value) {
+                    e.preventDefault();
+                    const errorDiv = document.getElementById('senha-error');
+                    errorDiv.textContent = '⚠️ Senha é obrigatória';
+                    errorDiv.style.display = 'block';
+                    senhaInput.focus();
+                    return;
+                }
+                
+                // Ativar loading state
+                btnLogin.disabled = true;
+                btnLogin.querySelector('.btn-text').style.display = 'none';
+                btnLogin.querySelector('.btn-loading').style.display = 'inline';
+            });
+        }
+        
+        // ✅ Helper de validação de email
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+        
+        // ✅ Permitir submit com Enter em qualquer campo
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') {
+                e.preventDefault();
+                form.submit();
+            }
+        });
+    });
+    </script>
 </body>
 </html>
