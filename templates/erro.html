@@ -1,16 +1,164 @@
 {% extends "base.html" %}
 
-{% block title %}Erro - NousCard{% endblock %}
+{% block title %}Erro {{ error_code or '500' }} - NousCard{% endblock %}
+
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos por tipo de erro -->
+<style>
+    .nc-error-page {
+        text-align: center;
+        padding: 3rem 1rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .error-icon {
+        font-size: 4rem;
+        display: block;
+        margin-bottom: 1rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    
+    .error-code {
+        font-size: 6rem;
+        font-weight: bold;
+        color: var(--gray-light);
+        line-height: 1;
+        margin: 1rem 0;
+    }
+    
+    .error-title {
+        font-size: 1.5rem;
+        color: var(--gray-dark);
+        margin-bottom: 1rem;
+    }
+    
+    .error-message {
+        color: var(--gray-dark);
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+    
+    .error-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 2rem;
+    }
+    
+    .error-details {
+        background: var(--gray-lightest);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: left;
+        font-family: monospace;
+        font-size: 0.875rem;
+        overflow-x: auto;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .error-details summary {
+        cursor: pointer;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Cores por tipo de erro */
+    .error-4xx .error-icon { color: #f59e0b; }
+    .error-5xx .error-icon { color: #dc2626; }
+    .error-4xx .error-code { color: #fef3c7; }
+    .error-5xx .error-code { color: #fee2e2; }
+    
+    .support-info {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--gray-light);
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <section class="nc-section">
-    <div class="nc-error-page">
-        <span aria-hidden="true" style="font-size: 4rem;">⚠️</span>
-        <h1>Ops! Algo deu errado</h1>
-        <p>{{ mensagem or "Ocorreu um erro inesperado. Tente novamente." }}</p>
-        <div class="nc-error-actions">
-            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-btn nc-btn-primary">Voltar ao Dashboard</a>
-            <a href="javascript:history.back()" class="nc-btn nc-btn-outline">Voltar</a>
+    <div class="nc-error-page {% if error_code %}error-{{ (error_code // 100) }}xx{% endif %}">
+        <!-- ✅ Ícone dinâmico por tipo de erro -->
+        <span class="error-icon" aria-hidden="true">
+            {% if error_code == 404 %}🔍{% elif error_code == 403 %}🔒{% elif error_code >= 500 %}💥{% else %}⚠️{% endif %}
+        </span>
+        
+        <!-- ✅ Código do erro em destaque -->
+        {% if error_code %}
+        <div class="error-code">{{ error_code }}</div>
+        {% endif %}
+        
+        <h1 class="error-title">
+            {% if error_code == 404 %}
+                Página Não Encontrada
+            {% elif error_code == 403 %}
+                Acesso Negado
+            {% elif error_code == 401 %}
+                Não Autorizado
+            {% elif error_code >= 500 %}
+                Erro Interno do Servidor
+            {% else %}
+                Ops! Algo deu errado
+            {% endif %}
+        </h1>
+        
+        <!-- ✅ Mensagem específica por tipo de erro -->
+        <p class="error-message">
+            {% if error_code == 404 %}
+                A página que você está procurando não existe ou foi movida.
+            {% elif error_code == 403 %}
+                Você não tem permissão para acessar esta página.
+            {% elif error_code == 401 %}
+                Você precisa estar logado para acessar esta página.
+            {% elif error_code >= 500 %}
+                Ocorreu um erro inesperado em nosso servidor. Nossa equipe foi notificada.
+            {% else %}
+                {{ mensagem or "Ocorreu um erro inesperado. Tente novamente." }}
+            {% endif %}
+        </p>
+        
+        <!-- ✅ Ações contextualizadas -->
+        <div class="error-actions">
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-btn nc-btn-primary">
+                🏠 Voltar ao Dashboard
+            </a>
+            <a href="javascript:history.back()" class="nc-btn nc-btn-outline">
+                ← Voltar
+            </a>
+            {% if error_code != 404 %}
+            <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn nc-btn-secondary">
+                ⬆️ Importar Arquivos
+            </a>
+            {% endif %}
+        </div>
+        
+        <!-- ✅ Detalhes técnicos (apenas em debug) -->
+        {% if app_debug and error_details %}
+        <details class="error-details">
+            <summary>🔍 Detalhes Técnicos (apenas para desenvolvimento)</summary>
+            <pre>{{ error_details }}</pre>
+        </details>
+        {% endif %}
+        
+        <!-- ✅ Informações de suporte -->
+        <div class="support-info">
+            <p>
+                <strong>Precisa de ajuda?</strong><br>
+                📧 Email: <a href="mailto:contato@noustecnologia.com.br">contato@noustecnologia.com.br</a><br>
+                📋 ID do Erro: <code>{{ error_id or 'N/A' }}</code><br>
+                🕐 Data: {{ now.strftime('%d/%m/%Y %H:%M') if now else 'N/A' }}
+            </p>
         </div>
     </div>
 </section>
