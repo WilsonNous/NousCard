@@ -2,11 +2,48 @@
 
 {% block title %}Dashboard - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos do dashboard -->
+<style>
+    /* Loading skeleton para KPIs */
+    .kpi-value[data-loading="true"] {
+        min-height: 1.5rem;
+        background: linear-gradient(90deg, var(--gray-lightest) 25%, var(--gray-light) 50%, var(--gray-lightest) 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+        border-radius: 4px;
+    }
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    /* Badge para tipo de pagamento */
+    .kpi-badge {
+        display: inline-block;
+        padding: 0.125rem 0.375rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-left: 0.25rem;
+    }
+    .kpi-badge-pix { background: #7c3aed; color: white; }
+    .kpi-badge-cartao { background: #3b82f6; color: white; }
+    
+    /* Acessibilidade: foco visível */
+    .nc-kpi-card:focus-visible,
+    .nc-btn:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 
-<!-- ===================== FILTROS DE DATA (HABILITADO) ===================== -->
+<!-- ===================== FILTROS DE DATA E TIPO (HABILITADO) ===================== -->
 <section class="nc-section">
-    <h2 class="nc-subtitle">🔍 Filtros de Período</h2>
+    <h2 class="nc-subtitle">🔍 Filtros</h2>
     <div class="nc-filters" style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.5rem; padding:1rem; background:var(--gray-lightest); border-radius:8px;">
         
         <div class="nc-form-group" style="margin-bottom:0; min-width:150px;">
@@ -18,6 +55,19 @@
             <label class="nc-form-label" for="filtroFim">Data Fim</label>
             <input type="date" id="filtroFim" class="nc-form-input" />
         </div>
+        
+        <!-- ✅ NOVO: Filtro por tipo de pagamento (com feature flag) -->
+        {% if features.pix_enabled %}
+        <div class="nc-form-group" style="margin-bottom:0; min-width:150px;">
+            <label class="nc-form-label" for="filtroTipoPagamento">Tipo</label>
+            <select id="filtroTipoPagamento" class="nc-form-input">
+                <option value="todos">Todos</option>
+                <option value="cartao">Cartão</option>
+                <option value="pix">PIX</option>
+                <option value="boleto">Boleto</option>
+            </select>
+        </div>
+        {% endif %}
         
         <button type="button" class="nc-btn nc-btn-primary" onclick="aplicarFiltros()" style="height:42px;">
             🔍 Filtrar
@@ -68,6 +118,19 @@
             </div>
         </button>
 
+        <!-- ✅ NOVO: KPI de PIX (com feature flag) -->
+        {% if features.pix_enabled %}
+        <button type="button" class="nc-kpi-card" aria-label="Total em PIX">
+            <div class="kpi-icon kpi-purple" aria-hidden="true">🔷</div>
+            <div class="kpi-info">
+                <div class="kpi-label">Total PIX</div>
+                <div class="kpi-value kpi-value-pix" data-loading="true">
+                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
+                </div>
+            </div>
+        </button>
+        {% endif %}
+
         <div class="nc-kpi-card">
             <div class="kpi-icon kpi-red" aria-hidden="true">🔔</div>
             <div class="kpi-info">
@@ -112,19 +175,38 @@
 
 <!-- ===================== SCRIPTS DOS FILTROS (CORRIGIDO) ===================== -->
 <script>
-// ✅ Funções de filtro definidas após DOMContentLoaded para garantir que dashboard.js carregou
+// ✅ Helper robusto para CSRF token (fallback se window.getCsrfToken não existir)
+function getCsrfTokenFallback() {
+    return window.getCsrfToken?.() || 
+           document.querySelector('meta[name="csrf-token"]')?.content || 
+           document.querySelector('input[name="csrf_token"]')?.value || 
+           '';
+}
 
+// ✅ Funções de filtro definidas após DOMContentLoaded
 document.addEventListener("DOMContentLoaded", function() {
     // Garantir inputs vazios ao carregar
     const filtroInicio = document.getElementById('filtroInicio');
     const filtroFim = document.getElementById('filtroFim');
+    const filtroTipo = document.getElementById('filtroTipoPagamento');
+    
     if (filtroInicio) filtroInicio.value = '';
     if (filtroFim) filtroFim.value = '';
+    if (filtroTipo) filtroTipo.value = 'todos';
+    
+    // ✅ Atalho de teclado: Ctrl+Enter para aplicar filtros
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            aplicarFiltros();
+        }
+    });
     
     // ✅ Função aplicarFiltros - exposta globalmente
     window.aplicarFiltros = function() {
-        const inicio = document.getElementById('filtroInicio')?.value;
-        const fim = document.getElementById('filtroFim')?.value;
+        const inicio = filtroInicio?.value;
+        const fim = filtroFim?.value;
+        const tipo = filtroTipo?.value || 'todos';
         
         const params = new URLSearchParams();
         if (inicio && fim) {
@@ -140,21 +222,22 @@ document.addEventListener("DOMContentLoaded", function() {
         } else {
             params.append('periodo', 'todos');
         }
+        if (tipo && tipo !== 'todos') {
+            params.append('tipo_pagamento', tipo);
+        }
+        
         carregarKPIsComFiltros(params.toString());
     };
 
-    // ✅ Função limparFiltros - com verificação de disponibilidade de carregarKPIs
+    // ✅ Função limparFiltros - com verificação de disponibilidade
     window.limparFiltros = function() {
-        const filtroInicio = document.getElementById('filtroInicio');
-        const filtroFim = document.getElementById('filtroFim');
         if (filtroInicio) filtroInicio.value = '';
         if (filtroFim) filtroFim.value = '';
+        if (filtroTipo) filtroTipo.value = 'todos';
         
-        // ✅ Esperar carregarKPIs estar disponível (pode estar em dashboard.js com defer)
         if (typeof window.carregarKPIs === 'function') {
             window.carregarKPIs();
         } else {
-            // Fallback: tentar novamente em 100ms
             setTimeout(() => {
                 if (typeof window.carregarKPIs === 'function') {
                     window.carregarKPIs();
@@ -165,36 +248,42 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     };
 
-    // ✅ Função carregarKPIsComFiltros - versão segura que aguarda funções do dashboard.js
+    // ✅ Função carregarKPIsComFiltros - versão segura
     window.carregarKPIsComFiltros = async function(queryString = '') {
-        // Aguardar funções essenciais do dashboard.js estarem disponíveis
+        // Aguardar funções essenciais do dashboard.js
         const maxRetries = 10;
         let retries = 0;
         
-        while ((typeof window.atualizarKPIs !== 'function' || typeof window.getCsrfToken !== 'function') && retries < maxRetries) {
+        while ((typeof window.atualizarKPIs !== 'function' || typeof getCsrfTokenFallback !== 'function') && retries < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, 50));
             retries++;
         }
         
-        // Se ainda não estiverem disponíveis, logar erro e sair
-        if (typeof window.atualizarKPIs !== 'function' || typeof window.getCsrfToken !== 'function') {
+        if (typeof window.atualizarKPIs !== 'function') {
             console.error('❌ Funções do dashboard.js não carregaram após espera');
+            const dashboardError = document.getElementById("dashboard-error");
+            if (dashboardError) {
+                dashboardError.textContent = '⚠️ Erro ao carregar dashboard. Recarregue a página.';
+                dashboardError.style.display = 'block';
+            }
             return;
         }
         
-        // Obter elementos DOM no escopo correto
+        // Obter elementos DOM
         const kpiVendas = document.querySelector(".kpi-value-vendas");
         const kpiRecebido = document.querySelector(".kpi-value-recebido");
         const kpiDiferenca = document.querySelector(".kpi-value-diferenca");
         const kpiAlertas = document.querySelector(".kpi-value-alertas");
+        const kpiPix = document.querySelector(".kpi-value-pix"); // ✅ NOVO
         const ctxGrafico = document.getElementById("graficoVendasRecebidos");
         const ctxBandeiras = document.getElementById("graficoBandeiras");
         const acqContainer = document.getElementById("acqContainer");
         const dashboardError = document.getElementById("dashboard-error");
         
         // Mostrar loading
-        const kpiElements = document.querySelectorAll('.kpi-value[data-loading="true"]');
-        kpiElements.forEach(el => { if (el) el.innerHTML = '<span class="loading-spinner">⏳</span>'; });
+        document.querySelectorAll('.kpi-value[data-loading="true"]').forEach(el => {
+            if (el) el.innerHTML = '<span class="loading-spinner" aria-label="Carregando">⏳</span>';
+        });
         
         const url = `/api/v1/dashboard/kpis${queryString ? '?' + queryString : ''}`;
         
@@ -203,21 +292,29 @@ document.addEventListener("DOMContentLoaded", function() {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.getCsrfToken()
+                    'X-CSRF-Token': getCsrfTokenFallback() // ✅ Fallback robusto
                 }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            
+            if (!res.ok) {
+                const errorText = await res.text().catch(() => res.statusText);
+                throw new Error(`HTTP ${res.status}: ${errorText}`);
+            }
+            
             const data = await res.json();
             if (!data.ok) throw new Error(data.error || 'Erro ao carregar dados');
 
-            // Atualizar estado global (com verificação)
+            // Atualizar estado global
             if (typeof window.ultimoKpis !== 'undefined') window.ultimoKpis = data.kpis;
             if (typeof window.graficoBandeirasRetryCount !== 'undefined') window.graficoBandeirasRetryCount = 0;
 
-            // Atualizar UI
-            window.atualizarKPIs(data.kpis, { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas });
+            // ✅ Atualizar UI com kpiPix se existir
+            const kpiElements = { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas };
+            if (kpiPix) kpiElements.kpiPix = kpiPix;
+            
+            window.atualizarKPIs(data.kpis, kpiElements);
+            
             if (typeof window.atualizarAcquirers === 'function') {
-                // ✅ CORREÇÃO: API retorna "adquirentes", não "acquirers"
                 window.atualizarAcquirers(data.kpis.adquirentes || {}, acqContainer);
             }
             if (ctxGrafico && window.Chart && typeof window.atualizarGraficoVendas === 'function') {
@@ -226,30 +323,38 @@ document.addEventListener("DOMContentLoaded", function() {
             if (ctxBandeiras && window.Chart && typeof window.atualizarGraficoBandeiras === 'function') {
                 window.atualizarGraficoBandeiras(data.kpis.bandeiras || {}, ctxBandeiras);
             }
+            
             if (dashboardError) {
                 dashboardError.style.display = 'none';
                 dashboardError.textContent = '';
             }
+            
         } catch (err) {
-            console.error("Erro ao carregar KPIs com filtros:", err);
+            console.error("Erro ao carregar KPIs:", err);
             if (dashboardError) {
-                dashboardError.textContent = '⚠️ Não foi possível carregar os dados. Tente novamente.';
+                // ✅ Mensagem mais informativa
+                const msg = err.message.includes('HTTP 401') ? 'Sessão expirada. Faça login novamente.' :
+                           err.message.includes('HTTP 403') ? 'Acesso negado. Verifique suas permissões.' :
+                           err.message.includes('HTTP 500') ? 'Erro interno do servidor. Tente novamente em alguns minutos.' :
+                           '⚠️ Não foi possível carregar os dados. Verifique sua conexão.';
+                
+                dashboardError.textContent = msg;
                 dashboardError.style.display = 'block';
                 dashboardError.setAttribute('role', 'alert');
             }
         }
     };
     
-    // Carregar KPIs iniciais (com verificação)
+    // Carregar KPIs iniciais
     if (typeof window.carregarKPIs === 'function') {
         window.carregarKPIs();
     }
 });
 </script>
 
-<!-- MODAL DE DETALHAMENTO -->
+<!-- MODAL DE DETALHAMENTO (COM FOCO TRAP COMPLETO) -->
 <div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
-    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-backdrop" tabindex="-1"></div>
     <div class="nc-modal-content">
         <div class="nc-modal-header">
             <h3 id="modalTitulo"></h3>
@@ -267,5 +372,53 @@ document.addEventListener("DOMContentLoaded", function() {
         </div>
     </div>
 </div>
+
+<!-- ✅ NOVO: Script para foco trap no modal -->
+<script>
+// Melhorar foco trap do modal existente
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('modalDetalhe');
+    if (!modal) return;
+    
+    const closeBtn = modal.querySelector('.nc-modal-close');
+    const footerBtn = modal.querySelector('.nc-modal-footer button');
+    
+    // Focar no botão fechar ao abrir
+    modal.addEventListener('transitionend', function() {
+        if (modal.style.display !== 'none' && closeBtn) {
+            closeBtn.focus();
+        }
+    });
+    
+    // Trap de foco: não permitir sair do modal com Tab
+    modal.addEventListener('keydown', function(e) {
+        if (e.key !== 'Tab') return;
+        
+        const focusable = modal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable.length) return;
+        
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    });
+    
+    // Fechar com Escape
+    modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            fecharModal();
+        }
+    });
+});
+</script>
 
 {% endblock %}
