@@ -194,8 +194,6 @@ def arquivos_importados_page():
     empresa_id = g.user.empresa_id
     page = max(1, request.args.get('page', 1, type=int))
     per_page = min(request.args.get('per_page', 20, type=int), 100)
-    search = request.args.get('search', '').strip()
-    tipo = request.args.get('tipo', '').strip()  # 'venda' ou 'recebimento'
     
     arquivos = listar_arquivos_importados(
         empresa_id, 
@@ -221,9 +219,8 @@ def arquivo_detalhe_page(arquivo_id):
     arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
 
     if not arquivo:
-        abort(404)  # Ou renderizar template de erro amigável
+        abort(404)
 
-    # Converter JSON armazenado (que na verdade é texto criptografado)
     try:
         from services.importer_db import descriptografar_conteudo
         registros = descriptografar_conteudo(arquivo.get("conteudo_json"))
@@ -244,7 +241,6 @@ def arquivo_detalhe_page(arquivo_id):
 @login_required
 @empresa_required
 def conciliar_api():
-    # ✅ Validar CSRF para API
     if not validar_csrf_token():
         return jsonify({
             "ok": False,
@@ -254,18 +250,16 @@ def conciliar_api():
     empresa_id = g.user.empresa_id
     usuario_id = g.user.id
     
-    # ✅ Obter parâmetros opcionais do JSON body
     data = request.get_json(silent=True) or {}
-    tipo_pagamento = data.get('tipo_pagamento')  # 'pix', 'cartao', 'boleto', ou None
+    tipo_pagamento = data.get('tipo_pagamento')
 
     try:
-        # ✅ Import no topo do arquivo (melhor prática)
         from services.concilia import executar_conciliacao
 
         resultado = executar_conciliacao(
             empresa_id, 
             usuario_id=usuario_id,
-            tipo_pagamento=tipo_pagamento  # ✅ Suporte a filtro por tipo
+            tipo_pagamento=tipo_pagamento
         )
 
         logger.info(f"✅ Conciliação executada: empresa={empresa_id}, tipo={tipo_pagamento or 'todos'}")
@@ -285,13 +279,80 @@ def conciliar_api():
         }), 500
 
 # ============================================================
+# API: Últimos Uploads (NOVA ROTA IMPLEMENTADA)
+# ============================================================
+@operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
+@login_required
+@empresa_required
+def ultimos_uploads_api():
+    """
+    Retorna os últimos 5 arquivos importados para a empresa.
+    
+    Response JSON:
+    {
+        "ok": true,
+        "uploads": [
+            {
+                "id": 123,
+                "nome": "arquivo.csv",
+                "data": "2024-06-09T14:30:00",
+                "status": "processado",
+                "total_valor": "1234.56",
+                "tipo": "venda"
+            },
+            ...
+        ]
+    }
+    """
+    try:
+        empresa_id = g.user.empresa_id
+        
+        # Buscar últimos 5 arquivos importados
+        arquivos = listar_arquivos_importados(empresa_id, page=1, per_page=5)
+        
+        # Formatrar resposta compatível com frontend
+        uploads = []
+        for a in arquivos:
+            # Formatar data para ISO se existir
+            data_iso = None
+            if a.get("data_importacao"):
+                try:
+                    data_iso = a["data_importacao"].isoformat() if hasattr(a["data_importacao"], 'isoformat') else str(a["data_importacao"])
+                except:
+                    data_iso = str(a["data_importacao"])
+            
+            uploads.append({
+                "id": a.get("id"),
+                "nome": a.get("nome_arquivo") or "Desconhecido",
+                "data": data_iso,
+                "status": a.get("status") or "unknown",
+                "total_valor": str(a.get("total_valor") or 0),
+                "tipo": a.get("tipo_arquivo") or a.get("tipo") or "unknown"
+            })
+        
+        logger.debug(f"✅ API ultimos-uploads: {len(uploads)} uploads retornados para empresa {empresa_id}")
+        
+        return jsonify({
+            "ok": True,
+            "uploads": uploads,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Erro na API ultimos-uploads: {str(e)}", exc_info=True)
+        return jsonify({
+            "ok": False,
+            "error": "Erro ao carregar lista de uploads",
+            "message": str(e) if current_app.debug else "Tente novamente mais tarde"
+        }), 500
+
+# ============================================================
 # Telas / API: Detalhamento (COM PAGINAÇÃO E FILTROS)
 # ============================================================
 @operacoes_bp.route("/detalhado", methods=["GET"])
 @login_required
 @empresa_required
 def detalhado_page():
-    # Passar parâmetros de filtro para o template
     return render_template(
         "detalhado.html",
         tipos_pagamento=["todos", "cartao", "pix", "boleto", "outros"]
@@ -303,7 +364,6 @@ def detalhado_page():
 def detalhado_api():
     empresa_id = g.user.empresa_id
     
-    # ✅ Parâmetros de paginação e filtro
     page = max(1, request.args.get('page', 1, type=int))
     per_page = min(request.args.get('per_page', 50, type=int), 100)
     status = request.args.get('status')
@@ -336,29 +396,3 @@ def detalhado_api():
             "ok": False, 
             "message": "Erro ao gerar relatório detalhado."
         }), 500
-
-# routes/operacoes_routes.py - Adicionar esta nova rota
-
-@operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
-@login_required
-@empresa_required
-def ultimos_uploads_api():
-    """Retorna últimos arquivos importados para a empresa"""
-    from services.importer_db import listar_arquivos_importados
-    
-    empresa_id = g.user.empresa_id
-    arquivos = listar_arquivos_importados(empresa_id, page=1, per_page=5)
-    
-    return jsonify({
-        "ok": True,
-        "uploads": [
-            {
-                "id": a["id"],
-                "nome": a["nome_arquivo"],
-                "data": a["data_importacao"].isoformat() if a.get("data_importacao") else None,
-                "status": a["status"],
-                "total_valor": str(a.get("total_valor", 0))
-            }
-            for a in arquivos
-        ]
-    })
