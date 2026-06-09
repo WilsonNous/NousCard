@@ -126,13 +126,14 @@
         const btnCancel = document.getElementById("btn-cancel");
         const historyList = document.getElementById("ultimosUploads");
         
-        // ✅ DEBUG: Logar quais elementos foram encontrados
-        console.log('🔍 DEBUG DOM Elements:');
-        console.log('   dropZone:', dropZone ? '✅' : '❌');
-        console.log('   fileInput:', fileInput ? '✅' : '❌');
-        console.log('   uploadForm:', uploadForm ? '✅' : '❌');
-        console.log('   uploadResult:', uploadResult ? '✅' : '❌');
-        
+        // ✅ DEBUG CSRF: Verificar se token está disponível
+        const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+        const inputToken = document.querySelector('input[name="csrf_token"]')?.value;
+        console.log('🔍 DEBUG CSRF Token:');
+        console.log('   meta[name="csrf-token"]:', metaToken ? '✅ presente' : '❌ ausente');
+        console.log('   input[name="csrf_token"]:', inputToken ? '✅ presente' : '❌ ausente');
+        console.log('   getCsrfToken() retorna:', getCsrfToken() ? '✅ token válido' : '❌ vazio');
+            
         // ============================================================
         // DRAG & DROP + SELEÇÃO DE ARQUIVOS
         // ============================================================
