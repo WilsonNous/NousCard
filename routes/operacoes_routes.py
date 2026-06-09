@@ -201,14 +201,12 @@ def arquivos_importados_page():
         empresa_id, 
         page=page, 
         per_page=per_page,
-        search=search,
         tipo=tipo
     )
     
     return render_template(
         "arquivos_importados.html", 
         arquivos=arquivos,
-        search=search,
         tipo=tipo,
         page=page,
         per_page=per_page
