@@ -3,9 +3,7 @@
 {% block title %}Gerenciar Empresas - NousCard{% endblock %}
 
 {% block extra_head %}
-<!-- ✅ NOVO: Estilos específicos para listagem de empresas -->
 <style>
-    /* Cards de resumo */
     .empresas-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -33,7 +31,6 @@
     .stat-card.inactive { border-left-color: #dc2626; }
     .stat-card.inactive .value { color: #dc2626; }
     
-    /* Busca e filtros */
     .list-controls {
         display: flex;
         gap: 0.5rem;
@@ -48,7 +45,6 @@
         max-width: 300px;
     }
     
-    /* Ordenação por coluna */
     .sortable {
         cursor: pointer;
         user-select: none;
@@ -63,11 +59,17 @@
     .sortable.asc .sort-icon::after { content: "▲"; }
     .sortable.desc .sort-icon::after { content: "▼"; }
     
-    /* Ações da tabela */
     .nc-table-actions {
         display: flex;
         gap: 0.25rem;
         justify-content: flex-end;
+    }
+
+    /* ✅ Melhoria: feedback visual para busca vazia */
+    .no-results {
+        text-align: center;
+        padding: 2rem;
+        color: var(--gray-dark);
     }
 </style>
 {% endblock %}
@@ -100,7 +102,6 @@
         </div>
         
         {% if empresas and empresas.items %}
-            <!-- ✅ NOVO: Cards de estatísticas -->
             <div class="empresas-stats">
                 <div class="stat-card">
                     <div class="value">{{ empresas.total }}</div>
@@ -120,19 +121,21 @@
                 </div>
             </div>
             
-            <!-- ✅ NOVO: Busca e filtros -->
             <div class="list-controls">
                 <label for="empresaSearch" class="nc-form-label" style="white-space: nowrap;">🔍 Buscar:</label>
-                <input type="search" id="empresaSearch" class="nc-form-input" placeholder="Nome ou documento..." onkeyup="filtrarEmpresas()">
+                <input type="search" id="empresaSearch" class="nc-form-input" 
+                       placeholder="Nome ou documento..." 
+                       onkeyup="filtrarEmpresas()"
+                       aria-label="Buscar empresas por nome ou documento">
                 
                 <label for="filtroStatus" class="nc-form-label" style="white-space: nowrap;">Status:</label>
-                <select id="filtroStatus" class="nc-form-input" onchange="filtrarEmpresas()">
+                <select id="filtroStatus" class="nc-form-input" onchange="filtrarEmpresas()" aria-label="Filtrar por status">
                     <option value="">Todos</option>
                     <option value="ativo">Ativas</option>
                     <option value="inativo">Inativas</option>
                 </select>
                 
-                <small class="nc-muted" id="searchCount"></small>
+                <small class="nc-muted" id="searchCount" aria-live="polite"></small>
             </div>
             
             <div class="nc-table-container" style="overflow-x: auto;">
@@ -140,7 +143,6 @@
                     <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas cadastradas.</caption>
                     <thead>
                         <tr>
-                            <!-- ✅ NOVO: Colunas ordenáveis -->
                             <th scope="col" class="sortable" onclick="ordenarTabela('id')" aria-sort="none">
                                 ID <span class="sort-icon" aria-hidden="true"></span>
                             </th>
@@ -164,7 +166,7 @@
                         {% for e in empresas.items %}
                         <tr class="{% if e.id == session.get('empresa_id') %}nc-row-current{% endif %}" 
                             data-nome="{{ e.nome | lower | e }}" 
-                            data-documento="{{ e.documento | lower | e if e.documento else '' }}" 
+                            data-documento="{{ (e.documento or '') | lower | e }}" 
                             data-status="{{ 'ativo' if e.ativo else 'inativo' }}">
                             <td>{{ e.id }}</td>
                             <td><strong>{{ e.nome | e }}</strong></td>
@@ -206,7 +208,6 @@
                 </table>
             </div>
             
-            <!-- ✅ APRIMORADO: Paginação que preserva filtros -->
             {% if empresas.pages > 1 %}
             <nav class="nc-pagination" role="navigation" aria-label="Paginação de empresas">
                 {% if empresas.has_prev %}
@@ -234,9 +235,9 @@
     {% endif %}
 </section>
 
-<!-- ✅ NOVO: Modal de confirmação de exclusão -->
+<!-- Modal de confirmação de exclusão -->
 <div id="modalExclusaoEmpresa" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalExclusaoTitulo">
-    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-backdrop" onclick="fecharModalExclusao()"></div>
     <div class="nc-modal-content">
         <div class="nc-modal-header">
             <h3 id="modalExclusaoTitulo">Confirmar Exclusão</h3>
@@ -252,7 +253,11 @@
                     <li>Impedir novos acessos à empresa</li>
                 </ul>
             </div>
-            <input type="hidden" id="exclusaoEmpresaId">
+            <!-- ✅ Formulário real para exclusão (substitui redirect via JS) -->
+            <form id="formExclusao" method="POST" action="/empresas/0/excluir" style="display: none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="confirmar_exclusao" value="sim">
+            </form>
         </div>
         <div class="nc-modal-footer">
             <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalExclusao()">Cancelar</button>
@@ -261,15 +266,18 @@
     </div>
 </div>
 
-<!-- ✅ NOVO: Scripts para funcionalidades da lista -->
 {% if empresas and empresas.items %}
 <script>
-// Dados para busca/exportação
-const todasEmpresas = {{ empresas.items | tojson }};
+// ============================================================
+// ✅ CORRIGIDO: Dados serializados vindos do backend
+// ============================================================
+const empresasJSON = {{ empresas_json | tojson }};
 
-// ✅ Filtro de busca na lista
+// ============================================================
+// Filtro de busca na lista
+// ============================================================
 function filtrarEmpresas() {
-    const termo = document.getElementById('empresaSearch').value.toLowerCase();
+    const termo = document.getElementById('empresaSearch').value.toLowerCase().trim();
     const statusFiltro = document.getElementById('filtroStatus').value;
     const tbody = document.getElementById('empresasTableBody');
     const rows = tbody.querySelectorAll('tr');
@@ -288,13 +296,23 @@ function filtrarEmpresas() {
         if (match) visiveis++;
     });
     
-    // Atualizar contador
     const total = rows.length;
-    document.getElementById('searchCount').textContent = 
-        (termo || statusFiltro) ? `${visiveis}/${total} encontradas` : '';
+    const countEl = document.getElementById('searchCount');
+    
+    if (termo || statusFiltro) {
+        countEl.textContent = visiveis > 0 ? 
+            `${visiveis}/${total} encontradas` : 
+            'Nenhuma empresa encontrada';
+        countEl.style.color = visiveis === 0 ? '#dc2626' : '';
+    } else {
+        countEl.textContent = '';
+        countEl.style.color = '';
+    }
 }
 
-// ✅ Ordenação por coluna
+// ============================================================
+// Ordenação por coluna (frontend, não afeta servidor)
+// ============================================================
 let ordemAtual = { coluna: 'id', direcao: 'desc' };
 
 function ordenarTabela(coluna) {
@@ -302,7 +320,6 @@ function ordenarTabela(coluna) {
     const tbody = document.getElementById('empresasTableBody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
     
-    // Alternar direção
     if (ordemAtual.coluna === coluna) {
         ordemAtual.direcao = ordemAtual.direcao === 'asc' ? 'desc' : 'asc';
     } else {
@@ -310,18 +327,17 @@ function ordenarTabela(coluna) {
         ordemAtual.direcao = 'asc';
     }
     
-    // Atualizar ícones
     headers.forEach(th => {
         th.classList.remove('asc', 'desc');
         th.setAttribute('aria-sort', 'none');
     });
-    const headerAtual = document.querySelector(`th[onclick="ordenarTabela('${coluna}')"]`);
+    
+    const headerAtual = document.querySelector(`th.sortable[onclick="ordenarTabela('${coluna}')"]`);
     if (headerAtual) {
         headerAtual.classList.add(ordemAtual.direcao);
         headerAtual.setAttribute('aria-sort', ordemAtual.direcao === 'asc' ? 'ascending' : 'descending');
     }
     
-    // Ordenar linhas
     rows.sort((a, b) => {
         let valA, valB;
         
@@ -355,90 +371,110 @@ function ordenarTabela(coluna) {
         return 0;
     });
     
-    // Re-inserir linhas ordenadas
     rows.forEach(row => tbody.appendChild(row));
 }
 
-// ✅ Exportar lista para CSV
+// ============================================================
+// ✅ CORRIGIDO: Exportar CSV usando empresas_json
+// ============================================================
 function exportarEmpresasCSV() {
-    const termo = document.getElementById('empresaSearch')?.value.toLowerCase() || '';
+    const termo = (document.getElementById('empresaSearch')?.value || '').toLowerCase().trim();
     const statusFiltro = document.getElementById('filtroStatus')?.value || '';
     
-    // Filtrar empresas visíveis
-    const dados = todasEmpresas.filter(e => {
+    // ✅ Usar empresasJSON (pré-serializado) em vez de todasEmpresas
+    const dados = empresasJSON.filter(e => {
         if (!termo && !statusFiltro) return true;
-        const matchTexto = (e.nome?.toLowerCase() || '').includes(termo) ||
-                          (e.documento?.toLowerCase() || '').includes(termo);
-        const matchStatus = !statusFiltro || (e.ativo ? 'ativo' : 'inativo') === statusFiltro;
+        const nome = (e.nome || '').toLowerCase();
+        const documento = (e.documento || '').toLowerCase();
+        const status = e.ativo ? 'ativo' : 'inativo';
+        
+        const matchTexto = nome.includes(termo) || documento.includes(termo);
+        const matchStatus = !statusFiltro || status === statusFiltro;
         return matchTexto && matchStatus;
     });
     
     if (!dados.length) {
-        alert('Nenhuma empresa para exportar.');
+        alert('Nenhuma empresa corresponde aos filtros atuais.');
         return;
     }
     
-    // Cabeçalhos
-    const headers = ['ID', 'Nome', 'Documento', 'Status', 'Criada em', 'Usuários'];
+    const headers = ['ID', 'Nome', 'Documento', 'Status', 'Criada em'];
     const csv = [
         headers.join(';'),
         ...dados.map(e => [
             e.id,
-            `"${e.nome?.replace(/"/g, '""') || ''}"`,
+            `"${(e.nome || '').replace(/"/g, '""')}"`,
             e.documento || '',
             e.ativo ? 'Ativa' : 'Inativa',
-            e.criado_em || '',
-            e.total_usuarios || 0
+            e.criado_em ? new Date(e.criado_em).toLocaleDateString('pt-BR') : ''
         ].join(';'))
     ].join('\n');
     
-    // Download
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `empresas_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `empresas_nouscard_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
-// ✅ Confirmar exclusão
+// ============================================================
+// ✅ MELHORADO: Exclusão via formulário real (CSRF seguro)
+// ============================================================
 function confirmarExclusao(empresaId, empresaNome) {
     const modal = document.getElementById('modalExclusaoEmpresa');
-    document.getElementById('exclusaoEmpresaId').value = empresaId;
+    const form = document.getElementById('formExclusao');
+    
     document.getElementById('exclusaoNomeEmpresa').textContent = empresaNome;
-    modal.style.display = 'block';
+    form.action = `/empresas/${empresaId}/excluir`;
+    
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
     document.getElementById('btnConfirmarExclusao').focus();
 }
 
 function fecharModalExclusao() {
-    document.getElementById('modalExclusaoEmpresa').style.display = 'none';
+    const modal = document.getElementById('modalExclusaoEmpresa');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
 }
 
-// ✅ Handler para confirmação de exclusão
+// Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
+    // ✅ Submeter formulário real de exclusão
     const btnConfirmar = document.getElementById('btnConfirmarExclusao');
     if (btnConfirmar) {
         btnConfirmar.addEventListener('click', function() {
-            const empresaId = document.getElementById('exclusaoEmpresaId').value;
-            // Em produção, fazer request AJAX para excluir
-            window.location.href = `/empresas/${empresaId}/excluir`;
+            const form = document.getElementById('formExclusao');
+            if (form) {
+                form.submit();
+            }
         });
     }
     
     // Fechar modal com Escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            fecharModalExclusao();
+            const modal = document.getElementById('modalExclusaoEmpresa');
+            if (modal && modal.style.display !== 'none') {
+                fecharModalExclusao();
+            }
         }
     });
     
-    // Trap de foco no modal
+    // ✅ Trap de foco no modal (acessibilidade)
     const modal = document.getElementById('modalExclusaoEmpresa');
     if (modal) {
         modal.addEventListener('keydown', function(e) {
             if (e.key === 'Tab') {
-                const focusable = this.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                const focusable = this.querySelectorAll(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                );
+                if (focusable.length === 0) return;
+                
                 const first = focusable[0];
                 const last = focusable[focusable.length - 1];
                 
@@ -451,6 +487,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+        
+        // ✅ Fechar ao clicar no backdrop
+        const backdrop = modal.querySelector('.nc-modal-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', fecharModalExclusao);
+        }
     }
 });
 </script>
