@@ -166,7 +166,7 @@ def registrar():
         return render_template("registrar.html", error="Muitas tentativas de registro. Aguarde.")
     
     # ✅ Validar CSRF
-    if request.method == "POST" and request.app.config.get('WTF_CSRF_ENABLED', False):
+    if request.method == "POST" and current_app.config.get('WTF_CSRF_ENABLED', False):
         if not validar_csrf_token():
             return render_template("registrar.html", error="Erro de segurança. Recarregue a página."), 403
     
