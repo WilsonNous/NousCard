@@ -173,6 +173,9 @@ def create_app(config_class=Config):
         if 'csrf_token' not in session:
             session['csrf_token'] = secrets.token_urlsafe(32)
             session.modified = True
+        
+        # Também injetar em 'g' para acesso fácil em middlewares
+        g.csrf_token = session['csrf_token']
 
     # ---------------------------------------------------------
     # HEALTH CHECK (MONITORAMENTO E LOAD BALANCER)
