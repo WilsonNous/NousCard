@@ -101,7 +101,7 @@ def login_post():
         return render_template("login.html", error="Muitas tentativas. Aguarde alguns segundos.")
     
     # ✅ Validar CSRF se habilitado
-    if request.app.config.get('WTF_CSRF_ENABLED', False):
+    if current_app.config.get('WTF_CSRF_ENABLED', False):
         if not validar_csrf_token():
             return render_template("login.html", error="Erro de segurança. Recarregue a página."), 403
     
