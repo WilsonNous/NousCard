@@ -1,6 +1,6 @@
-# routes/empresas_routes.py - VERSÃO CORRIGIDA E COMPLETA
+# routes/empresas_routes.py - VERSÃO CORRIGIDA E COMPLETA (COM APIS)
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
 from models import db, Empresa, Usuario, LogAuditoria
 from utils.auth_middleware import master_required
 from datetime import datetime, timezone
@@ -9,6 +9,9 @@ from sqlalchemy import or_
 import logging
 import re
 import time
+import os
+import secrets
+import requests  # Para consulta BrasilAPI
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +77,7 @@ def validar_cnpj(cnpj: str) -> bool:
     return int(cnpj[12]) == digito_1 and int(cnpj[13]) == digito_2
 
 def validar_csrf_token():
-    """Valida token CSRF manualmente para formulários"""
+    """Valida token CSRF manualmente para formulários e APIs"""
     token_form = request.form.get('csrf_token')
     token_header = request.headers.get('X-CSRF-Token')
     session_token = g.get('csrf_token')
@@ -376,3 +379,155 @@ def empresa_detalhe(empresa_id):
         usuarios_ativos=usuarios_ativos,
         logs_recentes=logs_recentes
     )
+
+# ============================================================
+# ✅ API: CONSULTAR CNPJ VIA BRASILAPI (NOVA)
+# ============================================================
+@empresas_bp.route("/api/consultar-cnpj", methods=["POST"])
+@master_required
+def api_consultar_cnpj():
+    """
+    API para consultar dados de empresa via CNPJ usando BrasilAPI (gratuito).
+    
+    Request JSON:
+    { "cnpj": "00.000.000/0001-91" }
+    
+    Response JSON:
+    {
+        "ok": true,
+        "dados": {
+            "razao_social": "...",
+            "nome_fantasia": "...",
+            "logradouro": "...",
+            ...
+        }
+    }
+    """
+    # ✅ Validar CSRF para API
+    if not validar_csrf_token():
+        return jsonify({"ok": False, "message": "Erro de segurança"}), 403
+    
+    data = request.get_json(silent=True) or {}
+    cnpj = data.get('cnpj', '').strip()
+    
+    if not cnpj:
+        return jsonify({"ok": False, "message": "CNPJ não informado"}), 400
+    
+    # Limpar CNPJ (só números)
+    cnpj_limpo = re.sub(r'\D', '', cnpj)
+    
+    if len(cnpj_limpo) != 14:
+        return jsonify({"ok": False, "message": "CNPJ deve ter 14 dígitos"}), 400
+    
+    try:
+        # Consultar BrasilAPI (gratuito, sem autenticação)
+        url = f"https://brasilapi.com.br/api/cnpj/v1/{cnpj_limpo}"
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            dados = response.json()
+            # Retornar dados formatados para o frontend
+            resultado = {
+                "razao_social": dados.get('razao_social', ''),
+                "nome_fantasia": dados.get('nome_fantasia', ''),
+                "logradouro": dados.get('logradouro', ''),
+                "numero": dados.get('numero', ''),
+                "complemento": dados.get('complemento', ''),
+                "bairro": dados.get('bairro', ''),
+                "cep": dados.get('cep', ''),
+                "municipio": dados.get('municipio', ''),
+                "uf": dados.get('uf', ''),
+                "telefone": dados.get('ddd_telefone_1', ''),
+                "email": dados.get('email', ''),
+                "situacao": dados.get('descricao_situacao_cadastral', '')
+            }
+            logger.info(f"✅ CNPJ consultado: {cnpj_limpo}")
+            return jsonify({"ok": True, "dados": resultado})
+        else:
+            logger.warning(f"BrasilAPI retornou {response.status_code} para CNPJ {cnpj_limpo}")
+            return jsonify({"ok": False, "message": "CNPJ não encontrado ou serviço indisponível"}), 404
+            
+    except requests.RequestException as e:
+        logger.error(f"❌ Erro ao consultar BrasilAPI: {str(e)}")
+        return jsonify({"ok": False, "message": "Erro de conexão ao consultar CNPJ"}), 500
+    except Exception as e:
+        logger.error(f"❌ Erro inesperado ao consultar CNPJ: {str(e)}")
+        return jsonify({"ok": False, "message": "Erro interno ao consultar CNPJ"}), 500
+
+# ============================================================
+# ✅ API: UPLOAD DE LOGO DA EMPRESA (NOVA)
+# ============================================================
+@empresas_bp.route("/api/upload-logo", methods=["POST"])
+@master_required
+def api_upload_logo():
+    """
+    API para upload de logo da empresa.
+    
+    Request: multipart/form-data com fields:
+    - empresa_id: ID da empresa
+    - logo: arquivo de imagem (PNG/JPG/SVG, máx 2MB)
+    
+    Response JSON:
+    { "ok": true, "logo_url": "/static/uploads/logos/..." }
+    """
+    # ✅ Validar CSRF para API
+    if not validar_csrf_token():
+        return jsonify({"ok": False, "message": "Erro de segurança"}), 403
+    
+    empresa_id = request.form.get('empresa_id')
+    if not empresa_id:
+        return jsonify({"ok": False, "message": "Empresa não informada"}), 400
+    
+    empresa = Empresa.query.get(empresa_id)
+    if not empresa:
+        return jsonify({"ok": False, "message": "Empresa não encontrada"}), 404
+    
+    if 'logo' not in request.files:
+        return jsonify({"ok": False, "message": "Nenhum arquivo enviado"}), 400
+    
+    file = request.files['logo']
+    if file.filename == '':
+        return jsonify({"ok": False, "message": "Nome de arquivo vazio"}), 400
+    
+    # Validar extensão
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp'}
+    ext = os.path.splitext(file.filename.lower())[1]
+    if ext not in allowed_extensions:
+        return jsonify({"ok": False, "message": f"Formato não permitido. Use: {', '.join(allowed_extensions)}"}), 400
+    
+    # Validar tamanho (2MB)
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > 2 * 1024 * 1024:
+        return jsonify({"ok": False, "message": "Arquivo muito grande. Máximo: 2MB"}), 400
+    
+    try:
+        # Gerar nome único para o arquivo
+        filename = f"logo_{empresa_id}_{secrets.token_hex(8)}{ext}"
+        
+        # Criar diretório de upload se não existir
+        upload_dir = os.path.join('static', 'uploads', 'logos')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Salvar arquivo
+        filepath = os.path.join(upload_dir, filename)
+        file.save(filepath)
+        
+        # Atualizar empresa com URL da logo
+        logo_url = f"/static/uploads/logos/{filename}"
+        empresa.logo_url = logo_url
+        empresa.atualizado_em = datetime.now(timezone.utc)
+        
+        # Log de auditoria
+        log_acao_empresa("master_upload_logo", empresa, f"Logo: {filename}")
+        
+        db.session.commit()
+        
+        logger.info(f"✅ Logo salva para empresa {empresa_id}: {filename}")
+        return jsonify({"ok": True, "logo_url": logo_url, "message": "Logo atualizada com sucesso"})
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Erro ao salvar logo: {str(e)}", exc_info=True)
+        return jsonify({"ok": False, "message": "Erro ao salvar arquivo"}), 500
