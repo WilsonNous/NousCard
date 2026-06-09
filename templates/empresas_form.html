@@ -161,18 +161,17 @@
         {% endif %}
     {% endwith %}
     
-    <!-- ✅ Formulário principal -->
+    <!-- Formulário principal -->
     <form method="post" class="nc-form" id="form-empresa" novalidate enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         
-        <!-- ✅ Upload de Logo (apenas edição, com fallback se campo não existir) -->
+        <!-- Upload de Logo (apenas edição) -->
         {% if empresa %}
         <div class="nc-form-group">
             <label class="nc-form-label">Logo da Empresa</label>
             <div class="logo-preview" id="logoPreview">
-                {% set logo = getattr(empresa, 'logo_url', None) %}
-                {% if logo %}
-                    <img src="{{ logo }}" alt="Logo {{ empresa.nome | e }}">
+                {% if logo_url %}
+                    <img src="{{ logo_url }}" alt="Logo {{ empresa.nome | e }}">
                 {% else %}
                     <span class="placeholder">Sem logo</span>
                 {% endif %}
@@ -184,7 +183,7 @@
                         onclick="document.getElementById('logoInput').click()">
                     🖼️ Selecionar Logo
                 </button>
-                {% if logo %}
+                {% if logo_url %}
                 <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" 
                         onclick="removerLogo()">
                     🗑️ Remover
@@ -193,7 +192,6 @@
             </div>
             <span class="nc-form-hint">PNG, JPG ou SVG • Máx. 2MB • Recomendado: 400x200px</span>
             <input type="hidden" name="remover_logo" id="removerLogoInput" value="0">
-            {# Campo oculto para o ID da empresa no upload #}
             <input type="hidden" name="empresa_id" value="{{ empresa.id }}">
         </div>
         {% endif %}
@@ -253,7 +251,6 @@
                 {{ erros.documento }}
             </div>
             {% endif %}
-            {# Indicador de status da consulta #}
             <small id="situacaoCNPJ" style="display:block; margin-top:0.25rem;"></small>
         </div>
         
@@ -291,7 +288,7 @@
     </form>
 </section>
 
-<!-- ✅ Modal de confirmação de desativação (CORRIGIDO) -->
+<!-- Modal de confirmação de desativação -->
 {% if empresa %}
 <div id="modalConfirmacaoDesativacao" class="nc-modal" style="display: none;" 
      role="dialog" aria-modal="true" aria-labelledby="modalDesativacaoTitulo">
@@ -322,20 +319,12 @@
 </div>
 {% endif %}
 
-<!-- ✅ Script principal (externo) -->
 <script src="{{ url_for('static', filename='js/empresas.js') }}" defer></script>
 
-<!-- ✅ Script inline (complementar, não duplicado) -->
 <script>
-// ============================================================
-// Constantes do template
-// ============================================================
 const EMPRESA_ID = {{ empresa.id if empresa else 'null' }};
 const EMPRESA_ATIVA = {{ 'true' if empresa and empresa.ativo else 'false' }};
 
-// ============================================================
-// Controle do alerta de desativação
-// ============================================================
 function toggleDesativacaoAlert() {
     const checkbox = document.getElementById('ativa');
     const alertDiv = document.getElementById('desativacaoAlert');
@@ -370,7 +359,6 @@ function fecharModalDesativacao() {
         document.body.style.overflow = '';
     }
     
-    // Se cancelou, re-marcar checkbox
     if (checkbox && !checkbox.checked) {
         checkbox.checked = true;
         const alertDiv = document.getElementById('desativacaoAlert');
@@ -379,20 +367,15 @@ function fecharModalDesativacao() {
 }
 
 function confirmarDesativacao() {
-    // Fecha o modal e permite que o formulário seja submetido com ativa=false
     const modal = document.getElementById('modalConfirmacaoDesativacao');
     if (modal) {
         modal.style.display = 'none';
         modal.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
     }
-    // Foco no botão salvar
     document.getElementById('btn-salvar')?.focus();
 }
 
-// ============================================================
-// Preview de logo
-// ============================================================
 const logoInput = document.getElementById('logoInput');
 const logoPreview = document.getElementById('logoPreview');
 
@@ -413,14 +396,12 @@ if (logoInput && logoPreview) {
             return;
         }
         
-        // Preview local
         const reader = new FileReader();
         reader.onload = function(evt) {
             logoPreview.innerHTML = `<img src="${evt.target.result}" alt="Preview da logo">`;
         };
         reader.readAsDataURL(file);
         
-        // Upload automático
         uploadLogo(file);
     });
 }
@@ -443,7 +424,6 @@ function uploadLogo(file) {
     .then(async r => {
         const data = await r.json();
         if (!r.ok) {
-            // Se 501 (não implementado), não alertar
             if (r.status === 501) {
                 console.warn('Upload de logo não disponível:', data.message);
                 mostrarFlash('warning', 'Upload de logo não disponível no momento.');
@@ -454,16 +434,13 @@ function uploadLogo(file) {
         return data;
     })
     .then(data => {
-        if (data && data.ok) {
-            if (logoPreview && data.logo_url) {
-                logoPreview.innerHTML = `<img src="${data.logo_url}?t=${Date.now()}" alt="Logo">`;
-            }
+        if (data && data.ok && logoPreview && data.logo_url) {
+            logoPreview.innerHTML = `<img src="${data.logo_url}?t=${Date.now()}" alt="Logo">`;
             mostrarFlash('success', 'Logo atualizada com sucesso!');
         }
     })
     .catch(err => {
         console.error('Erro ao upload logo:', err);
-        // Não recarrega, apenas avisa
         if (!err.message?.includes('501')) {
             mostrarFlash('error', 'Erro ao salvar logo. Tente novamente.');
         }
@@ -484,9 +461,6 @@ function removerLogo() {
     mostrarFlash('success', 'Logo será removida ao salvar. Clique em "Salvar" para confirmar.');
 }
 
-// ============================================================
-// Consultar CNPJ
-// ============================================================
 async function consultarCNPJ() {
     const input = document.getElementById('documento');
     const btn = document.getElementById('btnConsultarCNPJ');
@@ -520,13 +494,11 @@ async function consultarCNPJ() {
         if (data.ok && data.dados) {
             const dados = data.dados;
             
-            // Preencher nome se vazio
             const nomeInput = document.getElementById('nome');
             if (nomeInput && !nomeInput.value.trim()) {
                 nomeInput.value = dados.nome_fantasia || dados.razao_social || '';
             }
             
-            // Preencher campos de endereço (se existirem no form)
             const mapaCampos = {
                 'logradouro': dados.logradouro,
                 'numero': dados.numero,
@@ -570,9 +542,6 @@ async function consultarCNPJ() {
     }
 }
 
-// ============================================================
-// Flash message dinâmico
-// ============================================================
 function mostrarFlash(category, message) {
     const container = document.querySelector('.nc-flash-messages');
     if (!container) return;
@@ -587,7 +556,6 @@ function mostrarFlash(category, message) {
     
     container.appendChild(flash);
     
-    // Auto-remove
     setTimeout(() => {
         flash.style.opacity = '0';
         flash.style.transition = 'opacity 0.3s';
@@ -595,16 +563,12 @@ function mostrarFlash(category, message) {
     }, 5000);
 }
 
-// ============================================================
-// Inicialização
-// ============================================================
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('form-empresa');
     const btnSalvar = document.getElementById('btn-salvar');
     const inputDocumento = document.getElementById('documento');
     const checkboxAtiva = document.getElementById('ativa');
     
-    // Máscara de CNPJ
     if (inputDocumento) {
         inputDocumento.addEventListener('input', function(e) {
             let valor = e.target.value.replace(/\D/g, '');
@@ -619,12 +583,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Toggle alerta de desativação
     if (checkboxAtiva) {
         checkboxAtiva.addEventListener('change', toggleDesativacaoAlert);
     }
     
-    // Loading state no submit
     if (form && btnSalvar) {
         form.addEventListener('submit', function(e) {
             if (!form.checkValidity()) {
@@ -638,14 +600,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Fechar modal com Escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             fecharModalDesativacao();
         }
     });
     
-    // Trap de foco no modal
     const modal = document.getElementById('modalConfirmacaoDesativacao');
     if (modal) {
         modal.addEventListener('keydown', function(e) {
@@ -670,7 +630,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Expor funções globalmente
 window.toggleDesativacaoAlert = toggleDesativacaoAlert;
 window.fecharModalDesativacao = fecharModalDesativacao;
 window.confirmarDesativacao = confirmarDesativacao;
