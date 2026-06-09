@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify, g
 from utils.auth_middleware import login_required
-from services.concilia import executar_conciliacao  # ✅ CORREÇÃO: importar de concilia.py
+from services.conciliacao import executar_conciliacao  # ✅ CORREÇÃO: importar de concilia.py
 from models import db, MovAdquirente, MovBanco, Conciliacao, LogAuditoria
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, case
