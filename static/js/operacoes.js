@@ -115,15 +115,6 @@
 
     document.addEventListener("DOMContentLoaded", () => {
         // ✅ DEBUG: Verificar quais elementos foram encontrados
-        console.log('🔍 DEBUG DOM Elements:');
-        console.log('   dropZone:', document.getElementById("dropZone") ? '✅' : '❌');
-        console.log('   fileInput:', document.getElementById("fileInput") ? '✅' : '❌');
-        console.log('   uploadForm:', document.getElementById("uploadForm") ? '✅' : '❌');
-        console.log('   uploadResult:', document.getElementById("uploadResult") ? '✅' : '❌');
-        // ============================================================
-        // ELEMENTOS DO DOM
-        // ============================================================
-        
         const dropZone = document.getElementById("dropZone");
         const fileInput = document.getElementById("fileInput");
         const uploadForm = document.getElementById("uploadForm");
@@ -134,6 +125,13 @@
         const btnUpload = document.getElementById("btn-upload");
         const btnCancel = document.getElementById("btn-cancel");
         const historyList = document.getElementById("ultimosUploads");
+        
+        // ✅ DEBUG: Logar quais elementos foram encontrados
+        console.log('🔍 DEBUG DOM Elements:');
+        console.log('   dropZone:', dropZone ? '✅' : '❌');
+        console.log('   fileInput:', fileInput ? '✅' : '❌');
+        console.log('   uploadForm:', uploadForm ? '✅' : '❌');
+        console.log('   uploadResult:', uploadResult ? '✅' : '❌');
         
         // ============================================================
         // DRAG & DROP + SELEÇÃO DE ARQUIVOS
