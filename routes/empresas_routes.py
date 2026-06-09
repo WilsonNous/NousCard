@@ -1,4 +1,4 @@
-# routes/empresas_routes.py - VERSÃO COMPLETA E ROBUSTA
+# routes/empresas_routes.py - VERSÃO COMPLETA, CORRIGIDA E INTEGRADA
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
 from models import db, Empresa, Usuario, LogAuditoria
@@ -101,12 +101,21 @@ def empresa_para_dict(empresa):
     }
 
 # ============================================================
-# ✅ CALCULAR ESTATÍSTICAS (TOLERANTE A CAMPOS DIFERENTES)
+# HELPER: LOGO URL SEGURO
+# ============================================================
+def get_logo_url(empresa):
+    """Retorna logo_url com segurança, None se campo não existir"""
+    if hasattr(empresa, 'logo_url'):
+        return empresa.logo_url or None
+    return None
+
+# ============================================================
+# CALCULAR ESTATÍSTICAS (TOLERANTE A CAMPOS DIFERENTES)
 # ============================================================
 def calcular_stats_empresa(empresa):
     """
     Calcula estatísticas da empresa para exibição no template.
-    ✅ Totalmente tolerante a modelos com estruturas diferentes.
+    Totalmente tolerante a modelos com estruturas diferentes.
     """
     stats = {
         "total_usuarios": 0,
@@ -141,7 +150,7 @@ def calcular_stats_empresa(empresa):
                 .scalar() or 0
             )
         else:
-            logger.warning(f"Modelo MovAdquirente não possui campo de valor reconhecido. Campos disponíveis: {[c.name for c in MovAdquirente.__table__.columns]}")
+            logger.warning(f"Modelo MovAdquirente não possui campo de valor reconhecido")
             
     except ImportError:
         logger.debug("Modelo MovAdquirente não disponível para estatísticas")
@@ -220,7 +229,8 @@ def nova_empresa():
             "empresas_form.html", 
             empresa=None,
             erros={},
-            stats=None
+            stats=None,
+            logo_url=None
         )
     
     if not validar_csrf_token():
@@ -235,21 +245,21 @@ def nova_empresa():
     if not nome or len(nome) > 150:
         erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
         flash(erros['nome'], "error")
-        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
     
     if documento:
         if len(documento) > 14:
             erros['documento'] = "Documento muito longo"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
         if not validar_cnpj(documento):
             erros['documento'] = "CNPJ inválido"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
         if Empresa.query.filter_by(documento=documento).first():
             erros['documento'] = "Documento já cadastrado em outra empresa"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
     
     try:
         empresa = Empresa(
@@ -269,12 +279,12 @@ def nova_empresa():
         logger.error(f"⚠️ Erro de integridade ao criar empresa: {str(e)}")
         erros['documento'] = "Erro: documento já existe"
         flash(erros['documento'], "error")
-        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"❌ Erro de banco ao criar empresa: {str(e)}")
         flash("Erro interno. Tente novamente.", "error")
-        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
 
 # ============================================================
 # EDITAR EMPRESA
@@ -294,9 +304,9 @@ def editar_empresa(empresa_id):
             empresa=empresa,
             erros={},
             stats=calcular_stats_empresa(empresa),
-            logo_url=getattr(empresa, 'logo_url', None) if hasattr(empresa, 'logo_url') else None
+            logo_url=get_logo_url(empresa)
         )
-        
+    
     if not validar_csrf_token():
         flash("Erro de segurança. Recarregue a página.", "error")
         return redirect(url_for("empresas.editar_empresa", empresa_id=empresa_id))
@@ -306,21 +316,23 @@ def editar_empresa(empresa_id):
     ativa = request.form.get("ativa") == "on"
     
     erros = {}
+    stats = calcular_stats_empresa(empresa)
+    logo_url = get_logo_url(empresa)
     
     if not nome or len(nome) > 150:
         erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
         flash(erros['nome'], "error")
-        return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
+        return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
     
     if documento:
         if len(documento) > 14:
             erros['documento'] = "Documento muito longo"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
+            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
         if not validar_cnpj(documento):
             erros['documento'] = "CNPJ inválido"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
+            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
         existente = Empresa.query.filter(
             Empresa.documento == documento,
             Empresa.id != empresa_id
@@ -328,7 +340,7 @@ def editar_empresa(empresa_id):
         if existente:
             erros['documento'] = "Documento já cadastrado em outra empresa"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
+            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
     
     if not ativa and empresa.ativo:
         confirmar_desativacao = request.form.get("confirmar_desativacao")
@@ -339,7 +351,8 @@ def editar_empresa(empresa_id):
                 "empresas_form.html", 
                 empresa=empresa, 
                 erros=erros, 
-                stats=calcular_stats_empresa(empresa),
+                stats=stats,
+                logo_url=logo_url,
                 requer_confirmacao=True
             )
     
@@ -360,7 +373,7 @@ def editar_empresa(empresa_id):
         db.session.rollback()
         logger.error(f"❌ Erro ao editar empresa {empresa_id}: {str(e)}")
         flash("Erro ao atualizar empresa", "error")
-        return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
+        return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
 
 # ============================================================
 # EXCLUIR EMPRESA
@@ -407,18 +420,26 @@ def excluir_empresa(empresa_id):
 @empresas_bp.route("/<int:empresa_id>", endpoint="empresa_detalhe")
 @master_required
 def empresa_detalhe(empresa_id):
+    """Página de detalhes de uma empresa"""
     empresa = Empresa.query.get_or_404(empresa_id)
+    
     total_usuarios = Usuario.query.filter_by(empresa_id=empresa_id).count()
     usuarios_ativos = Usuario.query.filter_by(empresa_id=empresa_id, ativo=True).count()
+    
     logs_recentes = LogAuditoria.query.filter_by(empresa_id=empresa_id)\
         .order_by(LogAuditoria.criado_em.desc())\
         .limit(10).all()
+    
+    # ✅ Passar logo_url com segurança do backend
+    logo_url = get_logo_url(empresa)
+    
     return render_template(
         "empresas_detalhes.html",
         empresa=empresa,
         total_usuarios=total_usuarios,
         usuarios_ativos=usuarios_ativos,
-        logs_recentes=logs_recentes
+        logs_recentes=logs_recentes,
+        logo_url=logo_url
     )
 
 # ============================================================
