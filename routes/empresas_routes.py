@@ -1,4 +1,4 @@
-# routes/empresas_routes.py - VERSÃO COMPLETA, CORRIGIDA E TOLERANTE
+# routes/empresas_routes.py - VERSÃO COMPLETA E ROBUSTA
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
 from models import db, Empresa, Usuario, LogAuditoria
@@ -82,15 +82,11 @@ def log_acao_empresa(acao: str, empresa, detalhes_extra: str = ""):
         logger.error(f"Erro ao preparar log de auditoria: {str(e)}")
 
 # ============================================================
-# ✅ SERIALIZAÇÃO TOLERANTE A CAMPOS AUSENTES
+# SERIALIZAÇÃO TOLERANTE
 # ============================================================
 def empresa_para_dict(empresa):
-    """
-    Converte objeto Empresa para dict serializável em JSON.
-    ✅ Usa getattr() para campos opcionais que podem não existir no modelo.
-    """
+    """Converte objeto Empresa para dict serializável em JSON (tolerante a campos ausentes)"""
     def safe_iso(attr_name):
-        """Retorna ISO format de um atributo ou None se não existir/None"""
         val = getattr(empresa, attr_name, None)
         return val.isoformat() if val else None
     
@@ -104,22 +100,55 @@ def empresa_para_dict(empresa):
         "atualizado_em": safe_iso('atualizado_em'),
     }
 
+# ============================================================
+# ✅ CALCULAR ESTATÍSTICAS (TOLERANTE A CAMPOS DIFERENTES)
+# ============================================================
 def calcular_stats_empresa(empresa):
+    """
+    Calcula estatísticas da empresa para exibição no template.
+    ✅ Totalmente tolerante a modelos com estruturas diferentes.
+    """
+    stats = {
+        "total_usuarios": 0,
+        "total_vendas": 0,
+        "total_valor_vendas": 0
+    }
+    
+    # Contagem de usuários
+    try:
+        stats["total_usuarios"] = Usuario.query.filter_by(empresa_id=empresa.id).count()
+    except Exception as e:
+        logger.warning(f"Não foi possível contar usuários da empresa {empresa.id}: {e}")
+    
+    # Estatísticas de vendas (se o modelo existir)
     try:
         from models import MovAdquirente
-        return {
-            "total_usuarios": Usuario.query.filter_by(empresa_id=empresa.id).count(),
-            "total_vendas": MovAdquirente.query.filter_by(empresa_id=empresa.id).count(),
-            "total_valor_vendas": db.session.query(func.sum(MovAdquirente.valor))
+        
+        stats["total_vendas"] = MovAdquirente.query.filter_by(empresa_id=empresa.id).count()
+        
+        # Tenta descobrir o campo de valor correto
+        valor_campo = None
+        for campo_possivel in ['valor', 'valor_bruto', 'valor_liquido', 'valor_total', 'amount', 'valor_venda']:
+            if hasattr(MovAdquirente, campo_possivel):
+                valor_campo = getattr(MovAdquirente, campo_possivel)
+                logger.debug(f"Usando campo '{campo_possivel}' para soma de vendas")
+                break
+        
+        if valor_campo:
+            stats["total_valor_vendas"] = (
+                db.session.query(func.coalesce(func.sum(valor_campo), 0))
                 .filter_by(empresa_id=empresa.id)
                 .scalar() or 0
-        }
+            )
+        else:
+            logger.warning(f"Modelo MovAdquirente não possui campo de valor reconhecido. Campos disponíveis: {[c.name for c in MovAdquirente.__table__.columns]}")
+            
     except ImportError:
-        return {
-            "total_usuarios": Usuario.query.filter_by(empresa_id=empresa.id).count(),
-            "total_vendas": 0,
-            "total_valor_vendas": 0
-        }
+        logger.debug("Modelo MovAdquirente não disponível para estatísticas")
+    except Exception as e:
+        logger.warning(f"Erro ao calcular estatísticas de vendas da empresa {empresa.id}: {e}")
+    
+    return stats
 
 # ============================================================
 # LISTAR EMPRESAS
@@ -146,7 +175,6 @@ def listar_empresas():
             )
         )
     
-    # ✅ Validação do campo de ordenação (evitar erro se campo não existir)
     campos_validos = {'id', 'nome', 'documento', 'ativo', 'criado_em'}
     if order_by not in campos_validos:
         order_by = 'criado_em'
@@ -158,11 +186,8 @@ def listar_empresas():
         query = query.order_by(order_column.asc())
     
     empresas = query.paginate(page=page, per_page=per_page, error_out=False)
-    
-    # ✅ Serializar com função tolerante
     empresas_json = [empresa_para_dict(e) for e in empresas.items]
     
-    # ✅ Calcular total de usuários (se modelo Usuario existir)
     try:
         total_usuarios = Usuario.query.count()
     except Exception:
@@ -172,7 +197,7 @@ def listar_empresas():
         "empresas_listar.html", 
         empresas=empresas,
         empresas_json=empresas_json,
-        total_usuarios=total_usuarios,  # ✅ Passar total_usuarios para o template
+        total_usuarios=total_usuarios,
         search=search,
         order_by=order_by,
         order_dir=order_dir,
@@ -322,7 +347,6 @@ def editar_empresa(empresa_id):
         empresa.documento = documento or None
         empresa.ativo = ativa
         
-        # ✅ Usar setattr para campo que pode não existir
         if hasattr(empresa, 'atualizado_em'):
             empresa.atualizado_em = datetime.now(timezone.utc)
         
@@ -360,7 +384,6 @@ def excluir_empresa(empresa_id):
     try:
         empresa.ativo = False
         
-        # ✅ Usar setattr para campos que podem não existir
         if hasattr(empresa, 'excluido_em'):
             empresa.excluido_em = datetime.now(timezone.utc)
         if hasattr(empresa, 'excluido_por'):
@@ -481,7 +504,6 @@ def api_upload_logo():
     if size > 2 * 1024 * 1024:
         return jsonify({"ok": False, "message": "Arquivo muito grande. Máximo: 2MB"}), 400
     
-    # ✅ Verificar se o modelo tem campo logo_url
     if not hasattr(empresa, 'logo_url'):
         return jsonify({
             "ok": False, 
