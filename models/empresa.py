@@ -1,10 +1,14 @@
-# models/empresa.py
-from models.base import db, BaseMixin
+# models/empresa.py - VERSÃO CORRIGIDA
+from models.base import db, TimestampMixin, SoftDeleteMixin
 from datetime import datetime, timezone
 import os
 from cryptography.fernet import Fernet
 
-class Empresa(db.Model, BaseMixin):
+class Empresa(db.Model, TimestampMixin, SoftDeleteMixin):
+    """
+    Modelo de Empresa (tenant principal).
+    NÃO usa MultiTenantMixin porque é a tabela raiz.
+    """
     __tablename__ = "empresas"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -12,80 +16,47 @@ class Empresa(db.Model, BaseMixin):
     _documento_encrypted = db.Column("documento", db.String(255), nullable=True)
     _email_encrypted = db.Column("email", db.String(255), nullable=True)
     telefone = db.Column(db.String(30), nullable=True)
+    logo_url = db.Column(db.String(500), nullable=True)  # ✅ Explícito aqui
+    
+    # Campos de soft-delete estendido
+    excluido_em = db.Column(db.DateTime, nullable=True)
+    excluido_por = db.Column(db.Integer, nullable=True)
 
     # ============================================================
-    # RELACIONAMENTOS (com back_populates CORRETOS)
+    # RELACIONAMENTOS
     # ============================================================
-    
-    # Usuários da empresa
     usuarios = db.relationship(
-        "Usuario",
-        back_populates="empresa",
-        lazy=True,
+        "Usuario", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
-    
-    # Contas bancárias
     contas_bancarias = db.relationship(
-        "ContaBancaria",
-        back_populates="empresa",
-        lazy=True,
+        "ContaBancaria", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
-    
-    # Adquirentes/contratos
     contratos = db.relationship(
-        "ContratoTaxa",
-        back_populates="empresa",
-        lazy=True,
+        "ContratoTaxa", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
-    
-    # Movimentos
     movimentos_adquirente = db.relationship(
-        "MovAdquirente",
-        back_populates="empresa",
-        lazy=True,
+        "MovAdquirente", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
     movimentos_banco = db.relationship(
-        "MovBanco",
-        back_populates="empresa",
-        lazy=True,
+        "MovBanco", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
-    
-    # Conciliações
     conciliacoes = db.relationship(
-        "Conciliacao",
-        back_populates="empresa",
-        lazy=True,
+        "Conciliacao", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
-    
-    # ⚠️ ARQUIVOS IMPORTADOS: COMENTADO para evitar conflito com ArquivoImportado minimalista
-    # Se precisar acessar arquivos de uma empresa, use query direta:
-    # ArquivoImportado.query.filter_by(empresa_id=empresa.id).all()
-    #
-    # arquivos_importados = db.relationship(
-    #     "ArquivoImportado",
-    #     back_populates="empresa",  # ← Isso causa conflito se ArquivoImportado não tiver relationship
-    #     lazy=True,
-    #     cascade="all, delete-orphan"
-    # )
-    
-    # Logs de auditoria
     logs_auditoria = db.relationship(
-        "LogAuditoria",
-        back_populates="empresa",
-        lazy=True,
+        "LogAuditoria", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
 
     # ============================================================
-    # CRIPTOGRAFIA DE DADOS SENSÍVEIS
+    # CRIPTOGRAFIA
     # ============================================================
-    
     @property
     def documento(self):
         if self._documento_encrypted and os.getenv("ENCRYPTION_KEY"):
@@ -128,9 +99,5 @@ class Empresa(db.Model, BaseMixin):
         else:
             self._email_encrypted = value
 
-    # ============================================================
-    # REPRESENTAÇÃO
-    # ============================================================
-    
     def __repr__(self):
         return f"<Empresa {self.nome}>"
