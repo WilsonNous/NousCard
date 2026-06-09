@@ -4,9 +4,6 @@
 
 {% block extra_head %}
 <style>
-    /* ============================================================
-       CABEÇALHO DA EMPRESA
-       ============================================================ */
     .empresa-header {
         display: flex;
         align-items: center;
@@ -54,7 +51,7 @@
         align-items: center;
         margin-top: 0.5rem;
     }
-    .empresa-info .badge {
+    .badge {
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
@@ -63,18 +60,9 @@
         font-size: 0.8rem;
         font-weight: 600;
     }
-    .badge-success {
-        background: #f0fff4;
-        color: #22543d;
-    }
-    .badge-danger {
-        background: #fff5f5;
-        color: #742a2a;
-    }
+    .badge-success { background: #f0fff4; color: #22543d; }
+    .badge-danger { background: #fff5f5; color: #742a2a; }
     
-    /* ============================================================
-       GRID DE CARDS
-       ============================================================ */
     .detail-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -115,9 +103,6 @@
         word-break: break-word;
     }
     
-    /* ============================================================
-       SEÇÃO DE LOGS
-       ============================================================ */
     .logs-section {
         background: var(--white);
         border: 1px solid var(--gray-border);
@@ -133,26 +118,11 @@
         border-bottom: 1px solid #edf2f7;
         font-size: 0.85rem;
     }
-    .log-item:last-child {
-        border-bottom: none;
-    }
-    .log-icon {
-        font-size: 1.1rem;
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-    .log-text {
-        flex: 1;
-    }
-    .log-date {
-        color: var(--gray-dark);
-        font-size: 0.75rem;
-        white-space: nowrap;
-    }
+    .log-item:last-child { border-bottom: none; }
+    .log-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+    .log-text { flex: 1; }
+    .log-date { color: var(--gray-dark); font-size: 0.75rem; white-space: nowrap; }
     
-    /* ============================================================
-       BOTÕES DE AÇÃO
-       ============================================================ */
     .action-bar {
         display: flex;
         gap: 0.5rem;
@@ -160,17 +130,9 @@
         margin-top: 1rem;
     }
     
-    /* ============================================================
-       RESPONSIVO
-       ============================================================ */
     @media (max-width: 640px) {
-        .empresa-header {
-            flex-direction: column;
-            text-align: center;
-        }
-        .detail-grid {
-            grid-template-columns: 1fr;
-        }
+        .empresa-header { flex-direction: column; text-align: center; }
+        .detail-grid { grid-template-columns: 1fr; }
     }
 </style>
 {% endblock %}
@@ -187,9 +149,8 @@
     <!-- Cabeçalho com logo e info -->
     <div class="empresa-header">
         <div class="empresa-logo">
-            {% set logo = getattr(empresa, 'logo_url', None) %}
-            {% if logo %}
-                <img src="{{ logo }}" alt="Logo {{ empresa.nome | e }}">
+            {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo {{ empresa.nome | e }}">
             {% else %}
                 <span class="logo-placeholder">🏢</span>
             {% endif %}
@@ -212,7 +173,6 @@
     
     <!-- Cards de detalhes -->
     <div class="detail-grid">
-        <!-- Informações Básicas -->
         <div class="detail-card">
             <h4>📋 Informações Básicas</h4>
             <dl>
@@ -235,14 +195,13 @@
                 <dt>Criada em:</dt>
                 <dd>{{ empresa.criado_em.strftime('%d/%m/%Y %H:%M') if empresa.criado_em else '—' }}</dd>
                 
-                {% if getattr(empresa, 'atualizado_em', None) %}
+                {% if empresa.atualizado_em %}
                 <dt>Atualizada em:</dt>
                 <dd>{{ empresa.atualizado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
                 {% endif %}
             </dl>
         </div>
         
-        <!-- Estatísticas -->
         <div class="detail-card">
             <h4>📊 Estatísticas</h4>
             <dl>
@@ -290,15 +249,9 @@
             ✏️ Editar Empresa
         </a>
         
-        {% if getattr(empresa, 'logo_url', None) %}
         <button type="button" class="nc-btn nc-btn-outline" onclick="document.getElementById('logoInput').click()">
-            🖼️ Alterar Logo
+            🖼️ {% if logo_url %}Alterar{% else %}Adicionar{% endif %} Logo
         </button>
-        {% else %}
-        <button type="button" class="nc-btn nc-btn-outline" onclick="document.getElementById('logoInput').click()">
-            🖼️ Adicionar Logo
-        </button>
-        {% endif %}
         
         <form id="formUploadLogo" enctype="multipart/form-data" style="display:none;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -319,7 +272,7 @@
     </div>
 </section>
 
-<!-- Modal de confirmação de desativação -->
+<!-- Modal de desativação -->
 <div id="modalDesativacao" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalDesativacaoTitulo">
     <div class="nc-modal-backdrop" onclick="fecharModalDesativacao()"></div>
     <div class="nc-modal-content">
@@ -345,9 +298,6 @@
 </div>
 
 <script>
-// ============================================================
-// Upload de logo via AJAX
-// ============================================================
 function uploadLogoDetalhe(input) {
     const file = input.files[0];
     if (!file) return;
@@ -365,13 +315,10 @@ function uploadLogoDetalhe(input) {
     }
     
     const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
-    const empresaId = {{ empresa.id }};
-    
     const formData = new FormData();
     formData.append('logo', file);
-    formData.append('empresa_id', empresaId);
+    formData.append('empresa_id', {{ empresa.id }});
     
-    // Mostrar loading
     const logoEl = document.querySelector('.empresa-logo');
     if (logoEl) logoEl.style.opacity = '0.5';
     
@@ -385,89 +332,41 @@ function uploadLogoDetalhe(input) {
     })
     .then(async r => {
         const data = await r.json();
-        if (!r.ok) {
-            if (r.status === 501) {
-                alert('⚠️ Upload de logo não disponível no momento.');
-                return;
-            }
-            throw new Error(data.message || 'Erro ao fazer upload');
-        }
+        if (!r.ok) throw new Error(data.message || 'Erro ao fazer upload');
         return data;
     })
     .then(data => {
-        if (data && data.ok) {
-            // Recarregar para mostrar nova logo
-            window.location.reload();
-        }
+        if (data && data.ok) window.location.reload();
     })
     .catch(err => {
-        console.error('Erro ao upload logo:', err);
-        alert('❌ Erro ao salvar logo. Tente novamente.');
+        console.error('Erro:', err);
+        alert('❌ Erro ao salvar logo.');
     })
     .finally(() => {
         if (logoEl) logoEl.style.opacity = '1';
     });
 }
 
-// ============================================================
-// Modal de desativação
-// ============================================================
 function confirmarDesativacao() {
     const modal = document.getElementById('modalDesativacao');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-    }
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
 }
 
 function fecharModalDesativacao() {
     const modal = document.getElementById('modalDesativacao');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-    }
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
 }
 
 function reativarEmpresa() {
-    if (confirm('Deseja reativar esta empresa?')) {
-        // Redirecionar para edição com foco na ativação
-        window.location.href = "{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}";
-    }
+    window.location.href = "{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}";
 }
 
-// ============================================================
-// Event Listeners
-// ============================================================
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        fecharModalDesativacao();
-    }
+    if (e.key === 'Escape') fecharModalDesativacao();
 });
-
-// Trap de foco no modal
-const modal = document.getElementById('modalDesativacao');
-if (modal) {
-    modal.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-            const focusable = modal.querySelectorAll(
-                'button:not([disabled]), [href], input:not([disabled])'
-            );
-            if (focusable.length === 0) return;
-            
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            
-            if (e.shiftKey && document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-            } else if (!e.shiftKey && document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-            }
-        }
-    });
-}
 </script>
 {% endblock %}
