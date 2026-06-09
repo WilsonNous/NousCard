@@ -2,9 +2,79 @@
 
 {% block title %}Nova Empresa - Master - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para formulário -->
+<style>
+    .nc-password-requirements {
+        background: var(--gray-lightest);
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+    }
+    .nc-password-requirements ul {
+        list-style: none;
+        margin: 0.25rem 0 0 0;
+        padding: 0;
+    }
+    .nc-password-requirements li {
+        padding: 0.125rem 0;
+        transition: color 0.2s;
+    }
+    .nc-password-requirements li.valid {
+        color: #16a34a !important;
+    }
+    .nc-password-requirements li.valid::before {
+        content: "✅ ";
+    }
+    
+    .nc-form-error {
+        font-size: 0.875rem;
+        color: #dc2626;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    
+    .nc-password-wrapper {
+        position: relative;
+    }
+    .nc-password-wrapper input {
+        padding-right: 2.5rem;
+    }
+    .nc-password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.25rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .nc-password-toggle:hover {
+        opacity: 1;
+    }
+    .nc-password-toggle:focus {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="nc-section">
-    <h2>🏢 Criar Nova Empresa (Master)</h2>
+    <div class="nc-section-header">
+        <h2>🏢 Criar Nova Empresa (Master)</h2>
+        <a href="{{ url_for('master.empresas_listar') }}" class="nc-btn nc-btn-outline nc-btn-sm">← Voltar</a>
+    </div>
+    
+    <p class="nc-muted">
+        Preencha os dados abaixo para criar uma nova empresa no sistema. 
+        Os campos marcados com * são obrigatórios.
+    </p>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -16,32 +86,415 @@
         {% endif %}
     {% endwith %}
     
-    <form method="POST" class="nc-form" novalidate>
+    <form method="POST" class="nc-form" id="empresaForm" novalidate>
+        <!-- ✅ CRÍTICO: Token CSRF -->
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <!-- Nome da Empresa -->
         <div class="nc-form-group">
-            <label for="nome" class="nc-form-label">Nome da Empresa *</label>
-            <input type="text" id="nome" name="nome" required maxlength="150" autocomplete="organization">
+            <label for="nome" class="nc-form-label">
+                Nome da Empresa <span style="color: #dc2626;">*</span>
+            </label>
+            <input 
+                type="text" 
+                id="nome" 
+                name="nome" 
+                required 
+                maxlength="150" 
+                autocomplete="organization"
+                aria-required="true"
+                aria-describedby="nome-hint nome-error"
+                placeholder="Ex: Minha Empresa Ltda"
+                value="{{ request.form.get('nome', '') }}"
+            >
+            <small id="nome-hint" class="nc-form-hint">
+                Razão social ou nome fantasia da empresa
+            </small>
+            <div id="nome-error" class="nc-form-error" role="alert"></div>
         </div>
         
+        <!-- ✅ NOVO: CNPJ da Empresa (Opcional) -->
         <div class="nc-form-group">
-            <label for="admin_nome" class="nc-form-label">Nome do Administrador *</label>
-            <input type="text" id="admin_nome" name="admin_nome" required maxlength="120" autocomplete="name">
+            <label for="documento" class="nc-form-label">CNPJ da Empresa</label>
+            <input 
+                type="text" 
+                id="documento" 
+                name="documento" 
+                maxlength="18" 
+                autocomplete="off"
+                aria-describedby="documento-hint documento-error"
+                placeholder="00.000.000/0000-00"
+                value="{{ request.form.get('documento', '') }}"
+            >
+            <small id="documento-hint" class="nc-form-hint">
+                Opcional, mas recomendado para relatórios fiscais
+            </small>
+            <div id="documento-error" class="nc-form-error" role="alert"></div>
         </div>
         
+        <!-- Nome do Administrador -->
         <div class="nc-form-group">
-            <label for="email" class="nc-form-label">E-mail do Administrador *</label>
-            <input type="email" id="email" name="email" required maxlength="150" autocomplete="username">
+            <label for="admin_nome" class="nc-form-label">
+                Nome do Administrador <span style="color: #dc2626;">*</span>
+            </label>
+            <input 
+                type="text" 
+                id="admin_nome" 
+                name="admin_nome" 
+                required 
+                maxlength="120" 
+                autocomplete="name"
+                aria-required="true"
+                aria-describedby="admin-hint admin-error"
+                placeholder="Nome completo do administrador"
+                value="{{ request.form.get('admin_nome', '') }}"
+            >
+            <small id="admin-hint" class="nc-form-hint">
+                Pessoa responsável pela gestão da empresa
+            </small>
+            <div id="admin-error" class="nc-form-error" role="alert"></div>
         </div>
         
+        <!-- E-mail do Administrador -->
         <div class="nc-form-group">
-            <label for="senha" class="nc-form-label">Senha *</label>
-            <input type="password" id="senha" name="senha" required minlength="8" autocomplete="new-password">
-            <span class="nc-form-hint">Mínimo 8 caracteres, com letra maiúscula, minúscula e número</span>
+            <label for="email" class="nc-form-label">
+                E-mail do Administrador <span style="color: #dc2626;">*</span>
+            </label>
+            <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                required 
+                maxlength="150" 
+                autocomplete="username"
+                aria-required="true"
+                aria-describedby="email-hint email-error"
+                placeholder="admin@empresa.com.br"
+                value="{{ request.form.get('email', '') }}"
+            >
+            <small id="email-hint" class="nc-form-hint">
+                Será usado para login e comunicações
+            </small>
+            <div id="email-error" class="nc-form-error" role="alert"></div>
         </div>
         
-        <div class="nc-form-actions">
-            <button type="submit" class="nc-btn nc-btn-primary">Criar Empresa</button>
+        <!-- Senha com Toggle e Requisitos -->
+        <div class="nc-form-group">
+            <label for="senha" class="nc-form-label">
+                Senha do Administrador <span style="color: #dc2626;">*</span>
+            </label>
+            <div class="nc-password-wrapper">
+                <input 
+                    type="password" 
+                    id="senha" 
+                    name="senha" 
+                    required 
+                    minlength="8" 
+                    autocomplete="new-password"
+                    aria-required="true"
+                    aria-describedby="senha-requisitos senha-error"
+                    style="padding-right: 2.5rem;"
+                >
+                <button type="button" 
+                        id="toggleSenha" 
+                        class="nc-password-toggle"
+                        aria-label="Mostrar senha"
+                        tabindex="-1">
+                    👁️
+                </button>
+            </div>
+            <div id="senha-requisitos" class="nc-password-requirements" aria-live="polite">
+                <small>A senha deve ter:</small>
+                <ul>
+                    <li id="req-length" style="color: #6b7280;">⚪ Mínimo 8 caracteres</li>
+                    <li id="req-upper" style="color: #6b7280;">⚪ Uma letra maiúscula</li>
+                    <li id="req-lower" style="color: #6b7280;">⚪ Uma letra minúscula</li>
+                    <li id="req-number" style="color: #6b7280;">⚪ Um número</li>
+                    <li id="req-special" style="color: #6b7280;">⚪ Um caractere especial (!@#$%...)</li>
+                </ul>
+            </div>
+            <div id="senha-error" class="nc-form-error" role="alert"></div>
+        </div>
+        
+        <!-- ✅ NOVO: Confirmação de Senha -->
+        <div class="nc-form-group">
+            <label for="senha_confirm" class="nc-form-label">
+                Confirmar Senha <span style="color: #dc2626;">*</span>
+            </label>
+            <div class="nc-password-wrapper">
+                <input 
+                    type="password" 
+                    id="senha_confirm" 
+                    name="senha_confirm" 
+                    required 
+                    minlength="8" 
+                    autocomplete="new-password"
+                    aria-required="true"
+                    aria-describedby="senha-confirm-error"
+                    style="padding-right: 2.5rem;"
+                >
+                <button type="button" 
+                        id="toggleSenhaConfirm" 
+                        class="nc-password-toggle"
+                        aria-label="Mostrar senha"
+                        tabindex="-1">
+                    👁️
+                </button>
+            </div>
+            <div id="senha-confirm-error" class="nc-form-error" role="alert"></div>
+        </div>
+        
+        <!-- Ações -->
+        <div class="nc-form-actions" style="margin-top: 1.5rem;">
+            <button type="submit" class="nc-btn nc-btn-primary" id="btn-criar">
+                <span class="btn-text">✅ Criar Empresa</span>
+                <span class="btn-loading" style="display:none;">
+                    <span class="spinner" aria-hidden="true"></span> Criando...
+                </span>
+            </button>
             <a href="{{ url_for('master.empresas_listar') }}" class="nc-btn nc-btn-outline">Cancelar</a>
         </div>
+        
+        <!-- ✅ NOVO: Aviso de segurança -->
+        <p class="nc-muted" style="font-size: 0.75rem; text-align: center; margin-top: 1rem;">
+            🔒 O administrador terá acesso completo à empresa criada
+        </p>
     </form>
 </section>
+
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/master.js') }}" defer></script>
+
+<!-- ✅ NOVO: Script inline para validação em tempo real -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('empresaForm');
+    const btnCriar = document.getElementById('btn-criar');
+    const senhaInput = document.getElementById('senha');
+    const senhaConfirmInput = document.getElementById('senha_confirm');
+    const toggleSenha = document.getElementById('toggleSenha');
+    const toggleSenhaConfirm = document.getElementById('toggleSenhaConfirm');
+    const emailInput = document.getElementById('email');
+    const documentoInput = document.getElementById('documento');
+    
+    // ✅ Toggle de visibilidade de senha
+    function setupPasswordToggle(toggle, input) {
+        if (toggle && input) {
+            toggle.addEventListener('click', function() {
+                const isPassword = input.type === 'password';
+                input.type = isPassword ? 'text' : 'password';
+                toggle.textContent = isPassword ? '🙈' : '👁️';
+                toggle.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+                input.focus();
+            });
+        }
+    }
+    setupPasswordToggle(toggleSenha, senhaInput);
+    setupPasswordToggle(toggleSenhaConfirm, senhaConfirmInput);
+    
+    // ✅ Validação de senha em tempo real
+    if (senhaInput) {
+        senhaInput.addEventListener('input', function() {
+            const senha = this.value;
+            atualizarRequisitosSenha(senha);
+        });
+        
+        senhaInput.addEventListener('blur', function() {
+            validarSenha();
+        });
+    }
+    
+    // ✅ Validação de confirmação de senha
+    if (senhaConfirmInput) {
+        senhaConfirmInput.addEventListener('input', function() {
+            validarConfirmacaoSenha();
+        });
+        
+        senhaConfirmInput.addEventListener('blur', function() {
+            validarConfirmacaoSenha();
+        });
+    }
+    
+    // ✅ Validação de email em tempo real
+    if (emailInput) {
+        emailInput.addEventListener('blur', function() {
+            const email = this.value.trim();
+            const errorDiv = document.getElementById('email-error');
+            
+            if (email && !isValidEmail(email)) {
+                errorDiv.textContent = '⚠️ Digite um e-mail válido';
+                errorDiv.style.display = 'block';
+                this.setAttribute('aria-invalid', 'true');
+            } else {
+                errorDiv.style.display = 'none';
+                this.setAttribute('aria-invalid', 'false');
+            }
+        });
+    }
+    
+    // ✅ Máscara de CNPJ em tempo real
+    if (documentoInput) {
+        documentoInput.addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, '');
+            
+            if (valor.length <= 14) {
+                valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{3})(\d)/, '$1/$2');
+                valor = valor.replace(/(\d{4})(\d)/, '$1-$2');
+            }
+            
+            e.target.value = valor.substr(0, 18);
+        });
+        
+        documentoInput.addEventListener('blur', function() {
+            const valor = this.value.replace(/\D/g, '');
+            if (valor.length === 14 && !validarCNPJ(valor)) {
+                const errorDiv = document.getElementById('documento-error');
+                if (errorDiv) {
+                    errorDiv.textContent = '⚠️ CNPJ inválido';
+                    errorDiv.style.display = 'block';
+                }
+            }
+        });
+    }
+    
+    // ✅ Loading state no submit
+    if (form && btnCriar) {
+        form.addEventListener('submit', function(e) {
+            let hasError = false;
+            
+            // Validações antes de submit
+            const nome = document.getElementById('nome').value.trim();
+            const adminNome = document.getElementById('admin_nome').value.trim();
+            const email = emailInput.value.trim();
+            
+            if (!nome) {
+                showError('nome-error', '⚠️ Nome da empresa é obrigatório');
+                hasError = true;
+            }
+            
+            if (!adminNome) {
+                showError('admin-error', '⚠️ Nome do administrador é obrigatório');
+                hasError = true;
+            }
+            
+            if (!email) {
+                showError('email-error', '⚠️ E-mail é obrigatório');
+                hasError = true;
+            } else if (!isValidEmail(email)) {
+                showError('email-error', '⚠️ Digite um e-mail válido');
+                hasError = true;
+            }
+            
+            if (!validarSenha()) {
+                hasError = true;
+            }
+            
+            if (!validarConfirmacaoSenha()) {
+                hasError = true;
+            }
+            
+            if (hasError) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Ativar loading state
+            btnCriar.disabled = true;
+            btnCriar.querySelector('.btn-text').style.display = 'none';
+            btnCriar.querySelector('.btn-loading').style.display = 'inline';
+            
+            // Prevenir múltiplos submits
+            const inputs = form.querySelectorAll('input, select, button');
+            inputs.forEach(input => {
+                if (input !== btnCriar) {
+                    input.disabled = true;
+                }
+            });
+        });
+    }
+    
+    // ✅ Helpers
+    function atualizarRequisitosSenha(senha) {
+        const reqLength = document.getElementById('req-length');
+        const reqUpper = document.getElementById('req-upper');
+        const reqLower = document.getElementById('req-lower');
+        const reqNumber = document.getElementById('req-number');
+        const reqSpecial = document.getElementById('req-special');
+        
+        if (reqLength) reqLength.style.color = senha.length >= 8 ? '#16a34a' : '#6b7280';
+        if (reqUpper) reqUpper.style.color = /[A-Z]/.test(senha) ? '#16a34a' : '#6b7280';
+        if (reqLower) reqLower.style.color = /[a-z]/.test(senha) ? '#16a34a' : '#6b7280';
+        if (reqNumber) reqNumber.style.color = /\d/.test(senha) ? '#16a34a' : '#6b7280';
+        if (reqSpecial) reqSpecial.style.color = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha) ? '#16a34a' : '#6b7280';
+    }
+    
+    function validarSenha() {
+        const senha = senhaInput.value;
+        const errorDiv = document.getElementById('senha-error');
+        const isValid = senha.length >= 8 && 
+                       /[A-Z]/.test(senha) && 
+                       /[a-z]/.test(senha) && 
+                       /\d/.test(senha) && 
+                       /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha);
+        
+        if (!isValid) {
+            errorDiv.textContent = '⚠️ A senha não atende aos requisitos';
+            errorDiv.style.display = 'block';
+            senhaInput.setAttribute('aria-invalid', 'true');
+            return false;
+        } else {
+            errorDiv.style.display = 'none';
+            senhaInput.setAttribute('aria-invalid', 'false');
+            return true;
+        }
+    }
+    
+    function validarConfirmacaoSenha() {
+        const errorDiv = document.getElementById('senha-confirm-error');
+        
+        if (senhaConfirmInput.value && senhaConfirmInput.value !== senhaInput.value) {
+            errorDiv.textContent = '⚠️ As senhas não coincidem';
+            errorDiv.style.display = 'block';
+            senhaConfirmInput.setAttribute('aria-invalid', 'true');
+            return false;
+        } else if (senhaConfirmInput.value) {
+            errorDiv.style.display = 'none';
+            senhaConfirmInput.setAttribute('aria-invalid', 'false');
+            return true;
+        }
+        return true;
+    }
+    
+    function showError(elementId, message) {
+        const errorDiv = document.getElementById(elementId);
+        if (errorDiv) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    }
+    
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+    
+    function validarCNPJ(cnpj) {
+        cnpj = cnpj.replace(/\D/g, '');
+        if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
+        
+        let soma = 0, pesos1 = [5,4,3,2,9,8,7,6,5,4,3,2];
+        for (let i = 0; i < 12; i++) soma += parseInt(cnpj[i]) * pesos1[i];
+        let digito1 = 11 - (soma % 11);
+        if (digito1 >= 10) digito1 = 0;
+        
+        soma = 0; let pesos2 = [6,5,4,3,2,9,8,7,6,5,4,3,2];
+        for (let i = 0; i < 13; i++) soma += parseInt(cnpj[i]) * pesos2[i];
+        let digito2 = 11 - (soma % 11);
+        if (digito2 >= 10) digito2 = 0;
+        
+        return parseInt(cnpj[12]) === digito1 && parseInt(cnpj[13]) === digito2;
+    }
+});
+</script>
 {% endblock %}
