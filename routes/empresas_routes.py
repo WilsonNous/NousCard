@@ -1,11 +1,11 @@
-# routes/empresas_routes.py - VERSÃO CORRIGIDA E COMPLETA (COM APIS)
+# routes/empresas_routes.py - VERSÃO COMPLETA E CORRIGIDA
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
 from models import db, Empresa, Usuario, LogAuditoria
 from utils.auth_middleware import master_required
 from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 import logging
 import re
 import time
@@ -109,6 +109,30 @@ def log_acao_empresa(acao: str, empresa, detalhes_extra: str = ""):
         # Não falhar a operação principal por erro de log
 
 # ============================================================
+# HELPER: CALCULAR ESTATÍSTICAS DA EMPRESA
+# ============================================================
+def calcular_stats_empresa(empresa):
+    """Calcula estatísticas úteis para exibição no template"""
+    try:
+        # Importar modelos apenas se necessário (evitar circular import)
+        from models import MovAdquirente
+        
+        return {
+            "total_usuarios": Usuario.query.filter_by(empresa_id=empresa.id).count(),
+            "total_vendas": MovAdquirente.query.filter_by(empresa_id=empresa.id).count(),
+            "total_valor_vendas": db.session.query(func.sum(MovAdquirente.valor))
+                .filter_by(empresa_id=empresa.id)
+                .scalar() or 0
+        }
+    except ImportError:
+        # Fallback se modelo não estiver disponível
+        return {
+            "total_usuarios": Usuario.query.filter_by(empresa_id=empresa.id).count(),
+            "total_vendas": 0,
+            "total_valor_vendas": 0
+        }
+
+# ============================================================
 # LISTAR EMPRESAS (COM BUSCA E ORDENAÇÃO)
 # ============================================================
 @empresas_bp.route("/")
@@ -159,7 +183,7 @@ def listar_empresas():
     )
 
 # ============================================================
-# NOVA EMPRESA
+# NOVA EMPRESA (CORRIGIDO: contexto completo para o template)
 # ============================================================
 @empresas_bp.route("/nova", methods=["GET", "POST"])
 @master_required
@@ -170,7 +194,13 @@ def nova_empresa():
         return redirect(url_for("empresas.nova_empresa"))
     
     if request.method == "GET":
-        return render_template("empresas_form.html", empresa=None)
+        # ✅ Passar contexto completo: erros vazio, stats None (nova empresa)
+        return render_template(
+            "empresas_form.html", 
+            empresa=None,
+            erros={},  # ✅ Sempre passar dict, mesmo vazio
+            stats=None  # ✅ Nova empresa não tem estatísticas
+        )
     
     # ✅ Validar CSRF
     if not validar_csrf_token():
@@ -181,23 +211,30 @@ def nova_empresa():
     nome = (request.form.get("nome") or "").strip()
     documento = (request.form.get("documento") or "").strip().replace('.', '').replace('-', '').replace('/', '')
     
+    # ✅ Preparar dict de erros para o template
+    erros = {}
+    
     # Validações
     if not nome or len(nome) > 150:
-        flash("Nome deve ter entre 1 e 150 caracteres", "error")
-        return render_template("empresas_form.html", empresa=None)
+        erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
+        flash(erros['nome'], "error")
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
     
     if documento:
-        if len(documento) > 14:  # CNPJ tem 14 dígitos
-            flash("Documento muito longo", "error")
-            return render_template("empresas_form.html", empresa=None)
+        if len(documento) > 14:
+            erros['documento'] = "Documento muito longo"
+            flash(erros['documento'], "error")
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
         if not validar_cnpj(documento):
-            flash("CNPJ inválido", "error")
-            return render_template("empresas_form.html", empresa=None)
+            erros['documento'] = "CNPJ inválido"
+            flash(erros['documento'], "error")
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
         
         # Verificar duplicidade
         if Empresa.query.filter_by(documento=documento).first():
-            flash("Documento já cadastrado em outra empresa", "error")
-            return render_template("empresas_form.html", empresa=None)
+            erros['documento'] = "Documento já cadastrado em outra empresa"
+            flash(erros['documento'], "error")
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
     
     try:
         empresa = Empresa(
@@ -221,16 +258,17 @@ def nova_empresa():
     except IntegrityError as e:
         db.session.rollback()
         logger.error(f"⚠️ Erro de integridade ao criar empresa: {str(e)}")
-        flash("Erro: documento já existe", "error")
-        return render_template("empresas_form.html", empresa=None)
+        erros['documento'] = "Erro: documento já existe"
+        flash(erros['documento'], "error")
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"❌ Erro de banco ao criar empresa: {str(e)}")
         flash("Erro interno. Tente novamente.", "error")
-        return render_template("empresas_form.html", empresa=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None)
 
 # ============================================================
-# EDITAR EMPRESA
+# EDITAR EMPRESA (CORRIGIDO: contexto completo + stats calculados)
 # ============================================================
 @empresas_bp.route("/<int:empresa_id>/editar", methods=["GET", "POST"])
 @master_required
@@ -243,7 +281,13 @@ def editar_empresa(empresa_id):
     empresa = Empresa.query.get_or_404(empresa_id)
     
     if request.method == "GET":
-        return render_template("empresas_form.html", empresa=empresa)
+        # ✅ Passar contexto completo: empresa, erros vazio, stats calculados
+        return render_template(
+            "empresas_form.html", 
+            empresa=empresa,
+            erros={},  # ✅ Sempre passar dict, mesmo vazio
+            stats=calcular_stats_empresa(empresa)  # ✅ Estatísticas calculadas
+        )
     
     # ✅ Validar CSRF
     if not validar_csrf_token():
@@ -255,18 +299,24 @@ def editar_empresa(empresa_id):
     documento = (request.form.get("documento") or "").strip().replace('.', '').replace('-', '').replace('/', '')
     ativa = request.form.get("ativa") == "on"
     
+    # ✅ Preparar dict de erros para o template
+    erros = {}
+    
     # Validações
     if not nome or len(nome) > 150:
-        flash("Nome deve ter entre 1 e 150 caracteres", "error")
-        return render_template("empresas_form.html", empresa=empresa)
+        erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
+        flash(erros['nome'], "error")
+        return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
     
     if documento:
         if len(documento) > 14:
-            flash("Documento muito longo", "error")
-            return render_template("empresas_form.html", empresa=empresa)
+            erros['documento'] = "Documento muito longo"
+            flash(erros['documento'], "error")
+            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
         if not validar_cnpj(documento):
-            flash("CNPJ inválido", "error")
-            return render_template("empresas_form.html", empresa=empresa)
+            erros['documento'] = "CNPJ inválido"
+            flash(erros['documento'], "error")
+            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
         
         # Verificar duplicidade (excluindo esta empresa)
         existente = Empresa.query.filter(
@@ -274,17 +324,23 @@ def editar_empresa(empresa_id):
             Empresa.id != empresa_id
         ).first()
         if existente:
-            flash("Documento já cadastrado em outra empresa", "error")
-            return render_template("empresas_form.html", empresa=empresa)
+            erros['documento'] = "Documento já cadastrado em outra empresa"
+            flash(erros['documento'], "error")
+            return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
     
     # ✅ Verificar desativação com confirmação explícita
     if not ativa and empresa.ativo:
-        # Verificar se admin confirmou a desativação
         confirmar_desativacao = request.form.get("confirmar_desativacao")
         if confirmar_desativacao != "sim":
             usuarios_ativos = Usuario.query.filter_by(empresa_id=empresa_id, ativo=True).count()
             flash(f"⚠️ Para desativar, marque 'Confirmar desativação'. {usuarios_ativos} usuários serão afetados.", "warning")
-            return render_template("empresas_form.html", empresa=empresa, requer_confirmacao=True)
+            return render_template(
+                "empresas_form.html", 
+                empresa=empresa, 
+                erros=erros, 
+                stats=calcular_stats_empresa(empresa),
+                requer_confirmacao=True
+            )
     
     try:
         # Atualizar campos
@@ -307,7 +363,7 @@ def editar_empresa(empresa_id):
         db.session.rollback()
         logger.error(f"❌ Erro ao editar empresa {empresa_id}: {str(e)}")
         flash("Erro ao atualizar empresa", "error")
-        return render_template("empresas_form.html", empresa=empresa)
+        return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=calcular_stats_empresa(empresa))
 
 # ============================================================
 # EXCLUIR EMPRESA (SOFT DELETE COM CONFIRMAÇÃO)
