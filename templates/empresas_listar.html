@@ -255,7 +255,7 @@
             </div>
             <!-- ✅ Formulário real para exclusão (substitui redirect via JS) -->
             <form id="formExclusao" method="POST" action="/empresas/0/excluir" style="display: none;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="confirmar_exclusao" value="sim">
             </form>
         </div>
