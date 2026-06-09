@@ -158,7 +158,7 @@ def register_blueprints(app: Flask):
             'required': True
         },
         {
-            'blueprint': auditoria_bp,
+            'blueprint': auditor_bp,
             'prefix': '/api/v1/auditoria',
             'description': 'API de auditoria de taxas',
             'access': 'authenticated',
