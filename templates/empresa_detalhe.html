@@ -1,187 +1,473 @@
 {% extends "base.html" %}
-{% block title %}Detalhes: {{ empresa.nome }}{% endblock %}
+
+{% block title %}Detalhes: {{ empresa.nome }} - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* ============================================================
+       CABEÇALHO DA EMPRESA
+       ============================================================ */
+    .empresa-header {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+        background: var(--white);
+        border-radius: 12px;
+        border: 1px solid var(--gray-border);
+        flex-wrap: wrap;
+    }
+    .empresa-logo {
+        width: 100px;
+        height: 100px;
+        border-radius: 12px;
+        border: 2px solid var(--gray-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: var(--gray-lightest);
+        flex-shrink: 0;
+    }
+    .empresa-logo img {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+    }
+    .empresa-logo .logo-placeholder {
+        font-size: 2.5rem;
+        color: var(--gray-dark);
+    }
+    .empresa-info {
+        flex: 1;
+        min-width: 200px;
+    }
+    .empresa-info h2 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.5rem;
+    }
+    .empresa-info .meta {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 0.5rem;
+    }
+    .empresa-info .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .badge-success {
+        background: #f0fff4;
+        color: #22543d;
+    }
+    .badge-danger {
+        background: #fff5f5;
+        color: #742a2a;
+    }
+    
+    /* ============================================================
+       GRID DE CARDS
+       ============================================================ */
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .detail-card {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 10px;
+        padding: 1.25rem;
+    }
+    .detail-card h4 {
+        margin: 0 0 1rem 0;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .detail-card dl {
+        margin: 0;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.5rem 1rem;
+    }
+    .detail-card dt {
+        font-weight: 600;
+        color: var(--text-dark);
+        font-size: 0.85rem;
+    }
+    .detail-card dd {
+        margin: 0;
+        color: var(--gray-dark);
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+    
+    /* ============================================================
+       SEÇÃO DE LOGS
+       ============================================================ */
+    .logs-section {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .log-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #edf2f7;
+        font-size: 0.85rem;
+    }
+    .log-item:last-child {
+        border-bottom: none;
+    }
+    .log-icon {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .log-text {
+        flex: 1;
+    }
+    .log-date {
+        color: var(--gray-dark);
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    
+    /* ============================================================
+       BOTÕES DE AÇÃO
+       ============================================================ */
+    .action-bar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    
+    /* ============================================================
+       RESPONSIVO
+       ============================================================ */
+    @media (max-width: 640px) {
+        .empresa-header {
+            flex-direction: column;
+            text-align: center;
+        }
+        .detail-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <section class="nc-section">
-    <div class="nc-section-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <h2 class="nc-title">🏢 {{ empresa.nome | e }}</h2>
+    <div class="nc-section-header">
+        <h2>🏢 Detalhes da Empresa</h2>
         <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-btn nc-btn-outline nc-btn-sm">
             ← Voltar para lista
         </a>
     </div>
     
-    <!-- Logo da Empresa -->
-    <div style="text-align: center; margin-bottom: 1.5rem;">
-        {% if empresa.logo_url %}
-            <img src="{{ empresa.logo_url }}" alt="Logo {{ empresa.nome }}" 
-                 style="max-width: 200px; max-height: 100px; border-radius: 8px; border: 1px solid var(--gray-border);">
-        {% else %}
-            <div style="width: 200px; height: 100px; background: var(--gray-light); 
-                        border-radius: 8px; display: flex; align-items: center; justify-content: center;
-                        color: var(--text-muted); margin: 0 auto;">
-                Sem logo
+    <!-- Cabeçalho com logo e info -->
+    <div class="empresa-header">
+        <div class="empresa-logo">
+            {% set logo = getattr(empresa, 'logo_url', None) %}
+            {% if logo %}
+                <img src="{{ logo }}" alt="Logo {{ empresa.nome | e }}">
+            {% else %}
+                <span class="logo-placeholder">🏢</span>
+            {% endif %}
+        </div>
+        <div class="empresa-info">
+            <h2>{{ empresa.nome | e }}</h2>
+            <div class="meta">
+                <span class="badge {% if empresa.ativo %}badge-success{% else %}badge-danger{% endif %}">
+                    {{ '✅ Ativa' if empresa.ativo else '⏸️ Inativa' }}
+                </span>
+                <span style="color:var(--gray-dark);font-size:0.85rem;">
+                    ID: #{{ empresa.id }}
+                </span>
+                <span style="color:var(--gray-dark);font-size:0.85rem;">
+                    📅 {{ empresa.criado_em.strftime('%d/%m/%Y') if empresa.criado_em else '—' }}
+                </span>
             </div>
-        {% endif %}
+        </div>
     </div>
     
-    <!-- Dados da Empresa -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-        <div class="nc-card">
-            <h4 class="nc-subtitle">📋 Informações Básicas</h4>
-            <dl style="margin: 0;">
-                <dt>CNPJ</dt><dd>{{ empresa.cnpj | e }}</dd>
-                <dt>Email</dt><dd>{{ empresa.email | e }}</dd>
-                <dt>Telefone</dt><dd>{{ empresa.telefone | e or '—' }}</dd>
-                <dt>Status</dt><dd>
-                    <span class="nc-badge {% if empresa.ativo %}nc-badge-success{% else %}nc-badge-danger{% endif %}">
-                        {{ "Ativo" if empresa.ativo else "Inativo" }}
+    <!-- Cards de detalhes -->
+    <div class="detail-grid">
+        <!-- Informações Básicas -->
+        <div class="detail-card">
+            <h4>📋 Informações Básicas</h4>
+            <dl>
+                <dt>Documento:</dt>
+                <dd>{{ empresa.documento if empresa.documento else '—' }}</dd>
+                
+                <dt>Email:</dt>
+                <dd>{{ empresa.email if empresa.email else '—' }}</dd>
+                
+                <dt>Telefone:</dt>
+                <dd>{{ empresa.telefone if empresa.telefone else '—' }}</dd>
+                
+                <dt>Status:</dt>
+                <dd>
+                    <span class="badge {% if empresa.ativo %}badge-success{% else %}badge-danger{% endif %}">
+                        {{ 'Ativa' if empresa.ativo else 'Inativa' }}
                     </span>
                 </dd>
+                
+                <dt>Criada em:</dt>
+                <dd>{{ empresa.criado_em.strftime('%d/%m/%Y %H:%M') if empresa.criado_em else '—' }}</dd>
+                
+                {% if getattr(empresa, 'atualizado_em', None) %}
+                <dt>Atualizada em:</dt>
+                <dd>{{ empresa.atualizado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
+                {% endif %}
             </dl>
         </div>
         
-        <div class="nc-card">
-            <h4 class="nc-subtitle">📍 Endereço</h4>
-            <dl style="margin: 0;">
-                <dt>CEP</dt><dd>{{ empresa.cep | e or '—' }}</dd>
-                <dt>Logradouro</dt><dd>{{ empresa.logradouro | e or '—' }}</dd>
-                <dt>Número</dt><dd>{{ empresa.numero | e or '—' }}</dd>
-                <dt>Complemento</dt><dd>{{ empresa.complemento | e or '—' }}</dd>
-                <dt>Bairro</dt><dd>{{ empresa.bairro | e or '—' }}</dd>
-                <dt>Cidade/UF</dt><dd>{{ empresa.cidade | e }}, {{ empresa.uf | e }}</dd>
-            </dl>
-        </div>
-        
-        <div class="nc-card">
-            <h4 class="nc-subtitle">📊 Estatísticas</h4>
-            <dl style="margin: 0;">
-                <dt>Usuários ativos</dt><dd>{{ total_usuarios }}</dd>
-                <dt>Criado em</dt><dd>{{ empresa.data_criacao.strftime('%d/%m/%Y') if empresa.data_criacao else '—' }}</dd>
-                <dt>Última atualização</dt><dd>{{ empresa.data_atualizacao.strftime('%d/%m/%Y') if empresa.data_atualizacao else '—' }}</dd>
+        <!-- Estatísticas -->
+        <div class="detail-card">
+            <h4>📊 Estatísticas</h4>
+            <dl>
+                <dt>Usuários total:</dt>
+                <dd>{{ total_usuarios | default(0) }}</dd>
+                
+                <dt>Usuários ativos:</dt>
+                <dd>{{ usuarios_ativos | default(0) }}</dd>
+                
+                <dt>Contas bancárias:</dt>
+                <dd>{{ empresa.contas_bancarias | length if empresa.contas_bancarias else 0 }}</dd>
+                
+                <dt>Contratos:</dt>
+                <dd>{{ empresa.contratos | length if empresa.contratos else 0 }}</dd>
+                
+                <dt>Movimentos:</dt>
+                <dd>{{ empresa.movimentos_adquirente | length if empresa.movimentos_adquirente else 0 }}</dd>
             </dl>
         </div>
     </div>
     
-    <!-- Ações -->
-    <div style="margin-top: 2rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <button class="nc-btn nc-btn-primary" onclick="abrirModalLogo({{ empresa.id }})">
+    <!-- Logs recentes -->
+    {% if logs_recentes %}
+    <div class="logs-section">
+        <h4 style="margin:0 0 0.75rem 0;">📝 Atividades Recentes</h4>
+        {% for log in logs_recentes %}
+        <div class="log-item">
+            <span class="log-icon">
+                {% if 'criou' in log.acao %}🆕
+                {% elif 'editou' in log.acao %}✏️
+                {% elif 'excluiu' in log.acao %}🗑️
+                {% elif 'upload' in log.acao %}🖼️
+                {% else %}📋{% endif %}
+            </span>
+            <span class="log-text">{{ log.detalhes | e }}</span>
+            <span class="log-date">{{ log.criado_em.strftime('%d/%m/%Y %H:%M') if log.criado_em else '' }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <!-- Barra de ações -->
+    <div class="action-bar">
+        <a href="{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}" class="nc-btn nc-btn-primary">
+            ✏️ Editar Empresa
+        </a>
+        
+        {% if getattr(empresa, 'logo_url', None) %}
+        <button type="button" class="nc-btn nc-btn-outline" onclick="document.getElementById('logoInput').click()">
             🖼️ Alterar Logo
         </button>
-        <a href="{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}" class="nc-btn nc-btn-outline">
-            ✏️ Editar Dados
-        </a>
-        {% if not empresa.ativo %}
-        <button class="nc-btn nc-btn-success" onclick="ativarEmpresa({{ empresa.id }})">
-            ✅ Ativar Empresa
+        {% else %}
+        <button type="button" class="nc-btn nc-btn-outline" onclick="document.getElementById('logoInput').click()">
+            🖼️ Adicionar Logo
+        </button>
+        {% endif %}
+        
+        <form id="formUploadLogo" enctype="multipart/form-data" style="display:none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="empresa_id" value="{{ empresa.id }}">
+            <input type="file" id="logoInput" name="logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                   onchange="uploadLogoDetalhe(this)">
+        </form>
+        
+        {% if empresa.ativo %}
+        <button type="button" class="nc-btn nc-btn-danger" onclick="confirmarDesativacao()">
+            ⏸️ Desativar Empresa
         </button>
         {% else %}
-        <button class="nc-btn nc-btn-danger" onclick="desativarEmpresa({{ empresa.id }})">
-            ⏸️ Desativar
+        <button type="button" class="nc-btn nc-btn-success" onclick="reativarEmpresa()">
+            ✅ Reativar Empresa
         </button>
         {% endif %}
     </div>
 </section>
 
-<!-- Modal para Upload de Logo -->
-<div id="modalLogo" class="nc-modal" aria-hidden="true" style="display: none;">
-    <div class="nc-modal-backdrop" onclick="fecharModalLogo()"></div>
-    <div class="nc-modal-content" style="max-width: 500px;">
+<!-- Modal de confirmação de desativação -->
+<div id="modalDesativacao" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalDesativacaoTitulo">
+    <div class="nc-modal-backdrop" onclick="fecharModalDesativacao()"></div>
+    <div class="nc-modal-content">
         <div class="nc-modal-header">
-            <h3 class="nc-title">🖼️ Alterar Logo</h3>
-            <button class="nc-modal-close" onclick="fecharModalLogo()" aria-label="Fechar">&times;</button>
+            <h3 id="modalDesativacaoTitulo">Confirmar Desativação</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar" onclick="fecharModalDesativacao()">✕</button>
         </div>
         <div class="nc-modal-body">
-            <form id="formUploadLogo" enctype="multipart/form-data">
+            <p>Tem certeza que deseja <strong>desativar</strong> a empresa <strong>{{ empresa.nome | e }}</strong>?</p>
+            <div class="nc-flash nc-flash-warning">
+                <strong>⚠️</strong> Todos os usuários vinculados perderão o acesso imediatamente.
+            </div>
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalDesativacao()">Cancelar</button>
+            <form method="POST" action="{{ url_for('empresas.excluir_empresa', empresa_id=empresa.id) }}" style="display:inline;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <input type="hidden" name="empresa_id" value="{{ empresa.id }}">
-                
-                <div class="nc-form-group">
-                    <label class="nc-form-label">Selecione uma imagem</label>
-                    <input type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml" required
-                           class="nc-form-input">
-                    <small class="nc-form-hint">PNG, JPG ou SVG • Máx. 2MB • Recomendado: 400x200px</small>
-                </div>
-                
-                <div id="previewLogo" style="text-align: center; margin: 1rem 0; display: none;">
-                    <img id="imgPreview" src="" alt="Preview" style="max-width: 200px; max-height: 100px; border-radius: 8px;">
-                </div>
-                
-                <div class="nc-actions" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                    <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalLogo()">Cancelar</button>
-                    <button type="submit" class="nc-btn nc-btn-primary">💾 Salvar Logo</button>
-                </div>
+                <input type="hidden" name="confirmar_exclusao" value="sim">
+                <button type="submit" class="nc-btn nc-btn-danger">✅ Confirmar Desativação</button>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-// Preview de imagem antes do upload
-document.querySelector('#formUploadLogo input[type="file"]').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            document.getElementById('imgPreview').src = evt.target.result;
-            document.getElementById('previewLogo').style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
-});
-
-// Modal functions
-function abrirModalLogo(empresaId) {
-    document.getElementById('modalLogo').style.display = 'flex';
-    document.getElementById('modalLogo').setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-}
-
-function fecharModalLogo() {
-    document.getElementById('modalLogo').style.display = 'none';
-    document.getElementById('modalLogo').setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    document.getElementById('formUploadLogo').reset();
-    document.getElementById('previewLogo').style.display = 'none';
-}
-
+// ============================================================
 // Upload de logo via AJAX
-document.getElementById('formUploadLogo').addEventListener('submit', async function(e) {
-    e.preventDefault();
+// ============================================================
+function uploadLogoDetalhe(input) {
+    const file = input.files[0];
+    if (!file) return;
     
-    const formData = new FormData(this);
-    const btn = this.querySelector('button[type="submit"]');
-    const originalText = btn.innerHTML;
+    if (!file.type.startsWith('image/')) {
+        alert('❌ Selecione um arquivo de imagem válido.');
+        input.value = '';
+        return;
+    }
     
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Salvando...';
+    if (file.size > 2 * 1024 * 1024) {
+        alert('❌ Arquivo muito grande. Máximo: 2MB.');
+        input.value = '';
+        return;
+    }
     
-    try {
-        const response = await fetch('/api/empresas/upload-logo', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-            fecharModalLogo();
-            location.reload(); // Recarregar para mostrar nova logo
-        } else {
-            alert('❌ Erro: ' + (data.message || 'Falha ao salvar logo'));
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    const empresaId = {{ empresa.id }};
+    
+    const formData = new FormData();
+    formData.append('logo', file);
+    formData.append('empresa_id', empresaId);
+    
+    // Mostrar loading
+    const logoEl = document.querySelector('.empresa-logo');
+    if (logoEl) logoEl.style.opacity = '0.5';
+    
+    fetch('/empresas/api/upload-logo', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-Token': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(async r => {
+        const data = await r.json();
+        if (!r.ok) {
+            if (r.status === 501) {
+                alert('⚠️ Upload de logo não disponível no momento.');
+                return;
+            }
+            throw new Error(data.message || 'Erro ao fazer upload');
         }
-    } catch (err) {
+        return data;
+    })
+    .then(data => {
+        if (data && data.ok) {
+            // Recarregar para mostrar nova logo
+            window.location.reload();
+        }
+    })
+    .catch(err => {
         console.error('Erro ao upload logo:', err);
-        alert('❌ Erro de conexão ao salvar logo');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
+        alert('❌ Erro ao salvar logo. Tente novamente.');
+    })
+    .finally(() => {
+        if (logoEl) logoEl.style.opacity = '1';
+    });
+}
+
+// ============================================================
+// Modal de desativação
+// ============================================================
+function confirmarDesativacao() {
+    const modal = document.getElementById('modalDesativacao');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function fecharModalDesativacao() {
+    const modal = document.getElementById('modalDesativacao');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+}
+
+function reativarEmpresa() {
+    if (confirm('Deseja reativar esta empresa?')) {
+        // Redirecionar para edição com foco na ativação
+        window.location.href = "{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}";
+    }
+}
+
+// ============================================================
+// Event Listeners
+// ============================================================
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharModalDesativacao();
     }
 });
 
-// Fechar modal com ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') fecharModalLogo();
-});
+// Trap de foco no modal
+const modal = document.getElementById('modalDesativacao');
+if (modal) {
+    modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            const focusable = modal.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled])'
+            );
+            if (focusable.length === 0) return;
+            
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    });
+}
 </script>
 {% endblock %}
