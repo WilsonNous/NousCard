@@ -3,7 +3,7 @@
 {% block title %}{{ 'Editar empresa' if empresa else 'Nova empresa' }} - NousCard{% endblock %}
 
 {% block extra_head %}
-<!-- ✅ NOVO: Estilos específicos para formulário de empresas -->
+<!-- ✅ Estilos específicos para formulário de empresas -->
 <style>
     .empresa-stats {
         display: grid;
@@ -73,6 +73,36 @@
     .desativacao-alert.visible {
         display: block;
     }
+    
+    /* Upload de logo */
+    .logo-preview {
+        width: 120px;
+        height: 60px;
+        border: 2px dashed var(--gray-border);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        background: var(--white);
+        overflow: hidden;
+    }
+    .logo-preview img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+    .logo-preview .placeholder {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+    }
+    
+    /* Botão consultar CNPJ */
+    .btn-consultar-cnpj {
+        margin-left: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
 </style>
 {% endblock %}
 
@@ -89,25 +119,27 @@
     {% if empresa %}
     <p class="nc-form-subtitle">Editando: <strong>{{ empresa.nome | e }}</strong> (ID: {{ empresa.id }})</p>
     
-    <!-- ✅ NOVO: Estatísticas da empresa -->
+    <!-- ✅ Estatísticas da empresa (passadas pelo backend) -->
+    {% if stats %}
     <div class="empresa-stats">
         <div class="stat-item">
-            <div class="value">{{ empresa.total_usuarios or 0 }}</div>
+            <div class="value">{{ stats.total_usuarios | default(0) }}</div>
             <div class="label">Usuários</div>
         </div>
         <div class="stat-item">
-            <div class="value">{{ empresa.total_vendas or 0 }}</div>
+            <div class="value">{{ stats.total_vendas | default(0) }}</div>
             <div class="label">Vendas</div>
         </div>
         <div class="stat-item">
-            <div class="value">R$ {{ empresa.total_valor_vendas | currency_br if empresa.total_valor_vendas else '0,00' }}</div>
+            <div class="value">R$ {{ stats.total_valor_vendas | currency_br if stats.total_valor_vendas else '0,00' }}</div>
             <div class="label">Valor Total</div>
         </div>
         <div class="stat-item">
-            <div class="value">{{ empresa.data_criacao | date_br if empresa.data_criacao else '—' }}</div>
+            <div class="value">{{ empresa.criado_em | date_br if empresa.criado_em else '—' }}</div>
             <div class="label">Criada em</div>
         </div>
     </div>
+    {% endif %}
     {% endif %}
     
     <!-- Flash messages -->
@@ -124,9 +156,39 @@
         {% endif %}
     {% endwith %}
     
-    <form method="post" class="nc-form" id="form-empresa" novalidate>
+    <form method="post" class="nc-form" id="form-empresa" novalidate enctype="multipart/form-data">
         <!-- ✅ CRÍTICO: Token CSRF -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        
+        <!-- ✅ Upload de Logo (apenas para edição) -->
+        {% if empresa %}
+        <div class="nc-form-group">
+            <label class="nc-form-label">Logo da Empresa</label>
+            <div class="logo-preview" id="logoPreview">
+                {% if empresa.logo_url %}
+                    <img src="{{ empresa.logo_url }}" alt="Logo {{ empresa.nome }}">
+                {% else %}
+                    <span class="placeholder">Sem logo</span>
+                {% endif %}
+            </div>
+            <input type="file" id="logoInput" name="logo" accept="image/png,image/jpeg,image/svg+xml" 
+                   class="nc-form-input" style="display: none;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="nc-btn nc-btn-outline nc-btn-sm" 
+                        onclick="document.getElementById('logoInput').click()">
+                    🖼️ Selecionar Logo
+                </button>
+                {% if empresa.logo_url %}
+                <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" 
+                        onclick="removerLogo()">
+                    🗑️ Remover
+                </button>
+                {% endif %}
+            </div>
+            <span class="nc-form-hint">PNG, JPG ou SVG • Máx. 2MB • Recomendado: 400x200px</span>
+            <input type="hidden" name="remover_logo" id="removerLogoInput" value="0">
+        </div>
+        {% endif %}
         
         <div class="nc-form-group">
             <label for="nome" class="nc-form-label">
@@ -142,12 +204,11 @@
                 required
                 aria-required="true"
                 aria-invalid="{% if erros and 'nome' in erros %}true{% else %}false{% endif %}"
-                aria-describedby="nome-error"
+                {% if erros and 'nome' in erros %}aria-describedby="nome-error"{% endif %}
                 autocomplete="organization"
                 maxlength="150"
                 placeholder="Ex: Minha Empresa Ltda"
             >
-            <!-- ✅ NOVO: Erro específico do campo -->
             {% if erros and 'nome' in erros %}
             <div id="nome-error" class="nc-form-error" role="alert">
                 <span aria-hidden="true">⚠️</span>
@@ -160,17 +221,23 @@
         
         <div class="nc-form-group">
             <label for="documento" class="nc-form-label">CNPJ / Documento</label>
-            <input 
-                type="text" 
-                id="documento" 
-                name="documento"
-                value="{{ empresa.documento if empresa else '' }}"
-                placeholder="00.000.000/0000-00"
-                maxlength="18"
-                aria-describedby="documento-hint documento-error"
-            >
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <input 
+                    type="text" 
+                    id="documento" 
+                    name="documento"
+                    value="{{ empresa.documento if empresa else '' }}"
+                    placeholder="00.000.000/0000-00"
+                    maxlength="18"
+                    style="flex: 1; min-width: 200px;"
+                    {% if erros and 'documento' in erros %}aria-describedby="documento-error"{% else %}aria-describedby="documento-hint"{% endif %}
+                >
+                <button type="button" class="nc-btn nc-btn-outline btn-consultar-cnpj" 
+                        id="btnConsultarCNPJ" onclick="consultarCNPJ()">
+                    🔍 Consultar
+                </button>
+            </div>
             <span id="documento-hint" class="nc-form-hint">Opcional, mas recomendado para relatórios fiscais</span>
-            <!-- ✅ NOVO: Erro específico do campo -->
             {% if erros and 'documento' in erros %}
             <div id="documento-error" class="nc-form-error" role="alert">
                 <span aria-hidden="true">⚠️</span>
@@ -194,9 +261,11 @@
             </div>
             <span class="nc-form-hint">Desmarcar bloqueará o acesso de todos os usuários vinculados</span>
             
-            <!-- ✅ NOVO: Alerta de desativação -->
+            <!-- Alerta de desativação -->
             <div id="desativacaoAlert" class="desativacao-alert" role="alert">
-                <strong>⚠️ Atenção:</strong> Ao desativar esta empresa, todos os <strong>{{ empresa.total_usuarios or 0 }} usuários</strong> vinculados perderão o acesso imediatamente. Esta ação pode ser revertida posteriormente.
+                <strong>⚠️ Atenção:</strong> Ao desativar esta empresa, todos os 
+                <strong>{{ stats.total_usuarios | default(0) if stats else 0 }} usuários</strong> 
+                vinculados perderão o acesso imediatamente. Esta ação pode ser revertida posteriormente.
             </div>
         </div>
         {% endif %}
@@ -211,9 +280,10 @@
     </form>
 </section>
 
-<!-- ✅ NOVO: Modal de confirmação de desativação -->
-<div id="modalConfirmacaoDesativacao" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalDesativacaoTitulo">
-    <div class="nc-modal-backdrop"></div>
+<!-- Modal de confirmação de desativação -->
+<div id="modalConfirmacaoDesativacao" class="nc-modal" style="display: none;" 
+     role="dialog" aria-modal="true" aria-labelledby="modalDesativacaoTitulo">
+    <div class="nc-modal-backdrop" onclick="fecharModalDesativacao()"></div>
     <div class="nc-modal-content">
         <div class="nc-modal-header">
             <h3 id="modalDesativacaoTitulo">Confirmar Desativação</h3>
@@ -222,7 +292,7 @@
         <div class="nc-modal-body">
             <p>Tem certeza que deseja desativar a empresa <strong>{{ empresa.nome | e if empresa else '' }}</strong>?</p>
             <ul style="margin: 1rem 0; padding-left: 1.5rem;">
-                <li>Todos os {{ empresa.total_usuarios or 0 }} usuários perderão o acesso</li>
+                <li>Todos os {{ stats.total_usuarios | default(0) if stats else 0 }} usuários perderão o acesso</li>
                 <li>Vendas e recebimentos existentes serão mantidos</li>
                 <li>A empresa poderá ser reativada posteriormente</li>
             </ul>
@@ -232,7 +302,11 @@
         </div>
         <div class="nc-modal-footer">
             <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalDesativacao()">Cancelar</button>
-            <button type="button" class="nc-btn nc-btn-danger" id="btnConfirmarDesativacao">✅ Confirmar Desativação</button>
+            <form method="POST" action="{{ url_for('empresas.excluir_empresa', empresa_id=empresa.id) }}" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="confirmar_exclusao" value="sim">
+                <button type="submit" class="nc-btn nc-btn-danger">✅ Confirmar Desativação</button>
+            </form>
         </div>
     </div>
 </div>
@@ -240,7 +314,7 @@
 <!-- Scripts -->
 <script src="{{ url_for('static', filename='js/empresas.js') }}" defer></script>
 
-<!-- ✅ NOVO: Script inline para UX -->
+<!-- Script inline para funcionalidades específicas -->
 <script>
 // Controle do alerta de desativação
 function toggleDesativacaoAlert() {
@@ -248,20 +322,208 @@ function toggleDesativacaoAlert() {
     const alert = document.getElementById('desativacaoAlert');
     const modal = document.getElementById('modalConfirmacaoDesativacao');
     
-    if (!checkbox.checked && alert) {
-        alert.classList.add('visible');
-        // Opcional: mostrar modal de confirmação
-        // modal.style.display = 'block';
-    } else if (alert) {
-        alert.classList.remove('visible');
+    if (checkbox && alert) {
+        if (!checkbox.checked) {
+            alert.classList.add('visible');
+            // Mostrar modal de confirmação
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        } else {
+            alert.classList.remove('visible');
+        }
     }
 }
 
 function fecharModalDesativacao() {
-    document.getElementById('modalConfirmacaoDesativacao').style.display = 'none';
+    const modal = document.getElementById('modalConfirmacaoDesativacao');
+    const checkbox = document.getElementById('ativa');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
     // Re-marcar checkbox se usuário cancelar
-    document.getElementById('ativa').checked = true;
-    document.getElementById('desativacaoAlert').classList.remove('visible');
+    if (checkbox) {
+        checkbox.checked = true;
+        const alert = document.getElementById('desativacaoAlert');
+        if (alert) alert.classList.remove('visible');
+    }
+}
+
+// Upload de logo com preview
+const logoInput = document.getElementById('logoInput');
+const logoPreview = document.getElementById('logoPreview');
+
+if (logoInput && logoPreview) {
+    logoInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            // Validar tamanho (2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('❌ Arquivo muito grande. Máximo: 2MB');
+                logoInput.value = '';
+                return;
+            }
+            
+            // Preview
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                logoPreview.innerHTML = `<img src="${evt.target.result}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+            
+            // Upload automático via AJAX
+            uploadLogo(file);
+        }
+    });
+}
+
+function uploadLogo(file) {
+    const formData = new FormData();
+    formData.append('logo', file);
+    formData.append('empresa_id', '{{ empresa.id if empresa else "" }}');
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    
+    fetch('/empresas/api/upload-logo', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            // Atualizar logo na página
+            if (logoPreview) {
+                logoPreview.innerHTML = `<img src="${data.logo_url}" alt="Logo">`;
+            }
+            // Mostrar mensagem de sucesso
+            mostrarFlash('success', 'Logo atualizada com sucesso!');
+        } else {
+            alert('❌ Erro: ' + (data.message || 'Falha ao salvar logo'));
+            // Reverter preview
+            location.reload();
+        }
+    })
+    .catch(err => {
+        console.error('Erro ao upload logo:', err);
+        alert('❌ Erro de conexão ao salvar logo');
+        location.reload();
+    });
+}
+
+function removerLogo() {
+    if (!confirm('Tem certeza que deseja remover a logo?')) return;
+    
+    // Marcar para remover no próximo save do form
+    document.getElementById('removerLogoInput').value = '1';
+    
+    // Atualizar preview
+    const logoPreview = document.getElementById('logoPreview');
+    if (logoPreview) {
+        logoPreview.innerHTML = '<span class="placeholder">Sem logo</span>';
+    }
+    
+    // Resetar input
+    const logoInput = document.getElementById('logoInput');
+    if (logoInput) logoInput.value = '';
+    
+    mostrarFlash('success', 'Logo será removida ao salvar. Clique em "Salvar" para confirmar.');
+}
+
+// Consultar CNPJ via API
+async function consultarCNPJ() {
+    const input = document.getElementById('documento');
+    const btn = document.getElementById('btnConsultarCNPJ');
+    const cnpj = input?.value?.replace(/\D/g, '');
+    
+    if (!cnpj || cnpj.length !== 14) {
+        alert('⚠️ Digite um CNPJ válido com 14 dígitos');
+        input?.focus();
+        return;
+    }
+    
+    // Loading state
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Consultando...';
+    
+    try {
+        const response = await fetch('/empresas/api/consultar-cnpj', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': document.querySelector('input[name="csrf_token"]')?.value || ''
+            },
+            body: JSON.stringify({ cnpj: cnpj })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok && data.dados) {
+            // Preencher campos automaticamente
+            const dados = data.dados;
+            
+            // Nome (priorizar fantasia, senão razão social)
+            const nomeInput = document.getElementById('nome');
+            if (nomeInput && !nomeInput.value) {
+                nomeInput.value = dados.nome_fantasia || dados.razao_social || '';
+            }
+            
+            // Endereço (se houver campos no form)
+            const camposEndereco = {
+                'logradouro': dados.logradouro,
+                'numero': dados.numero,
+                'complemento': dados.complemento,
+                'bairro': dados.bairro,
+                'cep': dados.cep,
+                'cidade': dados.municipio,
+                'uf': dados.uf,
+                'telefone': dados.telefone,
+                'email': dados.email
+            };
+            
+            Object.entries(camposEndereco).forEach(([id, valor]) => {
+                const el = document.getElementById(id);
+                if (el && !el.value && valor) {
+                    el.value = valor;
+                }
+            });
+            
+            mostrarFlash('success', 'Dados preenchidos automaticamente!');
+        } else {
+            alert('❌ ' + (data.message || 'CNPJ não encontrado'));
+        }
+    } catch (err) {
+        console.error('Erro ao consultar CNPJ:', err);
+        alert('❌ Erro de conexão ao consultar CNPJ');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// Flash message dinâmico
+function mostrarFlash(category, message) {
+    const container = document.querySelector('.nc-flash-messages');
+    if (!container) return;
+    
+    const flash = document.createElement('div');
+    flash.className = `nc-flash nc-flash-${category}`;
+    flash.setAttribute('role', 'status');
+    flash.innerHTML = `
+        <span aria-hidden="true">${category === 'success' ? '✅' : category === 'error' ? '❌' : 'ℹ️'}</span>
+        ${message}
+    `;
+    
+    container.appendChild(flash);
+    
+    // Auto-remove após 5 segundos
+    setTimeout(() => {
+        flash.style.opacity = '0';
+        setTimeout(() => flash.remove(), 300);
+    }, 5000);
 }
 
 // Loading state no botão de salvar
@@ -270,12 +532,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnSalvar = document.getElementById('btn-salvar');
     const inputDocumento = document.getElementById('documento');
     
-    // ✅ Máscara de CNPJ em tempo real
+    // Máscara de CNPJ em tempo real
     if (inputDocumento) {
         inputDocumento.addEventListener('input', function(e) {
             let valor = e.target.value.replace(/\D/g, '');
             
-            // Aplica máscara de CNPJ
             if (valor.length <= 14) {
                 valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
                 valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
@@ -290,39 +551,34 @@ document.addEventListener('DOMContentLoaded', function() {
         inputDocumento.addEventListener('blur', function(e) {
             const valor = e.target.value.replace(/\D/g, '');
             if (valor.length === 14 && !validarCNPJ(valor)) {
-                const errorDiv = document.getElementById('documento-error');
+                let errorDiv = document.getElementById('documento-error');
                 if (!errorDiv) {
-                    const div = document.createElement('div');
-                    div.id = 'documento-error';
-                    div.className = 'nc-form-error';
-                    div.setAttribute('role', 'alert');
-                    div.innerHTML = '<span aria-hidden="true">⚠️</span> CNPJ inválido';
-                    e.target.parentNode.appendChild(div);
+                    errorDiv = document.createElement('div');
+                    errorDiv.id = 'documento-error';
+                    errorDiv.className = 'nc-form-error';
+                    errorDiv.setAttribute('role', 'alert');
+                    errorDiv.innerHTML = '<span aria-hidden="true">⚠️</span> CNPJ inválido';
+                    e.target.parentNode.parentNode.appendChild(errorDiv);
                 }
                 e.target.setAttribute('aria-invalid', 'true');
             }
         });
     }
     
-    // ✅ Loading state no submit
+    // Loading state no submit
     if (form && btnSalvar) {
         form.addEventListener('submit', function(e) {
-            // Validação HTML5
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;
             }
             
-            // Ativar loading state
             btnSalvar.classList.add('loading');
             btnSalvar.disabled = true;
             
-            // Prevenir múltiplos submits
             const inputs = form.querySelectorAll('input, select, button');
             inputs.forEach(input => {
-                if (input !== btnSalvar) {
-                    input.disabled = true;
-                }
+                if (input !== btnSalvar) input.disabled = true;
             });
         });
     }
@@ -335,14 +591,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// ✅ Validação de CNPJ (algoritmo completo)
+// Validação de CNPJ (algoritmo completo)
 function validarCNPJ(cnpj) {
     cnpj = cnpj.replace(/\D/g, '');
     
     if (cnpj.length !== 14) return false;
-    if (/^(\d)\1+$/.test(cnpj)) return false; // Evita sequências
+    if (/^(\d)\1+$/.test(cnpj)) return false;
     
-    // Calcula primeiro dígito verificador
     let soma = 0;
     const pesos1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     for (let i = 0; i < 12; i++) {
@@ -351,7 +606,6 @@ function validarCNPJ(cnpj) {
     let digito1 = 11 - (soma % 11);
     if (digito1 >= 10) digito1 = 0;
     
-    // Calcula segundo dígito verificador
     soma = 0;
     const pesos2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     for (let i = 0; i < 13; i++) {
@@ -367,5 +621,8 @@ function validarCNPJ(cnpj) {
 window.toggleDesativacaoAlert = toggleDesativacaoAlert;
 window.fecharModalDesativacao = fecharModalDesativacao;
 window.validarCNPJ = validarCNPJ;
+window.consultarCNPJ = consultarCNPJ;
+window.uploadLogo = uploadLogo;
+window.removerLogo = removerLogo;
 </script>
 {% endblock %}
