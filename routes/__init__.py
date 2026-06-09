@@ -47,7 +47,7 @@ from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
 from .dashboard_api import dashboard_api
 from .conciliacao_api import bp_conc
-from .auditoria_routes import auditoria_bp  # ✅ NOVO: Módulo de auditoria
+from .auditor_routes import auditor_bp  # ← Nome do arquivo criado acima
 
 
 def _check_duplicate_routes(app: Flask, blueprint, url_prefix: str = None):
