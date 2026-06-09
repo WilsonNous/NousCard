@@ -93,7 +93,11 @@ def upload_arquivos():
         return jsonify({"ok": False, "message": "Muitos uploads. Aguarde alguns segundos."}), 429
     
     if not validar_csrf_token():
-        return jsonify({"ok": False, "message": "Erro de segurança. Recarregue a página."}), 403
+        logger.warning(f"❌ CSRF falhou para usuario={g.user.id if hasattr(g, 'user') else 'anon'}")
+        return jsonify({
+            "ok": False,
+            "message": "Erro de segurança. Recarregue a página."
+        }), 403
     
     # ✅ CRÍTICO: getlist("files") deve bater com name="files" no HTML
     files = request.files.getlist("files")
