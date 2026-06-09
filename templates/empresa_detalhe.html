@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Detalhes: {{ empresa.nome }}{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <div class="nc-section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 class="nc-title">🏢 {{ empresa.nome | e }}</h2>
+        <a href="{{ url_for('empresas.listar_empresas') }}" class="nc-btn nc-btn-outline nc-btn-sm">
+            ← Voltar para lista
+        </a>
+    </div>
+    
+    <!-- Logo da Empresa -->
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        {% if empresa.logo_url %}
+            <img src="{{ empresa.logo_url }}" alt="Logo {{ empresa.nome }}" 
+                 style="max-width: 200px; max-height: 100px; border-radius: 8px; border: 1px solid var(--gray-border);">
+        {% else %}
+            <div style="width: 200px; height: 100px; background: var(--gray-light); 
+                        border-radius: 8px; display: flex; align-items: center; justify-content: center;
+                        color: var(--text-muted); margin: 0 auto;">
+                Sem logo
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Dados da Empresa -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        <div class="nc-card">
+            <h4 class="nc-subtitle">📋 Informações Básicas</h4>
+            <dl style="margin: 0;">
+                <dt>CNPJ</dt><dd>{{ empresa.cnpj | e }}</dd>
+                <dt>Email</dt><dd>{{ empresa.email | e }}</dd>
+                <dt>Telefone</dt><dd>{{ empresa.telefone | e or '—' }}</dd>
+                <dt>Status</dt><dd>
+                    <span class="nc-badge {% if empresa.ativo %}nc-badge-success{% else %}nc-badge-danger{% endif %}">
+                        {{ "Ativo" if empresa.ativo else "Inativo" }}
+                    </span>
+                </dd>
+            </dl>
+        </div>
+        
+        <div class="nc-card">
+            <h4 class="nc-subtitle">📍 Endereço</h4>
+            <dl style="margin: 0;">
+                <dt>CEP</dt><dd>{{ empresa.cep | e or '—' }}</dd>
+                <dt>Logradouro</dt><dd>{{ empresa.logradouro | e or '—' }}</dd>
+                <dt>Número</dt><dd>{{ empresa.numero | e or '—' }}</dd>
+                <dt>Complemento</dt><dd>{{ empresa.complemento | e or '—' }}</dd>
+                <dt>Bairro</dt><dd>{{ empresa.bairro | e or '—' }}</dd>
+                <dt>Cidade/UF</dt><dd>{{ empresa.cidade | e }}, {{ empresa.uf | e }}</dd>
+            </dl>
+        </div>
+        
+        <div class="nc-card">
+            <h4 class="nc-subtitle">📊 Estatísticas</h4>
+            <dl style="margin: 0;">
+                <dt>Usuários ativos</dt><dd>{{ total_usuarios }}</dd>
+                <dt>Criado em</dt><dd>{{ empresa.data_criacao.strftime('%d/%m/%Y') if empresa.data_criacao else '—' }}</dd>
+                <dt>Última atualização</dt><dd>{{ empresa.data_atualizacao.strftime('%d/%m/%Y') if empresa.data_atualizacao else '—' }}</dd>
+            </dl>
+        </div>
+    </div>
+    
+    <!-- Ações -->
+    <div style="margin-top: 2rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button class="nc-btn nc-btn-primary" onclick="abrirModalLogo({{ empresa.id }})">
+            🖼️ Alterar Logo
+        </button>
+        <a href="{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}" class="nc-btn nc-btn-outline">
+            ✏️ Editar Dados
+        </a>
+        {% if not empresa.ativo %}
+        <button class="nc-btn nc-btn-success" onclick="ativarEmpresa({{ empresa.id }})">
+            ✅ Ativar Empresa
+        </button>
+        {% else %}
+        <button class="nc-btn nc-btn-danger" onclick="desativarEmpresa({{ empresa.id }})">
+            ⏸️ Desativar
+        </button>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Modal para Upload de Logo -->
+<div id="modalLogo" class="nc-modal" aria-hidden="true" style="display: none;">
+    <div class="nc-modal-backdrop" onclick="fecharModalLogo()"></div>
+    <div class="nc-modal-content" style="max-width: 500px;">
+        <div class="nc-modal-header">
+            <h3 class="nc-title">🖼️ Alterar Logo</h3>
+            <button class="nc-modal-close" onclick="fecharModalLogo()" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="nc-modal-body">
+            <form id="formUploadLogo" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="empresa_id" value="{{ empresa.id }}">
+                
+                <div class="nc-form-group">
+                    <label class="nc-form-label">Selecione uma imagem</label>
+                    <input type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml" required
+                           class="nc-form-input">
+                    <small class="nc-form-hint">PNG, JPG ou SVG • Máx. 2MB • Recomendado: 400x200px</small>
+                </div>
+                
+                <div id="previewLogo" style="text-align: center; margin: 1rem 0; display: none;">
+                    <img id="imgPreview" src="" alt="Preview" style="max-width: 200px; max-height: 100px; border-radius: 8px;">
+                </div>
+                
+                <div class="nc-actions" style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalLogo()">Cancelar</button>
+                    <button type="submit" class="nc-btn nc-btn-primary">💾 Salvar Logo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Preview de imagem antes do upload
+document.querySelector('#formUploadLogo input[type="file"]').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            document.getElementById('imgPreview').src = evt.target.result;
+            document.getElementById('previewLogo').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Modal functions
+function abrirModalLogo(empresaId) {
+    document.getElementById('modalLogo').style.display = 'flex';
+    document.getElementById('modalLogo').setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+}
+
+function fecharModalLogo() {
+    document.getElementById('modalLogo').style.display = 'none';
+    document.getElementById('modalLogo').setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    document.getElementById('formUploadLogo').reset();
+    document.getElementById('previewLogo').style.display = 'none';
+}
+
+// Upload de logo via AJAX
+document.getElementById('formUploadLogo').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const btn = this.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Salvando...';
+    
+    try {
+        const response = await fetch('/api/empresas/upload-logo', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+            fecharModalLogo();
+            location.reload(); // Recarregar para mostrar nova logo
+        } else {
+            alert('❌ Erro: ' + (data.message || 'Falha ao salvar logo'));
+        }
+    } catch (err) {
+        console.error('Erro ao upload logo:', err);
+        alert('❌ Erro de conexão ao salvar logo');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+
+// Fechar modal com ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') fecharModalLogo();
+});
+</script>
+{% endblock %}
