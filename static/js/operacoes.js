@@ -110,10 +110,6 @@
             errors.push(`Nome de arquivo inválido: ${file.name}`);
         }
         
-        if (operacoesState.selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
-            errors.push(`Arquivo já selecionado: ${file.name}`);
-        }
-
         return errors;
     }
 
@@ -202,6 +198,10 @@
                 }
 
                 newFiles.forEach(file => {
+                   if (operacoesState.selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                        errors.push(`Arquivo já selecionado: ${file.name}`);
+                        return;  // Pula para o próximo arquivo
+                    }
                     const fileErrors = validarArquivo(file);
                     if (fileErrors.length) {
                         errors.push(...fileErrors);
