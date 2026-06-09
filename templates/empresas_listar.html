@@ -2,6 +2,76 @@
 
 {% block title %}Gerenciar Empresas - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para listagem de empresas -->
+<style>
+    /* Cards de resumo */
+    .empresas-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: var(--gray-lightest);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid var(--primary);
+    }
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary);
+    }
+    .stat-card .label {
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+    }
+    .stat-card.active { border-left-color: #16a34a; }
+    .stat-card.active .value { color: #16a34a; }
+    .stat-card.inactive { border-left-color: #dc2626; }
+    .stat-card.inactive .value { color: #dc2626; }
+    
+    /* Busca e filtros */
+    .list-controls {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .list-controls input,
+    .list-controls select {
+        flex: 1;
+        min-width: 150px;
+        max-width: 300px;
+    }
+    
+    /* Ordenação por coluna */
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+    .sortable:hover {
+        background: var(--gray-lightest);
+    }
+    .sortable .sort-icon {
+        margin-left: 0.25rem;
+        opacity: 0.5;
+    }
+    .sortable.asc .sort-icon::after { content: "▲"; }
+    .sortable.desc .sort-icon::after { content: "▼"; }
+    
+    /* Ações da tabela */
+    .nc-table-actions {
+        display: flex;
+        gap: 0.25rem;
+        justify-content: flex-end;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="nc-section">
     {% if not is_master %}
@@ -14,63 +84,141 @@
     {% else %}
         <div class="nc-section-header">
             <div>
-                <h2>🏢 Empresas</h2>
+                <h2>🏢 Gerenciar Empresas</h2>
                 {% if empresas and empresas.total %}
                 <p class="nc-section-subtitle">{{ empresas.total }} empresa(s) cadastrada(s)</p>
                 {% endif %}
             </div>
-            <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
+            <div style="display: flex; gap: 0.5rem;">
+                {% if empresas and empresas.items %}
+                <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" onclick="exportarEmpresasCSV()">
+                    📥 Exportar
+                </button>
+                {% endif %}
+                <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
+            </div>
         </div>
         
         {% if empresas and empresas.items %}
-            <table class="nc-table" role="table" aria-label="Lista de empresas cadastradas">
-                <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas cadastradas.</caption>
-                <thead>
-                    <tr>
-                        <th scope="col">ID</th>
-                        <th scope="col">Nome</th>
-                        <th scope="col">Documento</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Criada em</th>
-                        <th scope="col" class="nc-sr-only">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for e in empresas.items %}
-                        <tr class="{% if e.id == session.get('empresa_id') %}nc-row-current{% endif %}">
+            <!-- ✅ NOVO: Cards de estatísticas -->
+            <div class="empresas-stats">
+                <div class="stat-card">
+                    <div class="value">{{ empresas.total }}</div>
+                    <div class="label">Total</div>
+                </div>
+                <div class="stat-card active">
+                    <div class="value">{{ empresas.items | selectattr('ativo') | list | length }}</div>
+                    <div class="label">Ativas</div>
+                </div>
+                <div class="stat-card inactive">
+                    <div class="value">{{ empresas.items | rejectattr('ativo') | list | length }}</div>
+                    <div class="label">Inativas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">{{ total_usuarios | default(0) }}</div>
+                    <div class="label">Usuários Total</div>
+                </div>
+            </div>
+            
+            <!-- ✅ NOVO: Busca e filtros -->
+            <div class="list-controls">
+                <label for="empresaSearch" class="nc-form-label" style="white-space: nowrap;">🔍 Buscar:</label>
+                <input type="search" id="empresaSearch" class="nc-form-input" placeholder="Nome ou documento..." onkeyup="filtrarEmpresas()">
+                
+                <label for="filtroStatus" class="nc-form-label" style="white-space: nowrap;">Status:</label>
+                <select id="filtroStatus" class="nc-form-input" onchange="filtrarEmpresas()">
+                    <option value="">Todos</option>
+                    <option value="ativo">Ativas</option>
+                    <option value="inativo">Inativas</option>
+                </select>
+                
+                <small class="nc-muted" id="searchCount"></small>
+            </div>
+            
+            <div class="nc-table-container" style="overflow-x: auto;">
+                <table class="nc-table" role="table" aria-label="Lista de empresas cadastradas">
+                    <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas cadastradas.</caption>
+                    <thead>
+                        <tr>
+                            <!-- ✅ NOVO: Colunas ordenáveis -->
+                            <th scope="col" class="sortable" onclick="ordenarTabela('id')" aria-sort="none">
+                                ID <span class="sort-icon" aria-hidden="true"></span>
+                            </th>
+                            <th scope="col" class="sortable" onclick="ordenarTabela('nome')" aria-sort="none">
+                                Nome <span class="sort-icon" aria-hidden="true"></span>
+                            </th>
+                            <th scope="col" class="sortable" onclick="ordenarTabela('documento')" aria-sort="none">
+                                Documento <span class="sort-icon" aria-hidden="true"></span>
+                            </th>
+                            <th scope="col" class="sortable" onclick="ordenarTabela('ativo')" aria-sort="none">
+                                Status <span class="sort-icon" aria-hidden="true"></span>
+                            </th>
+                            <th scope="col" class="sortable" onclick="ordenarTabela('criado_em')" aria-sort="none">
+                                Criada em <span class="sort-icon" aria-hidden="true"></span>
+                            </th>
+                            <th scope="col">Usuários</th>
+                            <th scope="col" class="nc-sr-only">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="empresasTableBody">
+                        {% for e in empresas.items %}
+                        <tr class="{% if e.id == session.get('empresa_id') %}nc-row-current{% endif %}" 
+                            data-nome="{{ e.nome | lower | e }}" 
+                            data-documento="{{ e.documento | lower | e if e.documento else '' }}" 
+                            data-status="{{ 'ativo' if e.ativo else 'inativo' }}">
                             <td>{{ e.id }}</td>
                             <td><strong>{{ e.nome | e }}</strong></td>
                             <td>{{ e.documento | e if e.documento else "-" }}</td>
                             <td>
                                 <span class="nc-status nc-status-{{ 'active' if e.ativo else 'inactive' }}">
                                     <span aria-hidden="true">{{ "✅" if e.ativo else "⏸️" }}</span>
-                                    {{ "Sim" if e.ativo else "Não" }}
+                                    {{ "Ativa" if e.ativo else "Inativa" }}
                                 </span>
                             </td>
                             <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "-" }}</td>
+                            <td>{{ e.total_usuarios | default(0) }}</td>
                             <td class="nc-table-actions">
                                 <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}" 
                                    class="nc-btn nc-btn-sm nc-btn-outline"
-                                   aria-label="Editar empresa {{ e.nome | e }}">
+                                   aria-label="Editar empresa {{ e.nome | e }}"
+                                   title="Editar">
                                     <span aria-hidden="true">✏️</span>
-                                    <span class="nc-sr-only">Editar</span>
                                 </a>
+                                <a href="{{ url_for('empresas.empresa_detalhe', empresa_id=e.id) }}" 
+                                   class="nc-btn nc-btn-sm nc-btn-secondary"
+                                   aria-label="Ver detalhes da empresa {{ e.nome | e }}"
+                                   title="Ver detalhes">
+                                    <span aria-hidden="true">👁️</span>
+                                </a>
+                                {% if not e.ativo or empresas.items | length > 1 %}
+                                <button type="button"
+                                        class="nc-btn nc-btn-sm nc-btn-danger"
+                                        onclick="confirmarExclusao({{ e.id }}, '{{ e.nome | e }}')"
+                                        aria-label="Excluir empresa {{ e.nome | e }}"
+                                        title="Excluir">
+                                    <span aria-hidden="true">🗑️</span>
+                                </button>
+                                {% endif %}
                             </td>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             
+            <!-- ✅ APRIMORADO: Paginação que preserva filtros -->
             {% if empresas.pages > 1 %}
             <nav class="nc-pagination" role="navigation" aria-label="Paginação de empresas">
                 {% if empresas.has_prev %}
-                <a href="?page={{ empresas.prev_num }}" class="nc-btn nc-btn-sm" aria-label="Página anterior">← Anterior</a>
+                <a href="{{ build_pagination_url(empresas.page - 1) }}" class="nc-btn nc-btn-sm" aria-label="Página anterior">← Anterior</a>
                 {% endif %}
                 
-                <span class="nc-page-info" aria-current="page">Página {{ empresas.page }} de {{ empresas.pages }}</span>
+                <span class="nc-page-info" aria-current="page">
+                    Página {{ empresas.page }} de {{ empresas.pages }}
+                </span>
                 
                 {% if empresas.has_next %}
-                <a href="?page={{ empresas.next_num }}" class="nc-btn nc-btn-sm" aria-label="Próxima página">Próxima →</a>
+                <a href="{{ build_pagination_url(empresas.page + 1) }}" class="nc-btn nc-btn-sm" aria-label="Próxima página">Próxima →</a>
                 {% endif %}
             </nav>
             {% endif %}
@@ -85,4 +233,226 @@
         {% endif %}
     {% endif %}
 </section>
+
+<!-- ✅ NOVO: Modal de confirmação de exclusão -->
+<div id="modalExclusaoEmpresa" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalExclusaoTitulo">
+    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-content">
+        <div class="nc-modal-header">
+            <h3 id="modalExclusaoTitulo">Confirmar Exclusão</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalExclusao()">✕</button>
+        </div>
+        <div class="nc-modal-body">
+            <p>Tem certeza que deseja excluir a empresa <strong id="exclusaoNomeEmpresa"></strong>?</p>
+            <div class="nc-flash nc-flash-warning" style="margin: 1rem 0;">
+                <strong>⚠️ Atenção:</strong> Esta ação irá:
+                <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                    <li>Desativar todos os usuários vinculados</li>
+                    <li>Manter vendas e recebimentos existentes</li>
+                    <li>Impedir novos acessos à empresa</li>
+                </ul>
+            </div>
+            <input type="hidden" id="exclusaoEmpresaId">
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalExclusao()">Cancelar</button>
+            <button type="button" class="nc-btn nc-btn-danger" id="btnConfirmarExclusao">🗑️ Excluir Permanentemente</button>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ NOVO: Scripts para funcionalidades da lista -->
+{% if empresas and empresas.items %}
+<script>
+// Dados para busca/exportação
+const todasEmpresas = {{ empresas.items | tojson }};
+
+// ✅ Filtro de busca na lista
+function filtrarEmpresas() {
+    const termo = document.getElementById('empresaSearch').value.toLowerCase();
+    const statusFiltro = document.getElementById('filtroStatus').value;
+    const tbody = document.getElementById('empresasTableBody');
+    const rows = tbody.querySelectorAll('tr');
+    let visiveis = 0;
+    
+    rows.forEach(row => {
+        const nome = row.dataset.nome || '';
+        const documento = row.dataset.documento || '';
+        const status = row.dataset.status || '';
+        
+        const matchTexto = nome.includes(termo) || documento.includes(termo);
+        const matchStatus = !statusFiltro || status === statusFiltro;
+        const match = matchTexto && matchStatus;
+        
+        row.style.display = match ? '' : 'none';
+        if (match) visiveis++;
+    });
+    
+    // Atualizar contador
+    const total = rows.length;
+    document.getElementById('searchCount').textContent = 
+        (termo || statusFiltro) ? `${visiveis}/${total} encontradas` : '';
+}
+
+// ✅ Ordenação por coluna
+let ordemAtual = { coluna: 'id', direcao: 'desc' };
+
+function ordenarTabela(coluna) {
+    const headers = document.querySelectorAll('th.sortable');
+    const tbody = document.getElementById('empresasTableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Alternar direção
+    if (ordemAtual.coluna === coluna) {
+        ordemAtual.direcao = ordemAtual.direcao === 'asc' ? 'desc' : 'asc';
+    } else {
+        ordemAtual.coluna = coluna;
+        ordemAtual.direcao = 'asc';
+    }
+    
+    // Atualizar ícones
+    headers.forEach(th => {
+        th.classList.remove('asc', 'desc');
+        th.setAttribute('aria-sort', 'none');
+    });
+    const headerAtual = document.querySelector(`th[onclick="ordenarTabela('${coluna}')"]`);
+    if (headerAtual) {
+        headerAtual.classList.add(ordemAtual.direcao);
+        headerAtual.setAttribute('aria-sort', ordemAtual.direcao === 'asc' ? 'ascending' : 'descending');
+    }
+    
+    // Ordenar linhas
+    rows.sort((a, b) => {
+        let valA, valB;
+        
+        switch(coluna) {
+            case 'id':
+                valA = parseInt(a.cells[0].textContent);
+                valB = parseInt(b.cells[0].textContent);
+                break;
+            case 'nome':
+                valA = a.cells[1].textContent.trim().toLowerCase();
+                valB = b.cells[1].textContent.trim().toLowerCase();
+                break;
+            case 'documento':
+                valA = a.cells[2].textContent.trim();
+                valB = b.cells[2].textContent.trim();
+                break;
+            case 'ativo':
+                valA = a.dataset.status === 'ativo' ? 1 : 0;
+                valB = b.dataset.status === 'ativo' ? 1 : 0;
+                break;
+            case 'criado_em':
+                valA = a.cells[4].textContent.trim();
+                valB = b.cells[4].textContent.trim();
+                break;
+            default:
+                return 0;
+        }
+        
+        if (valA < valB) return ordemAtual.direcao === 'asc' ? -1 : 1;
+        if (valA > valB) return ordemAtual.direcao === 'asc' ? 1 : -1;
+        return 0;
+    });
+    
+    // Re-inserir linhas ordenadas
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// ✅ Exportar lista para CSV
+function exportarEmpresasCSV() {
+    const termo = document.getElementById('empresaSearch')?.value.toLowerCase() || '';
+    const statusFiltro = document.getElementById('filtroStatus')?.value || '';
+    
+    // Filtrar empresas visíveis
+    const dados = todasEmpresas.filter(e => {
+        if (!termo && !statusFiltro) return true;
+        const matchTexto = (e.nome?.toLowerCase() || '').includes(termo) ||
+                          (e.documento?.toLowerCase() || '').includes(termo);
+        const matchStatus = !statusFiltro || (e.ativo ? 'ativo' : 'inativo') === statusFiltro;
+        return matchTexto && matchStatus;
+    });
+    
+    if (!dados.length) {
+        alert('Nenhuma empresa para exportar.');
+        return;
+    }
+    
+    // Cabeçalhos
+    const headers = ['ID', 'Nome', 'Documento', 'Status', 'Criada em', 'Usuários'];
+    const csv = [
+        headers.join(';'),
+        ...dados.map(e => [
+            e.id,
+            `"${e.nome?.replace(/"/g, '""') || ''}"`,
+            e.documento || '',
+            e.ativo ? 'Ativa' : 'Inativa',
+            e.criado_em || '',
+            e.total_usuarios || 0
+        ].join(';'))
+    ].join('\n');
+    
+    // Download
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `empresas_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ✅ Confirmar exclusão
+function confirmarExclusao(empresaId, empresaNome) {
+    const modal = document.getElementById('modalExclusaoEmpresa');
+    document.getElementById('exclusaoEmpresaId').value = empresaId;
+    document.getElementById('exclusaoNomeEmpresa').textContent = empresaNome;
+    modal.style.display = 'block';
+    document.getElementById('btnConfirmarExclusao').focus();
+}
+
+function fecharModalExclusao() {
+    document.getElementById('modalExclusaoEmpresa').style.display = 'none';
+}
+
+// ✅ Handler para confirmação de exclusão
+document.addEventListener('DOMContentLoaded', function() {
+    const btnConfirmar = document.getElementById('btnConfirmarExclusao');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', function() {
+            const empresaId = document.getElementById('exclusaoEmpresaId').value;
+            // Em produção, fazer request AJAX para excluir
+            window.location.href = `/empresas/${empresaId}/excluir`;
+        });
+    }
+    
+    // Fechar modal com Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            fecharModalExclusao();
+        }
+    });
+    
+    // Trap de foco no modal
+    const modal = document.getElementById('modalExclusaoEmpresa');
+    if (modal) {
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                const focusable = this.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+    }
+});
+</script>
+{% endif %}
 {% endblock %}
