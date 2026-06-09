@@ -1,6 +1,6 @@
 # routes/auth_routes.py - VERSÃO APRIMORADA COM SEGURANÇA REFORÇADA
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app  # ← ✅ Adicionar current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, g  
 from flask_login import login_user, logout_user, login_required, current_user
 from models import Usuario, Empresa, db
 from utils.auth_middleware import iniciar_sessao_segura
