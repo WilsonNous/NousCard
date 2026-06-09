@@ -1,70 +1,404 @@
 {% extends "base.html" %}
 
-{% block title %}{{ empresa.nome }} - Master - NousCard{% endblock %}
+{% block title %}{{ empresa.nome | e }} - Master - NousCard{% endblock %}
+
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para detalhes da empresa -->
+<style>
+    .empresa-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: var(--gray-lightest);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid var(--primary);
+    }
+    .stat-card .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary);
+    }
+    .stat-card .label {
+        font-size: 0.875rem;
+        color: var(--gray-dark);
+    }
+    .stat-card.revenue { border-left-color: #16a34a; }
+    .stat-card.revenue .value { color: #16a34a; }
+    
+    .user-search {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .user-search input {
+        flex: 1;
+        max-width: 300px;
+    }
+    
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .status-ativo { background: #dcfce7; color: #166534; }
+    .status-inativo { background: #fee2e2; color: #991b1b; }
+    .status-bloqueado { background: #fef3c7; color: #92400e; }
+    
+    .danger-zone {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    .danger-zone h3 {
+        color: #991b1b;
+        margin-bottom: 0.5rem;
+    }
+    .danger-zone-content {
+        margin-top: 1rem;
+    }
+    .danger-zone-input {
+        margin: 1rem 0;
+    }
+    .danger-zone-input input {
+        width: 100%;
+        max-width: 400px;
+        border-color: #fecaca;
+    }
+    
+    .nc-table-actions {
+        display: flex;
+        gap: 0.25rem;
+        justify-content: flex-end;
+    }
+    
+    /* Loading state */
+    .btn-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    .btn-loading .btn-text {
+        visibility: hidden;
+    }
+    .btn-loading .spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: block !important;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <section class="nc-section">
     <div class="nc-section-header">
         <div>
             <h2>🏢 {{ empresa.nome | e }}</h2>
-            <p class="nc-subtitle">ID: {{ empresa.id }} • Criada em: {{ empresa.criado_em.strftime("%d/%m/%Y") if empresa.criado_em else "—" }}</p>
+            <p class="nc-subtitle">
+                ID: {{ empresa.id }} • 
+                Criada em: {{ empresa.criado_em.strftime("%d/%m/%Y") if empresa.criado_em else "—" }} •
+                Status: <span class="status-badge {{ 'status-ativo' if empresa.ativo else 'status-inativo' }}">
+                    {{ "✅ Ativa" if empresa.ativo else "⏸️ Inativa" }}
+                </span>
+            </p>
         </div>
-        <div class="nc-actions">
-            <a href="{{ url_for('master.usuario_novo', empresa_id=empresa.id) }}" class="nc-btn nc-btn-primary">+ Novo Usuário</a>
-            <a href="{{ url_for('master.empresas_listar') }}" class="nc-btn nc-btn-outline">← Voltar</a>
+        <div class="nc-actions" style="display: flex; gap: 0.5rem;">
+            <a href="{{ url_for('master.editar_empresa', empresa_id=empresa.id) }}" class="nc-btn nc-btn-outline">
+                ✏️ Editar
+            </a>
+            <a href="{{ url_for('master.usuario_novo', empresa_id=empresa.id) }}" class="nc-btn nc-btn-primary">
+                + Novo Usuário
+            </a>
+            <a href="{{ url_for('master.empresas_listar') }}" class="nc-btn nc-btn-secondary">
+                ← Voltar
+            </a>
         </div>
+    </div>
+    
+    <!-- ✅ NOVO: Estatísticas da empresa -->
+    <div class="empresa-stats">
+        <div class="stat-card">
+            <div class="value">{{ usuarios|length }}</div>
+            <div class="label">Usuários</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">{{ total_vendas | default(0) }}</div>
+            <div class="label">Vendas</div>
+        </div>
+        <div class="stat-card revenue">
+            <div class="value">R$ {{ total_valor_vendas | currency_br if total_valor_vendas else '0,00' }}</div>
+            <div class="label">Receita Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="value">{{ empresa.documento | e if empresa.documento else '—' }}</div>
+            <div class="label">CNPJ</div>
+        </div>
+    </div>
+    
+    <!-- ✅ NOVO: Busca de usuários -->
+    <div class="user-search">
+        <label for="userSearch" class="nc-form-label">🔍 Buscar usuário:</label>
+        <input type="search" id="userSearch" class="nc-form-input" placeholder="Nome ou e-mail..." onkeyup="filtrarUsuarios()">
+        <small class="nc-muted" id="userSearchCount"></small>
     </div>
     
     <h3>Usuários ({{ usuarios|length }})</h3>
     
     {% if usuarios %}
-        <table class="nc-table">
-            <thead>
-                <tr>
-                    <th scope="col">Nome</th>
-                    <th scope="col">E-mail</th>
-                    <th scope="col">Admin</th>
-                    <th scope="col">Criado em</th>
-                    <th scope="col" class="nc-sr-only">Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in usuarios %}
-                <tr>
-                    <td>{{ u.nome | e }}</td>
-                    <td>{{ u.email | e }}</td>
-                    <td>{{ "Sim" if u.admin else "Não" }}</td>
-                    <td>{{ u.criado_em.strftime("%d/%m/%Y") if u.criado_em else "-" }}</td>
-                    <td class="nc-table-actions">
-                        {% if u.id != session.get('usuario_id') %}
-                        <form method="POST" action="{{ url_for('master.usuario_remover', empresa_id=empresa.id, user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Remover usuário {{ u.email | e }}?')">
-                            <button type="submit" class="nc-btn nc-btn-sm nc-btn-danger" aria-label="Remover usuário">
+        <div class="nc-table-container" style="overflow-x: auto;">
+            <table class="nc-table" role="table" aria-label="Lista de usuários da empresa">
+                <thead>
+                    <tr>
+                        <th scope="col">Nome</th>
+                        <th scope="col">E-mail</th>
+                        <th scope="col">Admin</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Último Acesso</th>
+                        <th scope="col">Criado em</th>
+                        <th scope="col" class="nc-sr-only">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="usuariosTableBody">
+                    {% for u in usuarios %}
+                    <tr data-nome="{{ u.nome | lower | e }}" data-email="{{ u.email | lower | e }}">
+                        <td><strong>{{ u.nome | e }}</strong></td>
+                        <td>{{ u.email | e }}</td>
+                        <td>{{ "Sim" if u.admin else "Não" }}</td>
+                        <td>
+                            {% if u.bloqueado_ate and u.bloqueado_ate > now %}
+                                <span class="status-badge status-bloqueado">🔒 Bloqueado</span>
+                            {% elif u.ativo %}
+                                <span class="status-badge status-ativo">✅ Ativo</span>
+                            {% else %}
+                                <span class="status-badge status-inativo">⏸️ Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.ultimo_login.strftime("%d/%m/%Y %H:%M") if u.ultimo_login else "—" }}</td>
+                        <td>{{ u.criado_em.strftime("%d/%m/%Y") if u.criado_em else "-" }}</td>
+                        <td class="nc-table-actions">
+                            {% if u.id != session.get('usuario_id') %}
+                            <button type="button"
+                                    class="nc-btn nc-btn-sm nc-btn-danger"
+                                    onclick="abrirModalExclusao({{ u.id }}, '{{ u.email | e }}', '{{ u.nome | e }}')"
+                                    aria-label="Remover usuário {{ u.email | e }}"
+                                    title="Remover">
                                 <span aria-hidden="true">🗑️</span>
-                                <span class="nc-sr-only">Remover</span>
                             </button>
-                        </form>
-                        {% else %}
-                        <span class="nc-badge nc-badge-locked" title="Não pode remover a si mesmo">🔒</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            {% else %}
+                            <span class="nc-badge nc-badge-locked" title="Não pode remover a si mesmo">🔒</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% else %}
         <div class="nc-empty-state">
             <p>Nenhum usuário cadastrado nesta empresa.</p>
+            <a href="{{ url_for('master.usuario_novo', empresa_id=empresa.id) }}" class="nc-btn nc-btn-primary">
+                + Criar Primeiro Usuário
+            </a>
         </div>
     {% endif %}
     
     <div class="nc-section-divider"></div>
     
-    <h3 class="nc-danger-zone">⚠️ Zona de Perigo</h3>
-    <div class="nc-danger-zone-content">
-        <p>Excluir esta empresa removerá permanentemente todos os dados associados.</p>
-        <form method="POST" action="{{ url_for('master.empresa_remover', empresa_id=empresa.id) }}" onsubmit="return confirm('⚠️ ATENÇÃO: Esta ação não pode ser desfeita. Excluir empresa {{ empresa.nome | e }}?')">
-            <button type="submit" class="nc-btn nc-btn-danger">🗑️ Excluir Empresa</button>
+    <!-- ✅ APRIMORADO: Zona de perigo com confirmação reforçada -->
+    <div class="danger-zone">
+        <h3>⚠️ Zona de Perigo</h3>
+        <p>Excluir esta empresa é uma ação <strong>permanente e irreversível</strong>. Todos os dados associados serão removidos.</p>
+        
+        <form method="POST" action="{{ url_for('master.empresa_remover', empresa_id=empresa.id) }}" id="formExcluirEmpresa" onsubmit="return validarExclusaoEmpresa(event)">
+            <!-- ✅ CRÍTICO: Token CSRF -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div class="danger-zone-input">
+                <label for="confirmarNomeEmpresa" class="nc-form-label">
+                    Para confirmar, digite o nome da empresa: <strong>{{ empresa.nome | e }}</strong>
+                </label>
+                <input 
+                    type="text" 
+                    id="confirmarNomeEmpresa" 
+                    name="confirmar_nome"
+                    required
+                    autocomplete="off"
+                    placeholder="Digite o nome da empresa aqui"
+                    aria-describedby="excluir-hint"
+                >
+                <small id="excluir-hint" class="nc-form-hint">
+                    Isso ajuda a prevenir exclusões acidentais
+                </small>
+                <div id="excluir-error" class="nc-form-error" style="display:none;" role="alert"></div>
+            </div>
+            
+            <button type="submit" class="nc-btn nc-btn-danger" id="btnExcluirEmpresa">
+                <span class="btn-text">🗑️ Excluir Empresa Permanentemente</span>
+                <span class="btn-loading" style="display:none;">
+                    <span class="spinner" aria-hidden="true"></span> Excluindo...
+                </span>
+            </button>
         </form>
     </div>
 </section>
+
+<!-- ✅ NOVO: Modal de confirmação de exclusão de usuário -->
+<div id="modalExclusaoUsuario" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalExclusaoUsuarioTitulo">
+    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-content">
+        <div class="nc-modal-header">
+            <h3 id="modalExclusaoUsuarioTitulo">Confirmar Exclusão de Usuário</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalExclusao()">✕</button>
+        </div>
+        <div class="nc-modal-body">
+            <p>Tem certeza que deseja remover o usuário <strong id="exclusaoUsuarioNome"></strong> (<span id="exclusaoUsuarioEmail"></span>)?</p>
+            <div class="nc-flash nc-flash-warning" style="margin: 1rem 0;">
+                <strong>⚠️ Atenção:</strong> Esta ação não pode ser desfeita. O usuário perderá acesso imediatamente.
+            </div>
+            <input type="hidden" id="exclusaoUsuarioId">
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalExclusao()">Cancelar</button>
+            <button type="button" class="nc-btn nc-btn-danger" id="btnConfirmarExclusaoUsuario">🗑️ Confirmar Exclusão</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="{{ url_for('static', filename='js/master.js') }}" defer></script>
+
+<!-- ✅ NOVO: Script inline para funcionalidades -->
+<script>
+// Dados para busca
+const todosUsuarios = {{ usuarios | tojson }};
+
+// ✅ Filtro de busca de usuários
+function filtrarUsuarios() {
+    const termo = document.getElementById('userSearch').value.toLowerCase();
+    const tbody = document.getElementById('usuariosTableBody');
+    const rows = tbody.querySelectorAll('tr');
+    let visiveis = 0;
+    
+    rows.forEach(row => {
+        const nome = row.dataset.nome || '';
+        const email = row.dataset.email || '';
+        const match = nome.includes(termo) || email.includes(termo);
+        row.style.display = match ? '' : 'none';
+        if (match) visiveis++;
+    });
+    
+    const total = rows.length;
+    document.getElementById('userSearchCount').textContent = 
+        termo ? `${visiveis}/${total} encontrados` : '';
+}
+
+// ✅ Modal de exclusão de usuário
+function abrirModalExclusao(userId, userEmail, userName) {
+    const modal = document.getElementById('modalExclusaoUsuario');
+    document.getElementById('exclusaoUsuarioId').value = userId;
+    document.getElementById('exclusaoUsuarioNome').textContent = userName;
+    document.getElementById('exclusaoUsuarioEmail').textContent = userEmail;
+    modal.style.display = 'block';
+    document.getElementById('btnConfirmarExclusaoUsuario').focus();
+}
+
+function fecharModalExclusao() {
+    document.getElementById('modalExclusaoUsuario').style.display = 'none';
+}
+
+// ✅ Validação de exclusão de empresa
+function validarExclusaoEmpresa(e) {
+    const input = document.getElementById('confirmarNomeEmpresa');
+    const errorDiv = document.getElementById('excluir-error');
+    const btn = document.getElementById('btnExcluirEmpresa');
+    const nomeEsperado = '{{ empresa.nome | e }}';
+    
+    if (input.value.trim() !== nomeEsperado) {
+        e.preventDefault();
+        errorDiv.textContent = '⚠️ O nome digitado não corresponde ao nome da empresa';
+        errorDiv.style.display = 'block';
+        input.focus();
+        return false;
+    }
+    
+    // Ativar loading state
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline';
+    
+    return true;
+}
+
+// ✅ Handler para confirmação de exclusão de usuário
+document.addEventListener('DOMContentLoaded', function() {
+    const btnConfirmar = document.getElementById('btnConfirmarExclusaoUsuario');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', function() {
+            const userId = document.getElementById('exclusaoUsuarioId').value;
+            // Criar form dinamicamente e submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/master/empresa/{{ empresa.id }}/usuario/${userId}/remover`;
+            
+            // Adicionar CSRF token
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+    
+    // Fechar modal com Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            fecharModalExclusao();
+        }
+    });
+    
+    // Trap de foco no modal
+    const modal = document.getElementById('modalExclusaoUsuario');
+    if (modal) {
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                const focusable = this.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+    }
+    
+    // Limpar erro ao digitar
+    const inputConfirmacao = document.getElementById('confirmarNomeEmpresa');
+    if (inputConfirmacao) {
+        inputConfirmacao.addEventListener('input', function() {
+            document.getElementById('excluir-error').style.display = 'none';
+        });
+    }
+});
+</script>
 {% endblock %}
