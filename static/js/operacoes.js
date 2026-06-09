@@ -1,5 +1,5 @@
 // ============================================================
-//  OPERAÇÕES • NousCard (VERSÃO SEGURA E COMPLETA - CORRIGIDA)
+//  OPERAÇÕES • NousCard (VERSÃO SEGURA E COMPLETA - CSRF FIX)
 // ============================================================
 
 (function() {
@@ -60,10 +60,25 @@
         }).format(num);
     };
 
+    // ✅ ✅ ✅ FUNÇÃO CORRIGIDA: getCsrfToken (mais robusta) ✅ ✅ ✅
     function getCsrfToken() {
-        return document.querySelector('meta[name="csrf-token"]')?.content ||
-               document.querySelector('input[name="csrf_token"]')?.value ||
-               '';
+        // Tentar meta tag primeiro
+        const metaToken = document.querySelector('meta[name="csrf-token"]')?.content?.trim();
+        if (metaToken) return metaToken;
+        
+        // Tentar input hidden
+        const inputToken = document.querySelector('input[name="csrf_token"]')?.value?.trim();
+        if (inputToken) return inputToken;
+        
+        // Fallback: tentar ler de cookie
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrf_token') return value;
+        }
+        
+        console.error('❌ CSRF token não encontrado em meta, input ou cookie');
+        return '';
     }
 
     function getEmpresaId() {
@@ -114,7 +129,11 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        // ✅ DEBUG: Verificar quais elementos foram encontrados
+        
+        // ============================================================
+        // ELEMENTOS DO DOM + DEBUG
+        // ============================================================
+        
         const dropZone = document.getElementById("dropZone");
         const fileInput = document.getElementById("fileInput");
         const uploadForm = document.getElementById("uploadForm");
@@ -126,6 +145,13 @@
         const btnCancel = document.getElementById("btn-cancel");
         const historyList = document.getElementById("ultimosUploads");
         
+        // ✅ DEBUG: Verificar quais elementos foram encontrados
+        console.log('🔍 DEBUG DOM Elements:');
+        console.log('   dropZone:', dropZone ? '✅' : '❌');
+        console.log('   fileInput:', fileInput ? '✅' : '❌');
+        console.log('   uploadForm:', uploadForm ? '✅' : '❌');
+        console.log('   uploadResult:', uploadResult ? '✅' : '❌');
+        
         // ✅ DEBUG CSRF: Verificar se token está disponível
         const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
         const inputToken = document.querySelector('input[name="csrf_token"]')?.value;
@@ -133,7 +159,7 @@
         console.log('   meta[name="csrf-token"]:', metaToken ? '✅ presente' : '❌ ausente');
         console.log('   input[name="csrf_token"]:', inputToken ? '✅ presente' : '❌ ausente');
         console.log('   getCsrfToken() retorna:', getCsrfToken() ? '✅ token válido' : '❌ vazio');
-            
+        
         // ============================================================
         // DRAG & DROP + SELEÇÃO DE ARQUIVOS
         // ============================================================
@@ -191,7 +217,7 @@
                 handleFileSelection(e.target.files);
             });
 
-            // ✅ ✅ ✅ FUNÇÃO CORRIGIDA: handleFileSelection ✅ ✅ ✅
+            // ✅ FUNÇÃO: handleFileSelection (com checagem de duplicata no lugar certo)
             function handleFileSelection(files) {
                 const errors = [];
                 const validFiles = [];
@@ -202,10 +228,12 @@
                 }
 
                 newFiles.forEach(file => {
-                   if (operacoesState.selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    // Checagem de duplicata AQUI, ao adicionar novos arquivos
+                    if (operacoesState.selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
                         errors.push(`Arquivo já selecionado: ${file.name}`);
                         return;  // Pula para o próximo arquivo
                     }
+                    
                     const fileErrors = validarArquivo(file);
                     if (fileErrors.length) {
                         errors.push(...fileErrors);
@@ -228,15 +256,14 @@
                 if (validFiles.length) {
                     operacoesState.selectedFiles = [...operacoesState.selectedFiles, ...validFiles];
                     
-                    // ✅ ✅ ✅ CORREÇÃO CRÍTICA: Atualizar fileInput.files para o submit funcionar ✅ ✅ ✅
+                    // Atualizar fileInput.files para o submit funcionar
                     const dt = new DataTransfer();
                     operacoesState.selectedFiles.forEach(f => dt.items.add(f));
                     fileInput.files = dt.files;
-                    // ✅ ✅ ✅ FIM DA CORREÇÃO ✅ ✅ ✅
                     
                     updateFileList();
                 }
-
+                // ✅ REMOVIDO: fileInput.value = ''; (já corrigido anteriormente)
             }
             
             function updateFileList() {
@@ -288,147 +315,165 @@
             // UPLOAD COM PROGRESSO REAL
             // ============================================================
             
-            uploadForm.addEventListener("submit", async (e) => {
-                e.preventDefault();
-                
-                if (operacoesState.isProcessing) {
-                    console.log('⏳ Upload já em andamento');
-                    return;
-                }
+            // ✅ ✅ ✅ SUBMIT LISTENER: Anexar SEMPRE que uploadForm existir ✅ ✅ ✅
+            if (uploadForm) {
+                uploadForm.addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    
+                    // Verificar dependências críticas
+                    if (!fileInput) {
+                        console.error('❌ fileInput não encontrado');
+                        mostrarResultado('error', 'Erro de inicialização. Recarregue a página.');
+                        return;
+                    }
+                    
+                    if (operacoesState.isProcessing) {
+                        console.log('⏳ Upload já em andamento');
+                        return;
+                    }
 
-                const files = fileInput.files;
-                
-                if (!files || !files.length) {
-                    mostrarResultado('error', 'Nenhum arquivo selecionado.');
-                    return;
-                }
+                    const files = fileInput.files;
+                    
+                    if (!files || !files.length) {
+                        mostrarResultado('error', 'Nenhum arquivo selecionado.');
+                        return;
+                    }
 
-                const allErrors = [];
-                Array.from(files).forEach(f => {
-                    allErrors.push(...validarArquivo(f));
-                });
-                if (allErrors.length) {
-                    mostrarResultado('error', allErrors[0]);
-                    return;
-                }
-
-                operacoesState.isProcessing = true;
-                mostrarLoading();
-                
-                if (btnUpload) btnUpload.disabled = true;
-                if (btnCancel) btnCancel.style.display = 'inline-block';
-                if (dropZone) dropZone.style.pointerEvents = 'none';
-                if (fileInput) fileInput.disabled = true;
-
-                const tipoArquivo = document.querySelector('input[name="tipo_arquivo"]:checked')?.value || 'venda';
-
-                const formData = new FormData();
-                for (const f of files) formData.append("files", f);
-                formData.append("tipo_arquivo", tipoArquivo);
-
-                let xhr = null;
-                operacoesState.retryCount = 0;
-
-                async function tentarUpload() {
-                    return new Promise((resolve, reject) => {
-                        xhr = new XMLHttpRequest();
-                        operacoesState.uploadXHR = xhr;
-                        
-                        xhr.upload.addEventListener('progress', (e) => {
-                            if (e.lengthComputable && uploadProgress) {
-                                const percent = Math.round((e.loaded / e.total) * 100);
-                                updateProgress(percent, 'Enviando arquivos...');
-                            }
-                        });
-
-                        xhr.onload = () => {
-                            if (xhr.status === 200) {
-                                try {
-                                    const data = JSON.parse(xhr.responseText);
-                                    resolve(data);
-                                } catch (err) {
-                                    reject(new Error('Resposta inválida do servidor'));
-                                }
-                            } else if (xhr.status >= 500 && operacoesState.retryCount < operacoesState.MAX_RETRY) {
-                                operacoesState.retryCount++;
-                                const delay = Math.min(1000 * Math.pow(2, operacoesState.retryCount), 5000);
-                                console.log(`🔄 Retry ${operacoesState.retryCount}/${operacoesState.MAX_RETRY} em ${delay}ms...`);
-                                updateProgress(0, `Tentando novamente em ${delay/1000}s...`);
-                                setTimeout(() => tentarUpload().then(resolve).catch(reject), delay);
-                            } else {
-                                reject(new Error(`Erro HTTP: ${xhr.status}`));
-                            }
-                        };
-
-                        xhr.onerror = () => {
-                            if (operacoesState.retryCount < operacoesState.MAX_RETRY) {
-                                operacoesState.retryCount++;
-                                const delay = Math.min(1000 * Math.pow(2, operacoesState.retryCount), 5000);
-                                console.log(`🔄 Retry ${operacoesState.retryCount}/${operacoesState.MAX_RETRY} em ${delay}ms...`);
-                                updateProgress(0, `Tentando novamente em ${delay/1000}s...`);
-                                setTimeout(() => tentarUpload().then(resolve).catch(reject), delay);
-                            } else {
-                                reject(new Error('Erro de rede ao enviar arquivos'));
-                            }
-                        };
-
-                        xhr.onabort = () => {
-                            reject(new Error('Upload cancelado pelo usuário'));
-                        };
-
-                        xhr.open('POST', uploadForm.action || '/operacoes/upload');
-                        
-                        const csrfToken = getCsrfToken();
-                        if (csrfToken) {
-                            xhr.setRequestHeader('X-CSRF-Token', csrfToken);
-                        }
-                        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-                        xhr.send(formData);
+                    const allErrors = [];
+                    Array.from(files).forEach(f => {
+                        allErrors.push(...validarArquivo(f));
                     });
-                }
-
-                try {
-                    const data = await tentarUpload();
-                    handleUploadResponse(data);
-                    
-                } catch (err) {
-                    console.error("❌ Erro ao enviar arquivos:", err);
-                    
-                    let errorMsg = 'Erro ao enviar arquivos. Tente novamente.';
-                    if (err.message.includes('413')) {
-                        errorMsg = 'Arquivo muito grande. Máximo permitido: 10MB por arquivo.';
-                    } else if (err.message.includes('401')) {
-                        errorMsg = 'Sessão expirada. Faça login novamente.';
-                        setTimeout(() => window.location.href = '/auth/login?expired=1', 2000);
-                    } else if (err.message.includes('403')) {
-                        errorMsg = 'Acesso negado. Verifique suas permissões.';
-                    } else if (err.message.includes('timeout') || err.name === 'TimeoutError') {
-                        errorMsg = 'Conexão demorou muito. Verifique sua internet e tente novamente.';
-                    } else if (err.message.includes('cancelado')) {
-                        errorMsg = 'Upload cancelado.';
+                    if (allErrors.length) {
+                        mostrarResultado('error', allErrors[0]);
+                        return;
                     }
+
+                    operacoesState.isProcessing = true;
+                    mostrarLoading();
                     
-                    mostrarResultado('error', errorMsg);
-                    
-                } finally {
-                    operacoesState.isProcessing = false;
-                    operacoesState.uploadXHR = null;
-                    resetUploadUI();
-                    
-                    if (uploadResult?.querySelector('.nc-success')) {
-                        operacoesState.selectedFiles = [];
-                        updateFileList();
-                        fileInput.value = '';
-                        
-                        if (uploadForm) {
-                            uploadForm.querySelectorAll('input, button').forEach(el => {
-                                if (el.type !== 'hidden') el.disabled = true;
+                    if (btnUpload) btnUpload.disabled = true;
+                    if (btnCancel) btnCancel.style.display = 'inline-block';
+                    if (dropZone) dropZone.style.pointerEvents = 'none';
+                    if (fileInput) fileInput.disabled = true;
+
+                    const tipoArquivo = document.querySelector('input[name="tipo_arquivo"]:checked')?.value || 'venda';
+
+                    const formData = new FormData();
+                    for (const f of files) formData.append("files", f);
+                    formData.append("tipo_arquivo", tipoArquivo);
+
+                    let xhr = null;
+                    operacoesState.retryCount = 0;
+
+                    async function tentarUpload() {
+                        return new Promise((resolve, reject) => {
+                            xhr = new XMLHttpRequest();
+                            operacoesState.uploadXHR = xhr;
+                            
+                            xhr.upload.addEventListener('progress', (e) => {
+                                if (e.lengthComputable && uploadProgress) {
+                                    const percent = Math.round((e.loaded / e.total) * 100);
+                                    updateProgress(percent, 'Enviando arquivos...');
+                                }
                             });
+
+                            xhr.onload = () => {
+                                if (xhr.status === 200) {
+                                    try {
+                                        const data = JSON.parse(xhr.responseText);
+                                        resolve(data);
+                                    } catch (err) {
+                                        reject(new Error('Resposta inválida do servidor'));
+                                    }
+                                } else if (xhr.status >= 500 && operacoesState.retryCount < operacoesState.MAX_RETRY) {
+                                    operacoesState.retryCount++;
+                                    const delay = Math.min(1000 * Math.pow(2, operacoesState.retryCount), 5000);
+                                    console.log(`🔄 Retry ${operacoesState.retryCount}/${operacoesState.MAX_RETRY} em ${delay}ms...`);
+                                    updateProgress(0, `Tentando novamente em ${delay/1000}s...`);
+                                    setTimeout(() => tentarUpload().then(resolve).catch(reject), delay);
+                                } else {
+                                    reject(new Error(`Erro HTTP: ${xhr.status}`));
+                                }
+                            };
+
+                            xhr.onerror = () => {
+                                if (operacoesState.retryCount < operacoesState.MAX_RETRY) {
+                                    operacoesState.retryCount++;
+                                    const delay = Math.min(1000 * Math.pow(2, operacoesState.retryCount), 5000);
+                                    console.log(`🔄 Retry ${operacoesState.retryCount}/${operacoesState.MAX_RETRY} em ${delay}ms...`);
+                                    updateProgress(0, `Tentando novamente em ${delay/1000}s...`);
+                                    setTimeout(() => tentarUpload().then(resolve).catch(reject), delay);
+                                } else {
+                                    reject(new Error('Erro de rede ao enviar arquivos'));
+                                }
+                            };
+
+                            xhr.onabort = () => {
+                                reject(new Error('Upload cancelado pelo usuário'));
+                            };
+
+                            xhr.open('POST', uploadForm.action || '/operacoes/upload');
+                            
+                            // ✅ ✅ ✅ DEBUG CSRF: Confirmar envio do token ✅ ✅ ✅
+                            const csrfToken = getCsrfToken();
+                            console.log('🔍 DEBUG: Enviando CSRF token:', csrfToken ? '✅ presente (' + csrfToken.substring(0, 10) + '...)' : '❌ vazio');
+                            
+                            if (csrfToken) {
+                                xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+                                console.log('✅ Header X-CSRF-Token anexado');
+                            } else {
+                                console.error('❌ CSRF token vazio - request pode ser rejeitado');
+                            }
+                            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+                            xhr.send(formData);
+                        });
+                    }
+
+                    try {
+                        const data = await tentarUpload();
+                        handleUploadResponse(data);
+                        
+                    } catch (err) {
+                        console.error("❌ Erro ao enviar arquivos:", err);
+                        
+                        let errorMsg = 'Erro ao enviar arquivos. Tente novamente.';
+                        if (err.message.includes('413')) {
+                            errorMsg = 'Arquivo muito grande. Máximo permitido: 10MB por arquivo.';
+                        } else if (err.message.includes('401')) {
+                            errorMsg = 'Sessão expirada. Faça login novamente.';
+                            setTimeout(() => window.location.href = '/auth/login?expired=1', 2000);
+                        } else if (err.message.includes('403')) {
+                            errorMsg = 'Acesso negado. Verifique suas permissões.';
+                        } else if (err.message.includes('timeout') || err.name === 'TimeoutError') {
+                            errorMsg = 'Conexão demorou muito. Verifique sua internet e tente novamente.';
+                        } else if (err.message.includes('cancelado')) {
+                            errorMsg = 'Upload cancelado.';
+                        }
+                        
+                        mostrarResultado('error', errorMsg);
+                        
+                    } finally {
+                        operacoesState.isProcessing = false;
+                        operacoesState.uploadXHR = null;
+                        resetUploadUI();
+                        
+                        if (uploadResult?.querySelector('.nc-success')) {
+                            operacoesState.selectedFiles = [];
+                            updateFileList();
+                            fileInput.value = '';
+                            
+                            if (uploadForm) {
+                                uploadForm.querySelectorAll('input, button').forEach(el => {
+                                    if (el.type !== 'hidden') el.disabled = true;
+                                });
+                            }
                         }
                     }
-                }
-            });
+                });
+            } else {
+                console.error('❌ uploadForm não encontrado - submit listener não anexado');
+            }
 
             if (btnCancel) {
                 btnCancel.addEventListener('click', () => {
@@ -545,15 +590,13 @@
                 uploadResult.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
             
-            // static/js/operacoes.js - Função carregarHistoricoUploads()
-            
+            // Função carregarHistoricoUploads()
             function carregarHistoricoUploads() {
                 if (!historyList) return;
                 
                 historyList.innerHTML = '<p class="nc-muted">Carregando histórico...</p>';
                 
-                // ✅ ✅ ✅ CORREÇÃO: URL deve bater com o blueprint prefix ✅ ✅ ✅
-                fetch('/operacoes/api/ultimos-uploads')  // ← ANTES: '/api/operacoes/ultimos-uploads'
+                fetch('/operacoes/api/ultimos-uploads')
                     .then(r => r.json())
                     .then(data => {
                         if (data.ok && data.uploads && data.uploads.length > 0) {
