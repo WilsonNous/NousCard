@@ -1,26 +1,23 @@
-# ============================================================
-#  REQUIREMENTS • NousCard (PRODUÇÃO)
-#  Versões testadas e compatíveis em: 2026-03-16
-# ============================================================
+# requirements.txt - CORREÇÃO DE COMPATIBILIDADE
 
 # ============================================================
-# CORE FLASK
+# CORE FLASK (DOWNGRADE PARA COMPATIBILIDADE)
 # ============================================================
-Flask==3.0.0
-Werkzeug==3.0.1
-Jinja2==3.1.4  # ✅ Atualizado para patch de segurança
+Flask==2.3.3  # ✅ Última versão 2.x compatível com Flask-SQLAlchemy 2.5.1
+Werkzeug==2.3.7  # ✅ Compatível com Flask 2.3.3
+Jinja2==3.1.4
 itsdangerous==2.1.2
-MarkupSafe==2.1.5  # ✅ Atualizado
+MarkupSafe==2.1.5
 click==8.1.7
-blinker==1.7.0  # ✅ Necessário para Flask 3.x
+blinker==1.7.0
 
 # ============================================================
-# BANCO DE DADOS (CORRIGIDO: Versões Compatíveis)
+# BANCO DE DADOS (MANTER VERSÕES ESTÁVEIS)
 # ============================================================
-# ✅ OPÇÃO A: Manter SQLAlchemy 1.4.x LTS (Recomendado para estabilidade)
-Flask-SQLAlchemy==2.5.1  # ✅ Última versão compatível com SQLAlchemy 1.4
+Flask-SQLAlchemy==2.5.1  # ✅ Compatível com Flask 2.3.x + SQLAlchemy 1.4.x
 SQLAlchemy==1.4.50
 PyMySQL==1.1.0
+python-dotenv==1.0.1
 Flask-Migrate==4.0.5
 
 # # ✅ OPÇÃO B: Migrar para SQLAlchemy 2.x (Se quiser recursos novos)
