@@ -174,7 +174,14 @@
         O NousCard cruza vendas e recebimentos automaticamente.
     </p>
     
-    <form id="uploadForm" class="nc-upload-form" method="POST" enctype="multipart/form-data" novalidate>
+    <!-- ✅ CORREÇÃO: Adicionado action explícito para fallback seguro -->
+    <form id="uploadForm" 
+          class="nc-upload-form" 
+          method="POST" 
+          enctype="multipart/form-data" 
+          novalidate
+          action="{{ url_for('operacoes.upload_arquivos') }}">
+        
         <!-- ✅ CRÍTICO: Token CSRF -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         
@@ -273,7 +280,11 @@
         <div class="nc-warning" style="margin-top: 1rem; padding: 1rem; background: var(--warning-bg); border: 1px solid var(--warning-border); border-radius: 8px; color: #856404;">
             ⚠️ JavaScript está desabilitado. Use o formulário simplificado abaixo:
         </div>
-        <form method="POST" enctype="multipart/form-data" style="margin-top: 1rem; padding: 1rem; background: var(--gray-light); border-radius: 8px;">
+        <!-- ✅ CORREÇÃO: Também adicionar action no fallback noscript -->
+        <form method="POST" 
+              enctype="multipart/form-data" 
+              action="{{ url_for('operacoes.upload_arquivos') }}"
+              style="margin-top: 1rem; padding: 1rem; background: var(--gray-light); border-radius: 8px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="radio" name="tipo_arquivo" value="venda" checked> Vendas
             <input type="radio" name="tipo_arquivo" value="banco"> Banco
