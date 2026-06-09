@@ -2,45 +2,325 @@
 
 {% block title %}Contratos de Taxas - NousCard{% endblock %}
 
+{% block extra_head %}
+<!-- ✅ NOVO: Estilos específicos para lista de contratos -->
+<style>
+    /* Colunas numéricas alinhadas à direita */
+    .nc-table td.taxa,
+    .nc-table th.taxa,
+    .nc-table td.tarifa,
+    .nc-table th.tarifa {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+    
+    /* Badge de status */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .status-ativo { background: #dcfce7; color: #166534; }
+    .status-vencido { background: #fee2e2; color: #991b1b; }
+    .status-indeterminado { background: #fef3c7; color: #92400e; }
+    
+    /* Busca na lista */
+    .list-search {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .list-search input {
+        flex: 1;
+        min-width: 200px;
+        max-width: 400px;
+    }
+    
+    /* Ações da tabela */
+    .table-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+    .table-actions .nc-btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Truncamento de texto longo */
+    .truncate {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="nc-section">
     <div class="nc-section-header">
         <h2>📜 Contratos de Taxas</h2>
-        <a href="{{ url_for('contrato.novo_contrato') }}" class="nc-btn nc-btn-primary">+ Novo Contrato</a>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if contratos %}
+            <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" onclick="exportarContratosCSV()">
+                📥 Exportar
+            </button>
+            {% endif %}
+            <a href="{{ url_for('contrato.novo_contrato') }}" class="nc-btn nc-btn-primary">
+                ➕ Novo Contrato
+            </a>
+        </div>
     </div>
     
+    <p class="nc-muted">
+        Cadastre as taxas das suas adquirentes para auditoria precisa e comparação com valores cobrados.
+    </p>
+    
     {% if contratos %}
-        <table class="nc-table">
-            <thead>
-                <tr>
-                    <th scope="col">Adquirente</th>
-                    <th scope="col">Bandeira</th>
-                    <th scope="col">Produto</th>
-                    <th scope="col">Taxa %</th>
-                    <th scope="col">Tarifa Fixa</th>
-                    <th scope="col">Vigência</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in contratos %}
-                <tr>
-                    <td>{{ c.adquirente.nome if c.adquirente else "—" }}</td>
-                    <td>{{ c.bandeira or "—" }}</td>
-                    <td>{{ c.produto or "—" }}</td>
-                    <td>{{ c.taxa_percentual }}%</td>
-                    <td>R$ {{ c.tarifa_fixa or "0,00" }}</td>
-                    <td>{{ c.vigencia_inicio.strftime("%d/%m/%Y") if c.vigencia_inicio else "—" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- ✅ NOVO: Busca na lista -->
+        <div class="list-search">
+            <label for="contratoSearch" class="nc-form-label">🔍 Buscar:</label>
+            <input type="search" id="contratoSearch" class="nc-form-input" placeholder="Adquirente, bandeira, produto..." onkeyup="filtrarContratos()">
+            <small class="nc-muted" id="searchCount"></small>
+        </div>
+        
+        <div class="nc-table-container" style="overflow-x: auto;">
+            <table class="nc-table" role="table" aria-label="Lista de contratos de taxas">
+                <thead>
+                    <tr>
+                        <th scope="col">Adquirente</th>
+                        <th scope="col">Bandeira</th>
+                        <th scope="col">Produto</th>
+                        <th scope="col" class="taxa">Taxa %</th>
+                        <th scope="col" class="tarifa">Tarifa Fixa</th>
+                        <th scope="col">Vigência</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="contratosTableBody">
+                    {% for c in contratos %}
+                    {# ✅ Calcular status baseado na vigência #}
+                    {% set hoje = now.date() if now else None %}
+                    {% set vigencia_fim = c.vigencia_fim.date() if c.vigencia_fim else None %}
+                    
+                    {% if vigencia_fim and vigencia_fim < hoje %}
+                        {% set status_class = 'status-vencido' %}
+                        {% set status_text = '⚠️ Vencido' %}
+                    {% elif vigencia_fim %}
+                        {% set status_class = 'status-ativo' %}
+                        {% set status_text = '✅ Ativo' %}
+                    {% else %}
+                        {% set status_class = 'status-indeterminado' %}
+                        {% set status_text = '📍 Indeterminado' %}
+                    {% endif %}
+                    
+                    <tr data-adquirente="{{ c.adquirente.nome | lower | e if c.adquirente else '' }}" 
+                        data-bandeira="{{ c.bandeira | lower | e if c.bandeira else '' }}" 
+                        data-produto="{{ c.produto | lower | e if c.produto else '' }}">
+                        <td class="truncate" title="{{ c.adquirente.nome | e if c.adquirente else '' }}">
+                            {{ c.adquirente.nome | e if c.adquirente else "—" }}
+                        </td>
+                        <td>{{ c.bandeira | e if c.bandeira else "—" }}</td>
+                        <td>{{ c.produto | e if c.produto else "Todos" }}</td>
+                        {# ✅ CORREÇÃO: Formatação de moeda e porcentagem #}
+                        <td class="taxa">{{ c.taxa_percentual | round(2) }}%</td>
+                        <td class="tarifa">R$ {{ c.tarifa_fixa | currency_br if c.tarifa_fixa else '0,00' }}</td>
+                        <td>
+                            {% if c.vigencia_inicio %}
+                                {{ c.vigencia_inicio.strftime("%d/%m/%Y") }}
+                                {% if c.vigencia_fim %} até {{ c.vigencia_fim.strftime("%d/%m/%Y") }}{% endif %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {{ status_class }}">
+                                {{ status_text }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <a href="{{ url_for('contrato.editar_contrato', contrato_id=c.id) }}" 
+                                   class="nc-btn nc-btn-sm nc-btn-outline"
+                                   aria-label="Editar contrato de {{ c.adquirente.nome | e if c.adquirente else 'desconhecida' }}">
+                                    ✏️
+                                </a>
+                                <button type="button" 
+                                        class="nc-btn nc-btn-sm nc-btn-danger"
+                                        onclick="confirmarExclusao({{ c.id }}, '{{ c.adquirente.nome | e if c.adquirente else '' }}')"
+                                        aria-label="Excluir contrato de {{ c.adquirente.nome | e if c.adquirente else 'desconhecida' }}">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
     {% else %}
         <div class="nc-empty-state">
             <span aria-hidden="true">📜</span>
             <h3>Nenhum contrato cadastrado</h3>
-            <p>Cadastre as taxas das suas adquirentes para cálculo preciso.</p>
-            <a href="{{ url_for('contrato.novo_contrato') }}" class="nc-btn nc-btn-primary">+ Novo Contrato</a>
+            <p>Cadastre as taxas das suas adquirentes para habilitar a auditoria automática de taxas e comparação com valores cobrados.</p>
+            <a href="{{ url_for('contrato.novo_contrato') }}" class="nc-btn nc-btn-primary">➕ Novo Contrato</a>
         </div>
     {% endif %}
 </section>
+
+<!-- ✅ NOVO: Modal de confirmação de exclusão -->
+<div id="modalExclusaoContrato" class="nc-modal" style="display: none;" role="dialog" aria-modal="true">
+    <div class="nc-modal-backdrop"></div>
+    <div class="nc-modal-content">
+        <div class="nc-modal-header">
+            <h3>Confirmar Exclusão</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalExclusao()">✕</button>
+        </div>
+        <div class="nc-modal-body">
+            <p>Tem certeza que deseja excluir o contrato da adquirente <strong id="exclusaoAdquirente"></strong>?</p>
+            <p class="nc-muted">
+                <strong>Atenção:</strong> Esta ação não pode ser desfeita. O contrato será removido permanentemente.
+            </p>
+            <input type="hidden" id="exclusaoContratoId">
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalExclusao()">Cancelar</button>
+            <button type="button" class="nc-btn nc-btn-danger" id="btnConfirmarExclusao">🗑️ Excluir Permanentemente</button>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ NOVO: Scripts para funcionalidades da lista -->
+{% if contratos %}
+<script>
+// Dados para busca/exportação
+const todosContratos = {{ contratos | tojson }};
+
+// ✅ Filtro de busca na lista
+function filtrarContratos() {
+    const termo = document.getElementById('contratoSearch').value.toLowerCase();
+    const tbody = document.getElementById('contratosTableBody');
+    const rows = tbody.querySelectorAll('tr');
+    let visiveis = 0;
+    
+    rows.forEach(row => {
+        const adquirente = row.dataset.adquirente || '';
+        const bandeira = row.dataset.bandeira || '';
+        const produto = row.dataset.produto || '';
+        const match = adquirente.includes(termo) || bandeira.includes(termo) || produto.includes(termo);
+        row.style.display = match ? '' : 'none';
+        if (match) visiveis++;
+    });
+    
+    // Atualizar contador
+    const total = rows.length;
+    document.getElementById('searchCount').textContent = 
+        termo ? `${visiveis}/${total} encontrados` : '';
+}
+
+// ✅ Exportar lista para CSV
+function exportarContratosCSV() {
+    const termo = document.getElementById('contratoSearch')?.value.toLowerCase() || '';
+    
+    // Filtrar contratos visíveis
+    const dados = todosContratos.filter(c => {
+        if (!termo) return true;
+        return (c.adquirente?.nome?.toLowerCase() || '').includes(termo) ||
+               (c.bandeira?.toLowerCase() || '').includes(termo) ||
+               (c.produto?.toLowerCase() || '').includes(termo);
+    });
+    
+    if (!dados.length) {
+        alert('Nenhum contrato para exportar.');
+        return;
+    }
+    
+    // Cabeçalhos
+    const headers = ['Adquirente', 'Bandeira', 'Produto', 'Taxa %', 'Tarifa Fixa (R$)', 'Vigência Início', 'Vigência Fim', 'Status'];
+    const csv = [
+        headers.join(';'),
+        ...dados.map(c => [
+            `"${c.adquirente?.nome?.replace(/"/g, '""') || ''}"`,
+            c.bandeira || 'Todas',
+            c.produto || 'Todos',
+            c.taxa_percentual || 0,
+            c.tarifa_fixa || 0,
+            c.vigencia_inicio || '',
+            c.vigencia_fim || 'Indeterminado',
+            (c.vigencia_fim && new Date(c.vigencia_fim) < new Date()) ? 'Vencido' : 'Ativo'
+        ].join(';'))
+    ].join('\n');
+    
+    // Download
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'contratos_taxas.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ✅ Confirmar exclusão
+function confirmarExclusao(contratoId, adquirenteNome) {
+    const modal = document.getElementById('modalExclusaoContrato');
+    document.getElementById('exclusaoContratoId').value = contratoId;
+    document.getElementById('exclusaoAdquirente').textContent = adquirenteNome || 'desconhecida';
+    modal.style.display = 'block';
+    document.getElementById('btnConfirmarExclusao').focus();
+}
+
+function fecharModalExclusao() {
+    document.getElementById('modalExclusaoContrato').style.display = 'none';
+}
+
+// ✅ Handler para confirmação de exclusão
+document.addEventListener('DOMContentLoaded', function() {
+    const btnConfirmar = document.getElementById('btnConfirmarExclusao');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', function() {
+            const contratoId = document.getElementById('exclusaoContratoId').value;
+            // Em produção, fazer request AJAX para excluir
+            // Por enquanto, redirecionar para rota de exclusão
+            window.location.href = `/contratos/${contratoId}/excluir`;
+        });
+    }
+    
+    // Fechar modal com Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            fecharModalExclusao();
+        }
+    });
+    
+    // Trap de foco no modal
+    const modal = document.getElementById('modalExclusaoContrato');
+    if (modal) {
+        modal.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                const focusable = this.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+    }
+});
+</script>
+{% endif %}
 {% endblock %}
