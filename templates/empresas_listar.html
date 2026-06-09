@@ -4,72 +4,300 @@
 
 {% block extra_head %}
 <style>
+    /* ============================================================
+       CARDS DE ESTATÍSTICAS
+       ============================================================ */
     .empresas-stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
         margin-bottom: 1.5rem;
     }
     .stat-card {
-        background: var(--gray-lightest);
-        padding: 1rem;
-        border-radius: 8px;
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 10px;
+        padding: 1rem 0.75rem;
         text-align: center;
-        border-left: 4px solid var(--primary);
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        border-radius: 10px 10px 0 0;
+    }
+    .stat-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .stat-card .stat-icon {
+        font-size: 1.25rem;
+        margin-bottom: 0.35rem;
     }
     .stat-card .value {
         font-size: 1.5rem;
-        font-weight: bold;
-        color: var(--primary);
+        font-weight: 700;
+        color: var(--text-dark);
+        line-height: 1.2;
     }
     .stat-card .label {
-        font-size: 0.875rem;
+        font-size: 0.75rem;
         color: var(--gray-dark);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.15rem;
     }
-    .stat-card.active { border-left-color: #16a34a; }
-    .stat-card.active .value { color: #16a34a; }
-    .stat-card.inactive { border-left-color: #dc2626; }
-    .stat-card.inactive .value { color: #dc2626; }
+    .stat-card.total::before { background: var(--primary); }
+    .stat-card.total .value { color: var(--primary); }
+    .stat-card.active::before { background: #48bb78; }
+    .stat-card.active .value { color: #48bb78; }
+    .stat-card.inactive::before { background: #fc8181; }
+    .stat-card.inactive .value { color: #fc8181; }
+    .stat-card.users::before { background: #667eea; }
+    .stat-card.users .value { color: #667eea; }
     
+    /* ============================================================
+       BARRA DE CONTROLES (BUSCA + FILTROS)
+       ============================================================ */
     .list-controls {
         display: flex;
         gap: 0.5rem;
         margin-bottom: 1rem;
         flex-wrap: wrap;
         align-items: center;
+        padding: 0.75rem;
+        background: var(--gray-lightest);
+        border-radius: 8px;
+        border: 1px solid var(--gray-border);
+    }
+    .list-controls label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        color: var(--text-dark);
     }
     .list-controls input,
     .list-controls select {
         flex: 1;
-        min-width: 150px;
-        max-width: 300px;
+        min-width: 140px;
+        max-width: 280px;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        transition: border-color 0.2s;
+    }
+    .list-controls input:focus,
+    .list-controls select:focus {
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    .search-count {
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-left: auto;
     }
     
+    /* ============================================================
+       TABELA
+       ============================================================ */
+    .nc-table-container {
+        overflow-x: auto;
+        border-radius: 10px;
+        border: 1px solid var(--gray-border);
+        background: var(--white);
+    }
+    .nc-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .nc-table thead {
+        background: var(--gray-lightest);
+    }
+    .nc-table th {
+        padding: 0.75rem 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-dark);
+        text-align: left;
+        border-bottom: 2px solid var(--gray-border);
+        white-space: nowrap;
+    }
+    .nc-table td {
+        padding: 0.7rem 0.75rem;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #edf2f7;
+        vertical-align: middle;
+    }
+    .nc-table tbody tr {
+        transition: background 0.15s ease;
+    }
+    .nc-table tbody tr:hover {
+        background: #f7fafc;
+    }
+    .nc-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Linha da empresa atual */
+    .nc-row-current {
+        background: #ebf8ff !important;
+        border-left: 3px solid var(--primary);
+    }
+    
+    /* ============================================================
+       COLUNAS ORDENÁVEIS
+       ============================================================ */
     .sortable {
         cursor: pointer;
         user-select: none;
+        position: relative;
+        padding-right: 1.5rem !important;
     }
     .sortable:hover {
-        background: var(--gray-lightest);
+        color: var(--primary);
     }
     .sortable .sort-icon {
-        margin-left: 0.25rem;
-        opacity: 0.5;
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.4;
+        font-size: 0.7rem;
     }
-    .sortable.asc .sort-icon::after { content: "▲"; }
-    .sortable.desc .sort-icon::after { content: "▼"; }
+    .sortable.asc .sort-icon::after { content: "▲"; opacity: 1; }
+    .sortable.desc .sort-icon::after { content: "▼"; opacity: 1; }
     
+    /* ============================================================
+       STATUS BADGE
+       ============================================================ */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.25rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .status-badge.ativo {
+        background: #f0fff4;
+        color: #22543d;
+    }
+    .status-badge.inativo {
+        background: #fff5f5;
+        color: #742a2a;
+    }
+    
+    /* ============================================================
+       AÇÕES
+       ============================================================ */
     .nc-table-actions {
         display: flex;
-        gap: 0.25rem;
+        gap: 0.3rem;
         justify-content: flex-end;
+        flex-wrap: nowrap;
     }
-
-    /* ✅ Melhoria: feedback visual para busca vazia */
-    .no-results {
-        text-align: center;
-        padding: 2rem;
+    .action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-size: 0.9rem;
+        text-decoration: none;
+    }
+    .action-btn.edit {
+        background: #ebf8ff;
+        color: #2b6cb0;
+        border-color: #bee3f8;
+    }
+    .action-btn.edit:hover { background: #bee3f8; }
+    .action-btn.view {
+        background: #faf5ff;
+        color: #6b46c1;
+        border-color: #e9d8fd;
+    }
+    .action-btn.view:hover { background: #e9d8fd; }
+    .action-btn.delete {
+        background: #fff5f5;
+        color: #c53030;
+        border-color: #fed7d7;
+    }
+    .action-btn.delete:hover { background: #fed7d7; }
+    
+    /* ============================================================
+       PAGINAÇÃO
+       ============================================================ */
+    .nc-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+        padding: 0.75rem;
+    }
+    .nc-page-info {
+        font-size: 0.85rem;
         color: var(--gray-dark);
+        font-weight: 500;
+    }
+    
+    /* ============================================================
+       EMPTY STATE
+       ============================================================ */
+    .nc-empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        background: var(--white);
+        border-radius: 10px;
+        border: 2px dashed var(--gray-border);
+    }
+    .nc-empty-state .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    .nc-empty-state h3 {
+        color: var(--text-dark);
+        margin-bottom: 0.5rem;
+    }
+    .nc-empty-state p {
+        color: var(--gray-dark);
+        margin-bottom: 1.5rem;
+    }
+    
+    /* ============================================================
+       RESPONSIVO
+       ============================================================ */
+    @media (max-width: 768px) {
+        .empresas-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .list-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .list-controls input,
+        .list-controls select {
+            max-width: 100%;
+        }
+        .nc-table th:nth-child(5),
+        .nc-table td:nth-child(5) {
+            display: none;
+        }
     }
 </style>
 {% endblock %}
@@ -94,7 +322,7 @@
             <div style="display: flex; gap: 0.5rem;">
                 {% if empresas and empresas.items %}
                 <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" onclick="exportarEmpresasCSV()">
-                    📥 Exportar
+                    📥 Exportar CSV
                 </button>
                 {% endif %}
                 <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
@@ -102,64 +330,71 @@
         </div>
         
         {% if empresas and empresas.items %}
+            <!-- Cards de estatísticas -->
             <div class="empresas-stats">
-                <div class="stat-card">
+                <div class="stat-card total">
+                    <div class="stat-icon">🏢</div>
                     <div class="value">{{ empresas.total }}</div>
                     <div class="label">Total</div>
                 </div>
                 <div class="stat-card active">
+                    <div class="stat-icon">✅</div>
                     <div class="value">{{ empresas.items | selectattr('ativo') | list | length }}</div>
                     <div class="label">Ativas</div>
                 </div>
                 <div class="stat-card inactive">
+                    <div class="stat-icon">⏸️</div>
                     <div class="value">{{ empresas.items | rejectattr('ativo') | list | length }}</div>
                     <div class="label">Inativas</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card users">
+                    <div class="stat-icon">👥</div>
                     <div class="value">{{ total_usuarios | default(0) }}</div>
                     <div class="label">Usuários Total</div>
                 </div>
             </div>
             
+            <!-- Controles de busca e filtro -->
             <div class="list-controls">
-                <label for="empresaSearch" class="nc-form-label" style="white-space: nowrap;">🔍 Buscar:</label>
-                <input type="search" id="empresaSearch" class="nc-form-input" 
-                       placeholder="Nome ou documento..." 
+                <label for="empresaSearch">🔍</label>
+                <input type="search" id="empresaSearch" 
+                       placeholder="Buscar por nome ou documento..." 
                        onkeyup="filtrarEmpresas()"
                        aria-label="Buscar empresas por nome ou documento">
                 
-                <label for="filtroStatus" class="nc-form-label" style="white-space: nowrap;">Status:</label>
-                <select id="filtroStatus" class="nc-form-input" onchange="filtrarEmpresas()" aria-label="Filtrar por status">
+                <label for="filtroStatus">Status:</label>
+                <select id="filtroStatus" onchange="filtrarEmpresas()" aria-label="Filtrar por status">
                     <option value="">Todos</option>
                     <option value="ativo">Ativas</option>
                     <option value="inativo">Inativas</option>
                 </select>
                 
-                <small class="nc-muted" id="searchCount" aria-live="polite"></small>
+                <span class="search-count" id="searchCount" aria-live="polite"></span>
             </div>
             
-            <div class="nc-table-container" style="overflow-x: auto;">
+            <!-- Tabela -->
+            <div class="nc-table-container">
                 <table class="nc-table" role="table" aria-label="Lista de empresas cadastradas">
                     <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas cadastradas.</caption>
                     <thead>
                         <tr>
                             <th scope="col" class="sortable" onclick="ordenarTabela('id')" aria-sort="none">
-                                ID <span class="sort-icon" aria-hidden="true"></span>
+                                ID <span class="sort-icon"></span>
                             </th>
                             <th scope="col" class="sortable" onclick="ordenarTabela('nome')" aria-sort="none">
-                                Nome <span class="sort-icon" aria-hidden="true"></span>
+                                Nome <span class="sort-icon"></span>
                             </th>
                             <th scope="col" class="sortable" onclick="ordenarTabela('documento')" aria-sort="none">
-                                Documento <span class="sort-icon" aria-hidden="true"></span>
+                                Documento <span class="sort-icon"></span>
                             </th>
                             <th scope="col" class="sortable" onclick="ordenarTabela('ativo')" aria-sort="none">
-                                Status <span class="sort-icon" aria-hidden="true"></span>
+                                Status <span class="sort-icon"></span>
                             </th>
                             <th scope="col" class="sortable" onclick="ordenarTabela('criado_em')" aria-sort="none">
-                                Criada em <span class="sort-icon" aria-hidden="true"></span>
+                                Criada em <span class="sort-icon"></span>
                             </th>
                             <th scope="col">Usuários</th>
-                            <th scope="col" class="nc-sr-only">Ações</th>
+                            <th scope="col" style="text-align:right;">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="empresasTableBody">
@@ -168,39 +403,45 @@
                             data-nome="{{ e.nome | lower | e }}" 
                             data-documento="{{ (e.documento or '') | lower | e }}" 
                             data-status="{{ 'ativo' if e.ativo else 'inativo' }}">
-                            <td>{{ e.id }}</td>
-                            <td><strong>{{ e.nome | e }}</strong></td>
-                            <td>{{ e.documento | e if e.documento else "-" }}</td>
+                            <td><span style="color:var(--gray-dark);font-weight:600;">#{{ e.id }}</span></td>
                             <td>
-                                <span class="nc-status nc-status-{{ 'active' if e.ativo else 'inactive' }}">
-                                    <span aria-hidden="true">{{ "✅" if e.ativo else "⏸️" }}</span>
-                                    {{ "Ativa" if e.ativo else "Inativa" }}
+                                <strong>{{ e.nome | e }}</strong>
+                                {% if e.id == session.get('empresa_id') %}
+                                <span style="font-size:0.7rem;color:var(--primary);margin-left:0.5rem;">(atual)</span>
+                                {% endif %}
+                            </td>
+                            <td><code style="font-size:0.85rem;">{{ e.documento | e if e.documento else "—" }}</code></td>
+                            <td>
+                                <span class="status-badge {{ 'ativo' if e.ativo else 'inativo' }}">
+                                    {{ "✅ Ativa" if e.ativo else "⏸️ Inativa" }}
                                 </span>
                             </td>
-                            <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "-" }}</td>
-                            <td>{{ e.total_usuarios | default(0) }}</td>
-                            <td class="nc-table-actions">
-                                <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}" 
-                                   class="nc-btn nc-btn-sm nc-btn-outline"
-                                   aria-label="Editar empresa {{ e.nome | e }}"
-                                   title="Editar">
-                                    <span aria-hidden="true">✏️</span>
-                                </a>
-                                <a href="{{ url_for('empresas.empresa_detalhe', empresa_id=e.id) }}" 
-                                   class="nc-btn nc-btn-sm nc-btn-secondary"
-                                   aria-label="Ver detalhes da empresa {{ e.nome | e }}"
-                                   title="Ver detalhes">
-                                    <span aria-hidden="true">👁️</span>
-                                </a>
-                                {% if not e.ativo or empresas.items | length > 1 %}
-                                <button type="button"
-                                        class="nc-btn nc-btn-sm nc-btn-danger"
-                                        onclick="confirmarExclusao({{ e.id }}, '{{ e.nome | e }}')"
-                                        aria-label="Excluir empresa {{ e.nome | e }}"
-                                        title="Excluir">
-                                    <span aria-hidden="true">🗑️</span>
-                                </button>
-                                {% endif %}
+                            <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "—" }}</td>
+                            <td style="text-align:center;">{{ e.total_usuarios | default(0) }}</td>
+                            <td>
+                                <div class="nc-table-actions">
+                                    <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}" 
+                                       class="action-btn edit"
+                                       aria-label="Editar {{ e.nome | e }}"
+                                       title="Editar empresa">
+                                        ✏️
+                                    </a>
+                                    <a href="{{ url_for('empresas.empresa_detalhe', empresa_id=e.id) }}" 
+                                       class="action-btn view"
+                                       aria-label="Ver detalhes de {{ e.nome | e }}"
+                                       title="Ver detalhes">
+                                        👁️
+                                    </a>
+                                    {% if not e.ativo or empresas.items | length > 1 %}
+                                    <button type="button"
+                                            class="action-btn delete"
+                                            onclick="confirmarExclusao({{ e.id }}, '{{ e.nome | e }}')"
+                                            aria-label="Excluir {{ e.nome | e }}"
+                                            title="Excluir empresa">
+                                        🗑️
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -208,10 +449,11 @@
                 </table>
             </div>
             
+            <!-- Paginação -->
             {% if empresas.pages > 1 %}
             <nav class="nc-pagination" role="navigation" aria-label="Paginação de empresas">
                 {% if empresas.has_prev %}
-                <a href="{{ build_pagination_url(empresas.page - 1) }}" class="nc-btn nc-btn-sm" aria-label="Página anterior">← Anterior</a>
+                <a href="{{ build_pagination_url(empresas.page - 1) }}" class="nc-btn nc-btn-sm nc-btn-outline" aria-label="Página anterior">← Anterior</a>
                 {% endif %}
                 
                 <span class="nc-page-info" aria-current="page">
@@ -219,14 +461,14 @@
                 </span>
                 
                 {% if empresas.has_next %}
-                <a href="{{ build_pagination_url(empresas.page + 1) }}" class="nc-btn nc-btn-sm" aria-label="Próxima página">Próxima →</a>
+                <a href="{{ build_pagination_url(empresas.page + 1) }}" class="nc-btn nc-btn-sm nc-btn-outline" aria-label="Próxima página">Próxima →</a>
                 {% endif %}
             </nav>
             {% endif %}
             
         {% else %}
             <div class="nc-empty-state" role="status">
-                <span aria-hidden="true">🏢</span>
+                <div class="empty-icon">🏢</div>
                 <h3>Nenhuma empresa cadastrada</h3>
                 <p>Comece cadastrando a primeira empresa do sistema.</p>
                 <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
@@ -240,7 +482,7 @@
     <div class="nc-modal-backdrop" onclick="fecharModalExclusao()"></div>
     <div class="nc-modal-content">
         <div class="nc-modal-header">
-            <h3 id="modalExclusaoTitulo">Confirmar Exclusão</h3>
+            <h3 id="modalExclusaoTitulo">🗑️ Confirmar Exclusão</h3>
             <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalExclusao()">✕</button>
         </div>
         <div class="nc-modal-body">
@@ -253,7 +495,6 @@
                     <li>Impedir novos acessos à empresa</li>
                 </ul>
             </div>
-            <!-- ✅ Formulário real para exclusão (substitui redirect via JS) -->
             <form id="formExclusao" method="POST" action="/empresas/0/excluir" style="display: none;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="confirmar_exclusao" value="sim">
@@ -269,12 +510,12 @@
 {% if empresas and empresas.items %}
 <script>
 // ============================================================
-// ✅ CORRIGIDO: Dados serializados vindos do backend
+// Dados serializados do backend
 // ============================================================
 const empresasJSON = {{ empresas_json | tojson }};
 
 // ============================================================
-// Filtro de busca na lista
+// Filtro de busca
 // ============================================================
 function filtrarEmpresas() {
     const termo = document.getElementById('empresaSearch').value.toLowerCase().trim();
@@ -301,17 +542,16 @@ function filtrarEmpresas() {
     
     if (termo || statusFiltro) {
         countEl.textContent = visiveis > 0 ? 
-            `${visiveis}/${total} encontradas` : 
-            'Nenhuma empresa encontrada';
-        countEl.style.color = visiveis === 0 ? '#dc2626' : '';
+            `${visiveis} de ${total} empresa(s)` : 
+            'Nenhuma encontrada';
+        countEl.style.color = visiveis === 0 ? '#dc2626' : 'var(--gray-dark)';
     } else {
         countEl.textContent = '';
-        countEl.style.color = '';
     }
 }
 
 // ============================================================
-// Ordenação por coluna (frontend, não afeta servidor)
+// Ordenação da tabela (frontend)
 // ============================================================
 let ordemAtual = { coluna: 'id', direcao: 'desc' };
 
@@ -343,8 +583,8 @@ function ordenarTabela(coluna) {
         
         switch(coluna) {
             case 'id':
-                valA = parseInt(a.cells[0].textContent);
-                valB = parseInt(b.cells[0].textContent);
+                valA = parseInt(a.cells[0].textContent.replace('#', ''));
+                valB = parseInt(b.cells[0].textContent.replace('#', ''));
                 break;
             case 'nome':
                 valA = a.cells[1].textContent.trim().toLowerCase();
@@ -375,22 +615,19 @@ function ordenarTabela(coluna) {
 }
 
 // ============================================================
-// ✅ CORRIGIDO: Exportar CSV usando empresas_json
+// Exportar CSV
 // ============================================================
 function exportarEmpresasCSV() {
     const termo = (document.getElementById('empresaSearch')?.value || '').toLowerCase().trim();
     const statusFiltro = document.getElementById('filtroStatus')?.value || '';
     
-    // ✅ Usar empresasJSON (pré-serializado) em vez de todasEmpresas
     const dados = empresasJSON.filter(e => {
         if (!termo && !statusFiltro) return true;
         const nome = (e.nome || '').toLowerCase();
         const documento = (e.documento || '').toLowerCase();
         const status = e.ativo ? 'ativo' : 'inativo';
-        
-        const matchTexto = nome.includes(termo) || documento.includes(termo);
-        const matchStatus = !statusFiltro || status === statusFiltro;
-        return matchTexto && matchStatus;
+        return (!termo || nome.includes(termo) || documento.includes(termo)) &&
+               (!statusFiltro || status === statusFiltro);
     });
     
     if (!dados.length) {
@@ -422,7 +659,7 @@ function exportarEmpresasCSV() {
 }
 
 // ============================================================
-// ✅ MELHORADO: Exclusão via formulário real (CSRF seguro)
+// Modal de exclusão
 // ============================================================
 function confirmarExclusao(empresaId, empresaNome) {
     const modal = document.getElementById('modalExclusaoEmpresa');
@@ -433,6 +670,7 @@ function confirmarExclusao(empresaId, empresaNome) {
     
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
     document.getElementById('btnConfirmarExclusao').focus();
 }
 
@@ -440,22 +678,21 @@ function fecharModalExclusao() {
     const modal = document.getElementById('modalExclusaoEmpresa');
     modal.style.display = 'none';
     modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
 }
 
-// Event Listeners
+// ============================================================
+// Inicialização
+// ============================================================
 document.addEventListener('DOMContentLoaded', function() {
-    // ✅ Submeter formulário real de exclusão
     const btnConfirmar = document.getElementById('btnConfirmarExclusao');
     if (btnConfirmar) {
         btnConfirmar.addEventListener('click', function() {
             const form = document.getElementById('formExclusao');
-            if (form) {
-                form.submit();
-            }
+            if (form) form.submit();
         });
     }
     
-    // Fechar modal com Escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             const modal = document.getElementById('modalExclusaoEmpresa');
@@ -465,13 +702,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // ✅ Trap de foco no modal (acessibilidade)
     const modal = document.getElementById('modalExclusaoEmpresa');
     if (modal) {
         modal.addEventListener('keydown', function(e) {
             if (e.key === 'Tab') {
-                const focusable = this.querySelectorAll(
-                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                const focusable = modal.querySelectorAll(
+                    'button:not([disabled]), [href], input:not([disabled])'
                 );
                 if (focusable.length === 0) return;
                 
@@ -488,7 +724,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // ✅ Fechar ao clicar no backdrop
         const backdrop = modal.querySelector('.nc-modal-backdrop');
         if (backdrop) {
             backdrop.addEventListener('click', fecharModalExclusao);
