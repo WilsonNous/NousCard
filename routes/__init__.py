@@ -50,33 +50,6 @@ from .dashboard_api import dashboard_api
 from .conciliacao_api import bp_conc
 from .auditor_routes import auditor_bp  # ← Nome do arquivo criado acima
 
-
-def _check_duplicate_routes(app: Flask, blueprint, url_prefix: str = None):
-    """
-    Verifica se há rotas duplicadas antes de registrar blueprint.
-    
-    Args:
-        app: Instância Flask
-        blueprint: Blueprint a ser registrado
-        url_prefix: Prefixo que será aplicado
-    
-    Returns:
-        Lista de rotas conflitantes (se houver)
-    """
-    conflicts = []
-    prefix = url_prefix or ''
-    
-    for rule in blueprint.url_map.iter_rules():
-        full_rule = f"{prefix}{rule.rule}"
-        if app.url_map._rules_by_endpoint.get(rule.endpoint):
-            # Verificar se endpoint já existe
-            existing = app.url_map._rules_by_endpoint[rule.endpoint]
-            if any(str(e.rule) == full_rule for e in existing):
-                conflicts.append(f"{rule.endpoint}: {full_rule}")
-    
-    return conflicts
-
-
 def register_blueprints(app: Flask):
     """
     Registra todos os blueprints da aplicação com validação e logging.
