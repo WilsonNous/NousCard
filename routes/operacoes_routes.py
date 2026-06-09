@@ -36,13 +36,43 @@ def allowed_file(filename: str) -> bool:
     return any(filename.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)
 
 def validar_csrf_token():
+    """Valida token CSRF manualmente para formulários e AJAX"""
+    # Ler de múltiplas fontes
     token_form = request.form.get('csrf_token')
     token_header = request.headers.get('X-CSRF-Token')
-    session_token = g.get('csrf_token')
-    token = token_form or token_header
-    if not token or not session_token or token != session_token:
-        logger.warning("CSRF token inválido ou ausente")
+    
+    # Token da sessão: tentar múltiplas fontes
+    session_token = (
+        g.get('csrf_token') or 
+        session.get('csrf_token') or 
+        request.cookies.get('csrf_token')
+    )
+    
+    # Normalizar (remover espaços em branco)
+    token_form = token_form.strip() if token_form else None
+    token_header = token_header.strip() if token_header else None
+    session_token = session_token.strip() if session_token else None
+    
+    # Debug logging (útil para diagnóstico)
+    logger.debug(f"🔍 CSRF Debug: form={'✅' if token_form else '❌'}, "
+                f"header={'✅' if token_header else '❌'}, "
+                f"session={'✅' if session_token else '❌'}")
+    
+    # Token enviado: priorizar header (AJAX) sobre form
+    token = token_header or token_form
+    
+    # Validações
+    if not token:
+        logger.warning("❌ CSRF token ausente (nem form nem header)")
         return False
+    if not session_token:
+        logger.warning("❌ CSRF token de sessão ausente")
+        return False
+    if token != session_token:
+        logger.warning(f"❌ CSRF token mismatch: enviado={token[:20]}... vs sessão={session_token[:20]}...")
+        return False
+    
+    logger.debug("✅ CSRF token válido")
     return True
 
 # ============================================================
