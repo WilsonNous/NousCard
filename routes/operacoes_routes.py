@@ -191,8 +191,7 @@ def arquivo_detalhe_page(arquivo_id):
         registros = []
     return render_template("arquivo_detalhe.html", arquivo=arquivo, registros=registros)
 
-# ❌ REMOVIDO: Rota duplicada /api/processar_conciliacao
-# ✅ Use /api/v1/conciliacao/processar do conciliacao_api.py
+# routes/operacoes_routes.py - CORRIGIR função ultimos_uploads_api
 
 @operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
 @login_required
@@ -201,16 +200,21 @@ def ultimos_uploads_api():
     """Retorna últimos 5 arquivos importados"""
     try:
         empresa_id = g.user.empresa_id
-        arquivos = listar_arquivos_importados(empresa_id, page=1, per_page=5)
+        resultado = listar_arquivos_importados(empresa_id, page=1, per_page=5)
+        
+        # ✅ CORREÇÃO: resultado é um dict com chave "arquivos"
+        arquivos_lista = resultado.get("arquivos", [])
         
         uploads = []
-        for a in arquivos:
+        for a in arquivos_lista:
+            # ✅ CORREÇÃO: usar as chaves corretas do dict retornado
             data_iso = None
-            if a.get("data_importacao"):
+            created_at = a.get("created_at") or a.get("data_importacao")
+            if created_at:
                 try:
-                    data_iso = a["data_importacao"].isoformat() if hasattr(a["data_importacao"], 'isoformat') else str(a["data_importacao"])
+                    data_iso = created_at.isoformat() if hasattr(created_at, 'isoformat') else str(created_at)
                 except:
-                    data_iso = str(a["data_importacao"])
+                    data_iso = str(created_at)
             
             uploads.append({
                 "id": a.get("id"),
@@ -218,12 +222,12 @@ def ultimos_uploads_api():
                 "data": data_iso,
                 "status": a.get("status") or "unknown",
                 "total_valor": str(a.get("total_valor") or 0),
-                "tipo": a.get("tipo_arquivo") or a.get("tipo") or "unknown"
+                "tipo": a.get("tipo") or a.get("tipo_arquivo") or "unknown"
             })
         
         return jsonify({"ok": True, "uploads": uploads, "timestamp": datetime.now(timezone.utc).isoformat()})
     except Exception as e:
-        logger.error(f"❌ Erro API ultimos-uploads: {str(e)}")
+        logger.error(f"❌ Erro API ultimos-uploads: {str(e)}", exc_info=True)
         return jsonify({"ok": False, "error": "Erro ao carregar uploads"}), 500
 
 @operacoes_bp.route("/detalhado", methods=["GET"])
