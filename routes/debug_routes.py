@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-debug_bp = Blueprint("debug", __name__, url_prefix="/debug")
+debug_bp = Blueprint("debug", __name__)
 
 
 @debug_bp.route("/test-ofx", methods=["GET"])
