@@ -5,8 +5,10 @@
 {% block extra_head %}
 <style>
     /* ============================================================
-       ESTATÍSTICAS - CARDS
+       ✅ PADRONIZADO - Usa variáveis globais
        ============================================================ */
+    
+    /* Cards de estatísticas */
     .empresa-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -34,7 +36,7 @@
     }
     .stat-card:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        box-shadow: var(--shadow-md);
     }
     .stat-card .stat-icon {
         font-size: 1.25rem;
@@ -43,34 +45,32 @@
     .stat-card .value {
         font-size: 1.5rem;
         font-weight: 700;
-        color: var(--text-dark);
+        color: var(--text);
         line-height: 1.2;
     }
     .stat-card .label {
         font-size: 0.75rem;
-        color: var(--gray-dark);
+        color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.5px;
         margin-top: 0.15rem;
     }
-    /* Cores por tipo */
-    .stat-card.users::before { background: #667eea; }
-    .stat-card.users .value { color: #667eea; }
-    .stat-card.sales::before { background: #ed8936; }
-    .stat-card.sales .value { color: #ed8936; }
-    .stat-card.money::before { background: #48bb78; }
-    .stat-card.money .value { color: #48bb78; }
-    .stat-card.date::before { background: #4299e1; }
+    /* ✅ Cores por tipo - paleta Facebook */
+    .stat-card.users::before { background: var(--primary); }
+    .stat-card.users .value { color: var(--primary); }
+    .stat-card.sales::before { background: var(--warning); }
+    .stat-card.sales .value { color: var(--warning); }
+    .stat-card.money::before { background: var(--success); }
+    .stat-card.money .value { color: var(--success); }
+    .stat-card.date::before { background: var(--primary-accent); }
     .stat-card.date .value { 
-        color: #4299e1; 
+        color: var(--primary-accent); 
         font-size: 1.1rem;
     }
     
-    /* ============================================================
-       SEÇÃO LOGO
-       ============================================================ */
+    /* Seção Logo */
     .logo-section {
-        background: var(--gray-lightest);
+        background: var(--gray-light);
         border: 2px dashed var(--gray-border);
         border-radius: 10px;
         padding: 1.25rem;
@@ -79,7 +79,7 @@
     }
     .logo-section:hover {
         border-color: var(--primary);
-        background: #ebf4ff;
+        background: var(--primary-light);
     }
     .logo-preview {
         width: 130px;
@@ -92,7 +92,7 @@
         background: var(--white);
         border: 1px solid var(--gray-border);
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        box-shadow: var(--shadow-sm);
     }
     .logo-preview img {
         max-width: 100%;
@@ -118,9 +118,7 @@
         flex-wrap: wrap;
     }
     
-    /* ============================================================
-       CAMPO CNPJ + BOTÃO CONSULTAR
-       ============================================================ */
+    /* Campo CNPJ + Botão Consultar */
     .cnpj-group {
         display: flex;
         gap: 0.5rem;
@@ -135,26 +133,24 @@
         padding: 0.5rem 1rem;
         font-size: 0.875rem;
         font-weight: 600;
-        background: var(--gray-lightest);
+        background: var(--gray-light);
         border: 1px solid var(--gray-border);
         border-radius: 6px;
         cursor: pointer;
         transition: all 0.2s ease;
     }
     .btn-consultar-cnpj:hover {
-        background: #e2e8f0;
-        border-color: #cbd5e0;
+        background: var(--gray);
+        border-color: var(--gray-dark);
     }
     
-    /* ============================================================
-       TOGGLE SWITCH (STATUS)
-       ============================================================ */
+    /* Toggle Switch (Status) */
     .status-toggle {
         display: flex;
         align-items: center;
         gap: 0.75rem;
         padding: 0.75rem 1rem;
-        background: var(--gray-lightest);
+        background: var(--gray-light);
         border-radius: 8px;
         border: 1px solid var(--gray-border);
     }
@@ -173,7 +169,7 @@
         position: absolute;
         cursor: pointer;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: #cbd5e0;
+        background: var(--gray);
         border-radius: 24px;
         transition: 0.3s;
     }
@@ -189,7 +185,7 @@
         transition: 0.3s;
     }
     input:checked + .toggle-slider {
-        background: #48bb78;
+        background: var(--success);
     }
     input:checked + .toggle-slider::before {
         transform: translateX(20px);
@@ -198,17 +194,15 @@
         font-weight: 600;
         font-size: 0.9rem;
     }
-    .toggle-label.active { color: #48bb78; }
-    .toggle-label.inactive { color: #a0aec0; }
+    .toggle-label.active { color: var(--success); }
+    .toggle-label.inactive { color: var(--text-muted); }
     
-    /* ============================================================
-       ALERTA DESATIVAÇÃO
-       ============================================================ */
+    /* Alerta Desativação */
     .desativacao-alert {
-        background: #fffbeb;
-        border: 1px solid #fbd38d;
-        border-left: 4px solid #f6ad55;
-        color: #744210;
+        background: var(--warning-bg);
+        border: 1px solid var(--warning-border);
+        border-left: 4px solid var(--warning);
+        color: var(--warning);
         padding: 0.75rem 1rem;
         border-radius: 8px;
         margin-top: 0.75rem;
@@ -224,9 +218,7 @@
         to { opacity: 1; transform: translateY(0); }
     }
     
-    /* ============================================================
-       BOTÕES DE AÇÃO
-       ============================================================ */
+    /* Botões de Ação */
     .nc-form-actions {
         display: flex;
         gap: 0.75rem;
@@ -234,35 +226,11 @@
         border-top: 1px solid var(--gray-border);
         margin-top: 0.5rem;
     }
-    .btn-save {
-        padding: 0.65rem 1.5rem;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .btn-save:hover {
-        filter: brightness(1.1);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .btn-save:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
     
-    /* ============================================================
-       FORM ERRORS / HINTS
-       ============================================================ */
+    /* Form Errors / Hints */
     .nc-form-error {
         font-size: 0.85rem;
-        color: #dc2626;
+        color: var(--error);
         margin-top: 0.25rem;
         display: flex;
         align-items: center;
@@ -270,25 +238,23 @@
     }
     .nc-form-hint {
         font-size: 0.8rem;
-        color: var(--gray-dark);
+        color: var(--text-muted);
         margin-top: 0.25rem;
         display: block;
     }
     .nc-form-input.error {
-        border-color: #fc8181;
-        background: #fff5f5;
+        border-color: var(--error);
+        background: var(--error-bg);
     }
     
-    /* ============================================================
-       SUBTITLE
-       ============================================================ */
+    /* Subtitle */
     .page-subtitle {
         display: flex;
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 1.25rem;
         padding: 0.6rem 1rem;
-        background: var(--gray-lightest);
+        background: var(--gray-light);
         border-radius: 8px;
         border-left: 4px solid var(--primary);
         font-size: 0.9rem;
@@ -302,9 +268,7 @@
         font-weight: 600;
     }
     
-    /* ============================================================
-       RESPONSIVO
-       ============================================================ */
+    /* Responsivo */
     @media (max-width: 640px) {
         .empresa-stats {
             grid-template-columns: repeat(2, 1fr);
@@ -358,7 +322,7 @@
         </div>
         <div class="stat-card date">
             <div class="stat-icon">📅</div>
-            <div class="value">{{ empresa.criado_em.strftime('%d/%m/%Y') if empresa.criado_em else '—' }}</div>
+            <div class="value">{{ empresa.criado_em | hora_brasil('%d/%m/%Y') if empresa.criado_em else '—' }}</div>
             <div class="label">Criada em</div>
         </div>
     </div>
@@ -465,7 +429,7 @@
                     class="nc-form-input {% if erros and 'documento' in erros %}error{% endif %}"
                     {% if erros and 'documento' in erros %}aria-describedby="documento-error"{% endif %}
                 >
-                <button type="button" class="btn-consultar-cnpj" id="btnConsultarCNPJ" type="button">
+                <button type="button" class="btn-consultar-cnpj" id="btnConsultarCNPJ">
                     🔍 Consultar
                 </button>
             </div>
@@ -505,7 +469,7 @@
         
         <!-- Ações -->
         <div class="nc-form-actions">
-            <button type="submit" class="btn-save" id="btn-salvar">
+            <button type="submit" class="nc-btn nc-btn-primary" id="btn-salvar">
                 <span class="btn-text">💾 Salvar Alterações</span>
                 <span class="btn-loading" style="display:none;">⏳ Salvando...</span>
             </button>
@@ -762,14 +726,14 @@ async function consultarCNPJ() {
             
             if (situacao) {
                 situacao.textContent = '✅ CNPJ encontrado' + (preenchidos > 0 ? ` (${preenchidos} campos preenchidos)` : '');
-                situacao.style.color = '#16a34a';
+                situacao.style.color = 'var(--success)';
             }
             
             mostrarFlash('success', 'Dados do CNPJ carregados com sucesso!');
         } else {
             if (situacao) {
                 situacao.textContent = '❌ ' + (data.message || 'CNPJ não encontrado');
-                situacao.style.color = '#dc2626';
+                situacao.style.color = 'var(--error)';
             }
             mostrarFlash('error', data.message || 'CNPJ não encontrado');
         }
