@@ -123,16 +123,40 @@
     }
 
     /* ============================================================
-       KPIs - CARDS MODERNOS COM GRADIENTE
+       KPIs - CARDS EM LINHA HORIZONTAL (CORRIGIDO)
        ============================================================ */
     .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
         gap: 1.5rem;
         margin-bottom: 2rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+    }
+
+    .kpi-grid::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .kpi-grid::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .kpi-grid::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    .kpi-grid::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
     }
 
     .kpi-card {
+        flex: 1 1 0;
+        min-width: 200px;
         background: white;
         border-radius: 16px;
         padding: 1.5rem;
@@ -417,8 +441,15 @@
             justify-content: center;
         }
         
+        /* ✅ KPIs mantêm horizontal em mobile com scroll */
         .kpi-grid {
-            grid-template-columns: 1fr;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        
+        .kpi-card {
+            min-width: 180px;
+            flex: 0 0 auto;
         }
         
         .dashboard-grid {
