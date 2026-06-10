@@ -1,19 +1,26 @@
 /* ============================================================
    AUTH PAGES • NousCard (Login, Registro, Recuperação)
-   ✅ IDENTIDADE VISUAL: AZUL FACEBOOK (#1877f2)
+   ✅ IDENTIDADE VISUAL: PALETA OFICIAL FACEBOOK
    ✅ VERSÃO ESCOPADA - Não interfere em outras páginas
    Compatível com base.html, acessível e com tema escuro
 ============================================================ */
 
 /* ============================================================
-   VARIÁVEIS CSS - PALETA AZUL FACEBOOK
+   VARIÁVEIS CSS - PALETA OFICIAL FACEBOOK
+   #1d3469 - Azul escuro (principal)
+   #3d5c95 - Azul médio
+   #405e96 - Azul médio alternativo
+   #5e80bf - Azul claro
+   #adaeb1 - Cinza neutro
 ============================================================ */
 :root {
-    /* ✅ Cores primárias - Azul Facebook */
-    --auth-primary: #1877f2;
-    --auth-primary-dark: #0d5bd4;
-    --auth-gradient-start: #1877f2;
-    --auth-gradient-end: #0d5bd4;
+    /* ✅ Cores primárias - Paleta Facebook */
+    --auth-primary: #1d3469;
+    --auth-primary-dark: #142652;
+    --auth-primary-light: #3d5c95;
+    --auth-accent: #5e80bf;
+    --auth-gradient-start: #3d5c95;
+    --auth-gradient-end: #1d3469;
     
     /* Cores de estado */
     --auth-error: #e53e3e;
@@ -25,18 +32,18 @@
     
     /* Cores de texto e fundo */
     --auth-text-primary: #1a1a2e;
-    --auth-text-secondary: #4a5568;
-    --auth-text-muted: #718096;
+    --auth-text-secondary: #405e96;
+    --auth-text-muted: #adaeb1;
     --auth-bg-card: #ffffff;
     --auth-bg-input: #ffffff;
     --auth-border: #e2e8f0;
-    /* ✅ Focus agora em azul Facebook */
-    --auth-border-focus: rgba(24, 119, 242, 0.15);
+    /* ✅ Focus com azul Facebook */
+    --auth-border-focus: rgba(29, 52, 105, 0.2);
     
     /* Espaçamento e bordas */
     --auth-radius: 10px;
     --auth-radius-lg: 16px;
-    --auth-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    --auth-shadow: 0 10px 40px rgba(29, 52, 105, 0.25);
     
     /* Tipografia */
     --auth-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -58,9 +65,9 @@
         --auth-success-bg: #1a3a2a;
     }
     
-    /* ✅ Dark mode com azul mais profundo */
+    /* ✅ Dark mode com azul profundo Facebook */
     body.nc-login-body {
-        background: linear-gradient(135deg, #0d5bd4 0%, #084298 100%);
+        background: linear-gradient(135deg, #142652 0%, #0a1530 100%);
     }
     
     .nc-login-box .nc-toggle-password:hover {
@@ -74,13 +81,14 @@
 }
 
 /* ============================================================
-   CORPO DAS PÁGINAS DE AUTH - ✅ AZUL FACEBOOK
+   CORPO DAS PÁGINAS DE AUTH - ✅ GRADIENTE FACEBOOK
+   Gradiente: #3d5c95 → #1d3469 (médio → escuro)
 ============================================================ */
 body.nc-login-body {
     margin: 0;
     padding: 0;
     font-family: var(--auth-font-family);
-    /* ✅ Gradiente azul Facebook */
+    /* ✅ Gradiente oficial Facebook */
     background: linear-gradient(135deg, var(--auth-gradient-start) 0%, var(--auth-gradient-end) 100%);
     display: flex;
     justify-content: center;
@@ -160,6 +168,7 @@ body.nc-login-body {
     opacity: 1;
 }
 
+/* ✅ Foco com azul Facebook */
 .nc-login-box .nc-form-input:focus-visible,
 .nc-login-box input:focus-visible {
     border-color: var(--auth-primary);
@@ -265,16 +274,18 @@ body.nc-login-body {
 }
 
 .nc-login-box .nc-checkbox-label a:hover {
+    color: var(--auth-accent);
     text-decoration: underline;
 }
 
 /* ============================================================
    BOTÕES (escopados - AZUL FACEBOOK)
+   Gradiente: #3d5c95 → #1d3469
 ============================================================ */
 .nc-login-box .nc-btn-primary {
     width: 100%;
     padding: 0.875rem 1.5rem;
-    /* ✅ Gradiente azul Facebook */
+    /* ✅ Gradiente oficial Facebook */
     background: linear-gradient(135deg, var(--auth-gradient-start) 0%, var(--auth-gradient-end) 100%);
     color: #ffffff !important;
     border: none;
@@ -282,7 +293,7 @@ body.nc-login-body {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.2s;
+    transition: transform 0.1s, box-shadow 0.2s, background 0.2s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -290,14 +301,16 @@ body.nc-login-body {
     min-height: 44px;
 }
 
+/* ✅ Hover com tom mais claro (#5e80bf) */
 .nc-login-box .nc-btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
-    /* ✅ Sombra azul Facebook */
-    box-shadow: 0 4px 12px rgba(24, 119, 242, 0.4);
+    background: linear-gradient(135deg, #5e80bf 0%, #3d5c95 100%);
+    box-shadow: 0 4px 12px rgba(29, 52, 105, 0.4);
 }
 
 .nc-login-box .nc-btn-primary:active:not(:disabled) {
     transform: translateY(0);
+    background: linear-gradient(135deg, var(--auth-gradient-end) 0%, var(--auth-primary-dark) 100%);
 }
 
 .nc-login-box .nc-btn-primary:disabled {
@@ -369,6 +382,7 @@ body.nc-login-body {
 
 .nc-login-box .nc-login-forgot a:hover,
 .nc-login-box .nc-login-register a:hover {
+    color: var(--auth-accent);
     text-decoration: underline;
 }
 
@@ -400,8 +414,8 @@ body.nc-login-body {
 }
 
 .nc-login-box .nc-toggle-password:hover {
-    color: var(--auth-text-secondary);
-    background: rgba(0, 0, 0, 0.05);
+    color: var(--auth-primary);
+    background: rgba(29, 52, 105, 0.05);
 }
 
 .nc-login-box .nc-toggle-password:focus-visible {
