@@ -745,9 +745,6 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
                     reg['tipo_pagamento'] = 'cartao'
         
         return registros
-# utils/parsers.py - DENTRO de parse_ofx_generic()
-
-# ... [código existente] ...
 
     # ✅ TIMEOUT DE SEGURANÇA (evita loop infinito em arquivos corrompidos)
     import signal
@@ -767,3 +764,76 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
         return []
     finally:
         signal.alarm(0)  # Desligar timeout
+
+    # utils/parsers.py - ADICIONE ESTA FUNÇÃO
+    
+    def extrair_dados_conta_ofx(content: str) -> dict:
+        """
+        Extrai dados da conta bancária do arquivo OFX.
+        
+        OFX contém tags como:
+        - <BANKID>001</BANKID> (código do banco)
+        - <BRANCHID>1234</BRANCHID> (agência)
+        - <ACCTID>12345-6</ACCTID> (número da conta)
+        - <ACCTTYPE>CHECKING</ACCTTYPE> (tipo: CHECKING, SAVINGS, etc.)
+        
+        Returns:
+            dict: {
+                "banco": "001",
+                "agencia": "1234",
+                "conta": "12345-6",
+                "tipo": "corrente",
+                "nome": "Conta Corrente - Banco do Brasil"
+            }
+        """
+        dados = {
+            "banco": None,
+            "agencia": None,
+            "conta": None,
+            "tipo": "corrente",
+            "nome": None
+        }
+        
+        content_upper = content.upper()
+        
+        # Extrair BANKID
+        bankid_match = re.search(r'<BANKID>([^<]+)</BANKID>', content_upper)
+        if bankid_match:
+            dados["banco"] = bankid_match.group(1).strip()
+        
+        # Extrair BRANCHID
+        branchid_match = re.search(r'<BRANCHID>([^<]+)</BRANCHID>', content_upper)
+        if branchid_match:
+            dados["agencia"] = branchid_match.group(1).strip()
+        
+        # Extrair ACCTID
+        acctid_match = re.search(r'<ACCTID>([^<]+)</ACCTID>', content_upper)
+        if acctid_match:
+            dados["conta"] = acctid_match.group(1).strip()
+        
+        # Extrair ACCTTYPE
+        accttype_match = re.search(r'<ACCTTYPE>([^<]+)</ACCTTYPE>', content_upper)
+        if accttype_match:
+            tipo_raw = accttype_match.group(1).strip().upper()
+            tipo_map = {
+                "CHECKING": "corrente",
+                "SAVINGS": "poupanca",
+                "MONEYMRKT": "investimento",
+                "CREDITLINE": "credito"
+            }
+            dados["tipo"] = tipo_map.get(tipo_raw, "corrente")
+        
+        # Gerar nome da conta
+        if dados["banco"] or dados["agencia"] or dados["conta"]:
+            partes = []
+            if dados["banco"]:
+                partes.append(f"Banco {dados['banco']}")
+            if dados["agencia"]:
+                partes.append(f"Ag {dados['agencia']}")
+            if dados["conta"]:
+                partes.append(f"CC {dados['conta']}")
+            dados["nome"] = " - ".join(partes)
+        else:
+            dados["nome"] = "Conta Extraída do OFX"
+        
+        return dados
