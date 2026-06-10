@@ -211,12 +211,12 @@ def registrar_conciliacao(vinculos, empresa_id, usuario_id=None):
         
         # Verificar se já existe conciliação para este par
         conc_existente = Conciliacao.query.filter_by(
+            empresa_id=empresa_id,  
             mov_adquirente_id=venda.id,
             mov_banco_id=recebimento.id
         ).first()
         
         if conc_existente:
-            logger.debug(f"Conciliação já existe: venda={venda.id}, recebimento={recebimento.id}")
             continue
         
         try:
