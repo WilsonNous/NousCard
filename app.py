@@ -6,6 +6,9 @@
 
 # app.py
 from utils.context_processors import inject_global_vars
+# ✅ NOVO: Helpers de timezone brasileiro
+from utils.timezone_helpers import format_brazilia, format_brazilia_full, to_brazilia, agora_brasil
+
 from flask import Flask, g, request, redirect, url_for, session, jsonify
 from config import Config
 from models.base import db, init_db, cleanup_session  # ✅ ÚNICO import do db
@@ -52,12 +55,12 @@ def create_app(config_class=Config):
     # ✅ CONFIGURAÇÕES DE SESSÃO SEGURA
     if os.getenv("FLASK_ENV") == "production":
         app.config.update(
-            SESSION_COOKIE_SECURE=True,          # Só envia cookie via HTTPS
-            SESSION_COOKIE_HTTPONLY=True,         # Previne acesso via JavaScript
-            SESSION_COOKIE_SAMESITE='Lax',        # Previne CSRF via cookies
-            PERMANENT_SESSION_LIFETIME=timedelta(hours=8),  # Timeout de sessão
-            WTF_CSRF_ENABLED=True,                # ✅ Habilita CSRF protection do Flask-WTF
-            WTF_CSRF_TIME_LIMIT=None              # Tokens não expiram (renovados por request)
+            SESSION_COOKIE_SECURE=True,
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE='Lax',
+            PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+            WTF_CSRF_ENABLED=True,
+            WTF_CSRF_TIME_LIMIT=None
         )
     
     # Registrar context processor
@@ -74,7 +77,6 @@ def create_app(config_class=Config):
                 traces_sample_rate=0.1,
                 environment=os.getenv("FLASK_ENV", "production"),
                 send_default_pii=False,
-                # ✅ Adicionar tags customizadas para métricas de negócio
                 before_send=lambda event, hint: add_business_tags(event)
             )
             app.logger.info("Sentry initialized")
@@ -88,20 +90,17 @@ def create_app(config_class=Config):
                 event.setdefault('tags', {})['user_role'] = 'master' if g.user.master else 'admin' if g.user.admin else 'user'
                 event['tags']['empresa_id'] = getattr(g.user, 'empresa_id', None)
         except:
-            pass  # Não falhar o evento por erro de tagging
+            pass
         return event
 
     # ---------------------------------------------------------
     # BANCO DE DADOS (INICIALIZAÇÃO ÚNICA)
     # ---------------------------------------------------------
     
-    # ✅ GARANTIR: db.init_app() chamado apenas uma vez
     if not _db_initialized:
         db.init_app(app)
         _db_initialized = True
     
-    # Flask-Migrate para versionamento de schema
-    # ✅ Passar o app para Migrate após db.init_app()
     migrate = Migrate(app, db, render_as_batch=True)
 
     # ---------------------------------------------------------
@@ -113,14 +112,12 @@ def create_app(config_class=Config):
     login_manager.login_message = "Por favor, faça login para acessar esta página."
     login_manager.login_message_category = "info"
     
-    # ✅ Configurar remember me duration
     login_manager.remember_cookie_duration = timedelta(days=7)
 
     @login_manager.user_loader
     def load_user(user_id):
         """Carrega usuário pelo ID para Flask-Login"""
         try:
-            # Import dentro da função para evitar circular import
             from models import Usuario
             return Usuario.query.get(int(user_id))
         except Exception as e:
@@ -141,8 +138,30 @@ def create_app(config_class=Config):
         app.logger.warning(f"⚠️ Custom filters not loaded: {str(e)}")
     except Exception as e:
         app.logger.error(f"❌ Error registering filters: {str(e)}")
-   
-    # No app.py, após registrar os outros blueprints:
+
+    # ✅ NOVO: FILTROS DE HORÁRIO BRASILEIRO (UTC-3)
+    # ============================================================
+    # Disponibiliza filtros em todos os templates:
+    #   {{ data | hora_brasil }}         → "09/06/2026 19:30"
+    #   {{ data | hora_brasil('%H:%M') }} → "19:30"
+    #   {{ data | hora_brasil_full }}     → "Segunda, 09/06/2026 às 19:30"
+    # ============================================================
+    try:
+        @app.template_filter('hora_brasil')
+        def filter_hora_brasil(dt, fmt="%d/%m/%Y %H:%M"):
+            """Formata datetime no fuso de Brasília (America/Sao_Paulo)"""
+            return format_brazilia(dt, fmt)
+
+        @app.template_filter('hora_brasil_full')
+        def filter_hora_brasil_full(dt):
+            """Formata datetime completo com dia da semana em Brasília"""
+            return format_brazilia_full(dt)
+
+        app.logger.info("✅ Filtros de horário brasileiro registrados (hora_brasil, hora_brasil_full)")
+    except Exception as e:
+        app.logger.error(f"❌ Erro ao registrar filtros de horário: {str(e)}")
+
+    # ✅ Blueprint de Usuários (Gestão pelo Master)
     from routes.usuarios_routes import usuarios_bp
     app.register_blueprint(usuarios_bp)
 
@@ -166,8 +185,17 @@ def create_app(config_class=Config):
         return {
             "current_year": datetime.now(timezone.utc).year,
             "app_version": "1.0.0",
-            # ✅ CSRF token disponível para todos os templates
             "csrf_token": session.get('csrf_token', ''),
+        }
+
+    # ✅ NOVO: CONTEXT PROCESSOR DE HORÁRIO BRASILEIRO
+    # Disponibiliza 'agora_brasil' em TODOS os templates
+    # Uso: {{ agora_brasil | hora_brasil }}
+    @app.context_processor
+    def inject_agora_brasil():
+        """Injeta horário atual de Brasília em todos os templates"""
+        return {
+            'agora_brasil': agora_brasil()
         }
     
     # ✅ Helper para gerar token CSRF se não existir
@@ -178,7 +206,6 @@ def create_app(config_class=Config):
             session['csrf_token'] = secrets.token_urlsafe(32)
             session.modified = True
         
-        # Também injetar em 'g' para acesso fácil em middlewares
         g.csrf_token = session['csrf_token']
 
     # ---------------------------------------------------------
@@ -203,7 +230,6 @@ def create_app(config_class=Config):
         
         status_code = 200 if db_status == "ok" else 503
         
-        # ✅ Log estruturado para monitoramento (ex: Prometheus, Datadog)
         if db_status == "fail":
             app.logger.warning(f"Health check degraded: db_latency={db_latency_ms}ms")
         
@@ -229,7 +255,6 @@ def create_app(config_class=Config):
         if request.path == "/health":
             return None
             
-        # Verificar se já é HTTPS ou se proxy já fez upgrade
         if not request.is_secure and request.headers.get("X-Forwarded-Proto") != "https":
             url = request.url.replace("http://", "https://", 1)
             return redirect(url, code=301)
@@ -248,7 +273,6 @@ def create_app(config_class=Config):
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         
-        # ✅ CSP corrigido: connect-src unificado
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -258,7 +282,6 @@ def create_app(config_class=Config):
             "connect-src 'self' https://cdn.jsdelivr.net;"
         )
         
-        # Prevenir caching de páginas sensíveis
         if request.path.startswith('/api/') or request.path.startswith('/auth/'):
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             response.headers['Pragma'] = 'no-cache'
@@ -300,9 +323,6 @@ def create_app(config_class=Config):
         app.logger.info("=== NousCard startup ===")
         app.logger.info(f"Environment: {os.getenv('FLASK_ENV')}")
         app.logger.info(f"Python: {sys.version.split()[0]}")
-        
-        # ✅ Log de métricas de negócio (ex: para Prometheus)
-        # app.logger.info('nouscard_startup{version="1.0.0"} 1')
 
     # ---------------------------------------------------------
     # TEARDOWN: LIMPEZA DE SESSÃO APÓS CADA REQUEST
@@ -326,7 +346,6 @@ def create_app(config_class=Config):
             from flask import render_template
             return render_template("erro.html", mensagem="Página não encontrada.", error_code=404), 404
         except Exception as e:
-            # Fallback se template falhar
             app.logger.error(f"Erro ao renderizar 404: {str(e)}")
             return jsonify({"error": "Página não encontrada"}), 404
 
@@ -343,7 +362,6 @@ def create_app(config_class=Config):
             from flask import render_template
             return render_template("erro.html", mensagem="Ocorreu um erro interno. Tente novamente.", error_code=500), 500
         except Exception as e:
-            # Fallback crítico
             app.logger.critical(f"Fallback error handler failed: {str(e)}")
             return jsonify({"error": "Erro crítico no servidor"}), 500
 
@@ -373,7 +391,6 @@ def create_app(config_class=Config):
 # INSTÂNCIA DA APLICAÇÃO (PARA GUNICORN)
 # ============================================================
 
-# ✅ Criar app apenas uma vez no módulo global
 app = create_app()
 
 
@@ -389,5 +406,5 @@ if __name__ == "__main__":
         debug=True,
         host="127.0.0.1",
         port=5000,
-        use_reloader=False  # ✅ Importante para SQLAlchemy + dev server
+        use_reloader=False
     )
