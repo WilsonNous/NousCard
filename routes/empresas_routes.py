@@ -1,4 +1,4 @@
-# routes/empresas_routes.py - VERSÃO COMPLETA, CORRIGIDA E INTEGRADA
+# routes/empresas_routes.py - VERSÃO COMPLETA COM LOGO EM BASE64
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
 from models import db, Empresa, Usuario, LogAuditoria
@@ -12,6 +12,7 @@ import time
 import os
 import secrets
 import requests
+import base64  # ✅ Para converter imagem em Base64
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ def log_acao_empresa(acao: str, empresa, detalhes_extra: str = ""):
         logger.error(f"Erro ao preparar log de auditoria: {str(e)}")
 
 # ============================================================
-# SERIALIZAÇÃO TOLERANTE
+# SERIALIZAÇÃO
 # ============================================================
 def empresa_para_dict(empresa):
     """Converte objeto Empresa para dict serializável em JSON"""
@@ -95,18 +96,18 @@ def empresa_para_dict(empresa):
         "nome": empresa.nome,
         "documento": empresa.documento or "",
         "ativo": empresa.ativo,
-        "logo_url": getattr(empresa, 'logo_url', None) or "",
+        "logo_url": getattr(empresa, 'logo_base64', None) or "",
         "criado_em": safe_iso('criado_em'),
         "atualizado_em": safe_iso('atualizado_em'),
     }
 
 # ============================================================
-# HELPER: LOGO URL SEGURO
+# HELPER: LOGO EM BASE64
 # ============================================================
 def get_logo_url(empresa):
-    """Retorna logo_url com segurança, None se campo não existir"""
-    if hasattr(empresa, 'logo_url'):
-        return empresa.logo_url or None
+    """Retorna logo em Base64 ou None"""
+    if hasattr(empresa, 'logo_base64') and empresa.logo_base64:
+        return empresa.logo_base64
     return None
 
 # ============================================================
@@ -277,7 +278,7 @@ def nova_empresa():
         return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
 
 # ============================================================
-# EDITAR EMPRESA (COM PERSISTÊNCIA GARANTIDA)
+# EDITAR EMPRESA
 # ============================================================
 @empresas_bp.route("/<int:empresa_id>/editar", methods=["GET", "POST"])
 @master_required
@@ -290,9 +291,6 @@ def editar_empresa(empresa_id):
     stats = calcular_stats_empresa(empresa)
     logo_url = get_logo_url(empresa)
     
-    # ============================================================
-    # MÉTODO GET
-    # ============================================================
     if request.method == "GET":
         return render_template(
             "empresas_form.html", 
@@ -302,29 +300,21 @@ def editar_empresa(empresa_id):
             logo_url=logo_url
         )
     
-    # ============================================================
-    # MÉTODO POST (SALVAR)
-    # ============================================================
     if not validar_csrf_token():
         flash("Erro de segurança. Recarregue a página.", "error")
         return redirect(url_for("empresas.editar_empresa", empresa_id=empresa_id))
     
-    # Coletar dados do formulário
     nome = (request.form.get("nome") or "").strip()
     documento = (request.form.get("documento") or "").strip().replace('.', '').replace('-', '').replace('/', '')
-    
-    # ✅ CORRIGIDO: Checkbox envia value="1" quando marcado
     ativa = request.form.get("ativa") == "1"
     
     erros = {}
     
-    # Validar nome
     if not nome or len(nome) > 150:
         erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
         flash(erros['nome'], "error")
         return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
     
-    # Validar documento (CNPJ)
     if documento:
         if len(documento) > 14:
             erros['documento'] = "Documento muito longo"
@@ -343,7 +333,6 @@ def editar_empresa(empresa_id):
             flash(erros['documento'], "error")
             return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
     
-    # ✅ SALVAR SEMPRE - sem bloqueio de confirmação
     try:
         status_anterior = empresa.ativo
         empresa.nome = nome
@@ -353,7 +342,6 @@ def editar_empresa(empresa_id):
         if hasattr(empresa, 'atualizado_em'):
             empresa.atualizado_em = datetime.now(timezone.utc)
         
-        # Log diferenciado
         if not ativa and status_anterior:
             log_acao_empresa("master_desativou_empresa", empresa, f"Status: ativa→inativa")
         elif ativa and not status_anterior:
@@ -363,7 +351,6 @@ def editar_empresa(empresa_id):
         
         db.session.commit()
         
-        # Flash message adequado
         if not ativa and status_anterior:
             flash("Empresa desativada. Usuários vinculados perderão o acesso.", "warning")
         elif ativa and not status_anterior:
@@ -496,7 +483,7 @@ def api_consultar_cnpj():
         return jsonify({"ok": False, "message": "Erro interno"}), 500
 
 # ============================================================
-# API: UPLOAD DE LOGO
+# API: UPLOAD DE LOGO EM BASE64 (SALVO NO BANCO)
 # ============================================================
 @empresas_bp.route("/api/upload-logo", methods=["POST"])
 @master_required
@@ -519,41 +506,48 @@ def api_upload_logo():
     if file.filename == '':
         return jsonify({"ok": False, "message": "Nome de arquivo vazio"}), 400
     
+    # Validar extensão
     allowed_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp'}
     ext = os.path.splitext(file.filename.lower())[1]
     if ext not in allowed_extensions:
         return jsonify({"ok": False, "message": f"Formato não permitido. Use: {', '.join(allowed_extensions)}"}), 400
     
+    # Validar tamanho (2MB)
     file.seek(0, 2)
     size = file.tell()
     file.seek(0)
     if size > 2 * 1024 * 1024:
         return jsonify({"ok": False, "message": "Arquivo muito grande. Máximo: 2MB"}), 400
     
-    if not hasattr(empresa, 'logo_url'):
+    # ✅ Verificar se o modelo tem o campo logo_base64
+    if not hasattr(empresa, 'logo_base64'):
         return jsonify({
             "ok": False, 
-            "message": "Funcionalidade de logo não disponível."
+            "message": "Funcionalidade de logo não disponível. Execute a migração do banco de dados."
         }), 501
     
     try:
-        filename = f"logo_{empresa_id}_{secrets.token_hex(8)}{ext}"
-        upload_dir = os.path.join('static', 'uploads', 'logos')
-        os.makedirs(upload_dir, exist_ok=True)
-        filepath = os.path.join(upload_dir, filename)
-        file.save(filepath)
+        # Ler arquivo e converter para Base64
+        file_data = file.read()
+        mime_type = file.content_type or f"image/{ext.replace('.', '')}"
+        logo_base64 = f"data:{mime_type};base64,{base64.b64encode(file_data).decode('utf-8')}"
         
-        logo_url = f"/static/uploads/logos/{filename}"
-        empresa.logo_url = logo_url
+        # Salvar no banco
+        empresa.logo_base64 = logo_base64
         
         if hasattr(empresa, 'atualizado_em'):
             empresa.atualizado_em = datetime.now(timezone.utc)
         
-        log_acao_empresa("master_upload_logo", empresa, f"Logo: {filename}")
+        log_acao_empresa("master_upload_logo", empresa, f"Logo Base64 ({size} bytes)")
         db.session.commit()
         
-        logger.info(f"✅ Logo salva para empresa {empresa_id}: {filename}")
-        return jsonify({"ok": True, "logo_url": logo_url, "message": "Logo atualizada com sucesso!"})
+        logger.info(f"✅ Logo Base64 salva no banco para empresa {empresa_id}: {size} bytes")
+        return jsonify({
+            "ok": True, 
+            "logo_url": logo_base64, 
+            "message": "Logo atualizada com sucesso!"
+        })
+        
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ Erro ao salvar logo: {str(e)}", exc_info=True)
