@@ -5,20 +5,50 @@
 {% block extra_head %}
 <style>
     /* ============================================================
-       DASHBOARD - ESTILOS ESPECÍFICOS
-       (Usa variáveis globais do style.css)
+       DASHBOARD - LAYOUT EM FAIXAS/SEÇÕES
        ============================================================ */
     
-    /* Filtros */
+    /* Container principal do dashboard */
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    /* Cada "faixa" é uma seção independente */
+    .dashboard-section {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Título de cada seção */
+    .dashboard-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0 0 1rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--gray-border);
+    }
+
+    /* ============================================================
+       FAIXA 1: FILTROS (destaque visual)
+       ============================================================ */
     .dashboard-filters {
         background: linear-gradient(135deg, var(--primary) 0%, #764ba2 100%);
         padding: 1.25rem 1.5rem;
         border-radius: var(--border-radius);
-        margin-bottom: 1.5rem;
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
         align-items: center;
+        box-shadow: var(--shadow-md);
     }
 
     .dashboard-filters .filter-group {
@@ -104,12 +134,13 @@
         margin-top: 0.25rem;
     }
 
-    /* KPIs */
+    /* ============================================================
+       FAIXA 2: KPIs
+       ============================================================ */
     .kpi-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 1rem;
-        margin-bottom: 1.5rem;
     }
 
     .kpi-card {
@@ -200,15 +231,23 @@
         color: var(--text-muted);
     }
 
-    /* Grid principal */
-    .dashboard-grid {
+    /* ============================================================
+       FAIXA 3: GRÁFICOS (lado a lado)
+       ============================================================ */
+    .charts-grid {
         display: grid;
         grid-template-columns: 2fr 1fr;
         gap: 1rem;
-        margin-bottom: 1.5rem;
     }
 
-    /* Adquirentes */
+    .chart-container {
+        position: relative;
+        height: 280px;
+    }
+
+    /* ============================================================
+       FAIXA 4: ADQUIRENTES
+       ============================================================ */
     .acq-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -271,19 +310,14 @@
         color: var(--text-muted);
     }
 
-    /* Gráficos */
-    .chart-container {
-        position: relative;
-        height: 280px;
-    }
-
-    /* Erro */
+    /* ============================================================
+       ALERTA DE ERRO
+       ============================================================ */
     .error-alert {
         background: var(--error-bg);
         border: 1px solid var(--error-border);
         border-radius: var(--border-radius);
         padding: 0.75rem 1rem;
-        margin-bottom: 1rem;
         display: none;
         align-items: center;
         gap: 0.5rem;
@@ -302,14 +336,24 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Responsivo */
+    /* ============================================================
+       RESPONSIVO
+       ============================================================ */
     @media (max-width: 1024px) {
-        .dashboard-grid {
+        .charts-grid {
             grid-template-columns: 1fr;
         }
     }
 
     @media (max-width: 768px) {
+        .dashboard-container {
+            gap: 1rem;
+        }
+
+        .dashboard-section {
+            padding: 1rem;
+        }
+
         .dashboard-filters {
             flex-direction: column;
             align-items: stretch;
@@ -342,22 +386,18 @@
 
 {% block content %}
 
-<!-- Wrapper principal usando nc-section (igual ao importar.html) -->
-<section class="nc-section">
-    
-    <!-- Título (usando nc-title global) -->
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;">
-        <h2 class="nc-title" style="margin: 0;">📊 Dashboard</h2>
-        <span class="nc-muted" style="font-size: 0.875rem;">Visão geral das operações</span>
-    </div>
+<!-- CONTAINER PRINCIPAL DO DASHBOARD -->
+<div class="dashboard-container">
 
-    <!-- ALERTA DE ERRO -->
+    <!-- ALERTA DE ERRO (aparece acima de tudo se houver erro) -->
     <div id="dashboard-error" class="error-alert" role="alert">
         <span>⚠️</span>
         <span id="error-message">Erro ao carregar dados do dashboard.</span>
     </div>
 
-    <!-- FILTROS -->
+    <!-- ═══════════════════════════════════════════════════════════
+         FAIXA 1: FILTROS
+         ═══════════════════════════════════════════════════════════ -->
     <div class="dashboard-filters">
         <div class="filter-group">
             <label for="filtroInicio">📅 Início</label>
@@ -391,92 +431,109 @@
         <div class="filter-hint">💡 Deixe em branco para ver todos os dados</div>
     </div>
 
-    <!-- KPIs -->
-    <div class="kpi-grid">
-        <div class="kpi-card vendas" onclick="abrirModalDetalhe('vendas')">
-            <div class="kpi-header">
-                <div class="kpi-icon">🛍️</div>
-                <span class="kpi-trend up" id="trend-vendas">↑ 12%</span>
+    <!-- ═══════════════════════════════════════════════════════════
+         FAIXA 2: KPIs
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">📊 Indicadores Principais</h3>
+        <div class="kpi-grid">
+            <div class="kpi-card vendas" onclick="abrirModalDetalhe('vendas')">
+                <div class="kpi-header">
+                    <div class="kpi-icon">🛍️</div>
+                    <span class="kpi-trend up" id="trend-vendas">↑ 12%</span>
+                </div>
+                <div class="kpi-label">Total Vendas</div>
+                <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
+                <div class="kpi-subtitle">Acumulado no período</div>
             </div>
-            <div class="kpi-label">Total Vendas</div>
-            <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
-            <div class="kpi-subtitle">Acumulado no período</div>
-        </div>
 
-        <div class="kpi-card recebido" onclick="abrirModalDetalhe('recebidos')">
-            <div class="kpi-header">
-                <div class="kpi-icon">💸</div>
-                <span class="kpi-trend up" id="trend-recebido">↑ 8%</span>
+            <div class="kpi-card recebido" onclick="abrirModalDetalhe('recebidos')">
+                <div class="kpi-header">
+                    <div class="kpi-icon">💸</div>
+                    <span class="kpi-trend up" id="trend-recebido">↑ 8%</span>
+                </div>
+                <div class="kpi-label">Total Recebido</div>
+                <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+                <div class="kpi-subtitle">Conciliado no banco</div>
             </div>
-            <div class="kpi-label">Total Recebido</div>
-            <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
-            <div class="kpi-subtitle">Conciliado no banco</div>
-        </div>
 
-        <div class="kpi-card diferenca" onclick="abrirModalDetalhe('diferencas')">
-            <div class="kpi-header">
-                <div class="kpi-icon">⚠️</div>
-                <span class="kpi-trend down" id="trend-diferenca">↓ 3%</span>
+            <div class="kpi-card diferenca" onclick="abrirModalDetalhe('diferencas')">
+                <div class="kpi-header">
+                    <div class="kpi-icon">⚠️</div>
+                    <span class="kpi-trend down" id="trend-diferenca">↓ 3%</span>
+                </div>
+                <div class="kpi-label">Diferença</div>
+                <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
+                <div class="kpi-subtitle">Pendências</div>
             </div>
-            <div class="kpi-label">Diferença</div>
-            <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
-            <div class="kpi-subtitle">Pendências</div>
-        </div>
 
-        {% if features and features.pix_enabled %}
-        <div class="kpi-card pix">
-            <div class="kpi-header">
-                <div class="kpi-icon">🔷</div>
-                <span class="kpi-trend up" id="trend-pix">↑ 25%</span>
+            {% if features and features.pix_enabled %}
+            <div class="kpi-card pix">
+                <div class="kpi-header">
+                    <div class="kpi-icon">🔷</div>
+                    <span class="kpi-trend up" id="trend-pix">↑ 25%</span>
+                </div>
+                <div class="kpi-label">Total PIX</div>
+                <div class="kpi-value kpi-value-pix">R$ 0,00</div>
+                <div class="kpi-subtitle">Pagamentos instantâneos</div>
             </div>
-            <div class="kpi-label">Total PIX</div>
-            <div class="kpi-value kpi-value-pix">R$ 0,00</div>
-            <div class="kpi-subtitle">Pagamentos instantâneos</div>
-        </div>
-        {% endif %}
+            {% endif %}
 
-        <div class="kpi-card alertas">
-            <div class="kpi-header">
-                <div class="kpi-icon">🔔</div>
-                <span class="kpi-trend down" id="trend-alertas">↓ 2</span>
-            </div>
-            <div class="kpi-label">Alertas</div>
-            <div class="kpi-value kpi-value-alertas">0</div>
-            <div class="kpi-subtitle">Requerem atenção</div>
-        </div>
-    </div>
-
-    <!-- GRID PRINCIPAL: Gráficos -->
-    <div class="dashboard-grid">
-        <div class="nc-section" style="padding: 1rem;">
-            <h3 class="nc-subtitle">📊 Vendas x Recebimentos</h3>
-            <div class="chart-container">
-                <canvas id="graficoVendasRecebidos"></canvas>
-            </div>
-        </div>
-
-        <div class="nc-section" style="padding: 1rem;">
-            <h3 class="nc-subtitle">🏷️ Bandeiras</h3>
-            <div class="chart-container">
-                <canvas id="graficoBandeiras"></canvas>
+            <div class="kpi-card alertas">
+                <div class="kpi-header">
+                    <div class="kpi-icon">🔔</div>
+                    <span class="kpi-trend down" id="trend-alertas">↓ 2</span>
+                </div>
+                <div class="kpi-label">Alertas</div>
+                <div class="kpi-value kpi-value-alertas">0</div>
+                <div class="kpi-subtitle">Requerem atenção</div>
             </div>
         </div>
     </div>
 
-    <!-- ADQUIRENTES -->
-    <div class="nc-section" style="padding: 1rem;">
-        <h3 class="nc-subtitle">💳 Adquirentes</h3>
-        <p class="nc-muted" style="font-size: 0.875rem; margin-bottom: 1rem;">Totais por maquininha</p>
+    <!-- ═══════════════════════════════════════════════════════════
+         FAIXA 3: GRÁFICOS
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">📈 Análise Gráfica</h3>
+        <div class="charts-grid">
+            <div>
+                <h4 style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 0.75rem 0; font-weight: 600;">
+                    Vendas x Recebimentos
+                </h4>
+                <div class="chart-container">
+                    <canvas id="graficoVendasRecebidos"></canvas>
+                </div>
+            </div>
+            <div>
+                <h4 style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 0.75rem 0; font-weight: 600;">
+                    Distribuição por Bandeira
+                </h4>
+                <div class="chart-container">
+                    <canvas id="graficoBandeiras"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         FAIXA 4: ADQUIRENTES
+         ═══════════════════════════════════════════════════════════ -->
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">💳 Adquirentes</h3>
+        <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0 0 1rem 0;">
+            Totais por maquininha
+        </p>
         <div id="acqContainer" class="acq-grid">
-            <p class="nc-muted" style="text-align: center; padding: 1.5rem;">
+            <p style="color: var(--text-muted); text-align: center; padding: 1.5rem; grid-column: 1 / -1;">
                 Nenhuma adquirente encontrada
             </p>
         </div>
     </div>
 
-</section>
+</div>
 
-<!-- MODAL (fora do nc-section) -->
+<!-- MODAL (fora do container principal) -->
 <div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="nc-modal-backdrop" tabindex="-1" onclick="fecharModal()"></div>
     <div class="nc-modal-content" style="max-width: 900px;">
