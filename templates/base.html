@@ -31,6 +31,7 @@
           onerror="console.error('❌ Falha ao carregar style.css'); this.rel='stylesheet'; this.href=this.href.split('?')[0]">
     
     <!-- CSS específico da página (se houver) -->
+    {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
     
     <!-- ✅ Verificação de CSS crítico aplicado -->
