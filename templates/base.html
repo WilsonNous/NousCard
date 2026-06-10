@@ -188,10 +188,11 @@
                 </div>
             </div>
             
-            <!-- Último acesso -->
+            <!-- ✅ DEPOIS (mostra horário de Brasília): -->
             {% if usuario.ultimo_login %}
-            <div style="font-size:0.78rem;color:#8a8d91;white-space:nowrap;">
-                📅 {{ usuario.ultimo_login.strftime('%d/%m/%Y %H:%M') }}
+            <div style="font-size:0.78rem;color:#8a8d91;white-space:nowrap;" 
+                 title="{{ usuario.ultimo_login | hora_brasil_full }}">
+                📅 {{ usuario.ultimo_login | hora_brasil }}
             </div>
             {% endif %}
         </div>
