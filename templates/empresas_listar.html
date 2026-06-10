@@ -5,299 +5,366 @@
 {% block extra_head %}
 <style>
     /* ============================================================
-       CARDS DE ESTATÍSTICAS
+       ESTILO FACEBOOK BUSINESS - LIMPO E HIERÁRQUICO
        ============================================================ */
+    
+    /* Cards de estatísticas - linha horizontal integrada */
     .empresas-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-    }
-    .stat-card {
-        background: var(--white);
-        border: 1px solid var(--gray-border);
-        border-radius: 10px;
-        padding: 1rem 0.75rem;
-        text-align: center;
-        transition: all 0.2s ease;
-        position: relative;
+        display: flex;
+        gap: 0;
+        margin-bottom: 1rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
         overflow: hidden;
     }
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: 10px 10px 0 0;
+    .stat-card {
+        flex: 1;
+        min-width: 100px;
+        padding: 1rem 1.25rem;
+        text-align: left;
+        transition: background 0.15s ease;
+        border-right: 1px solid #f0f2f5;
+        cursor: default;
     }
-    .stat-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    }
-    .stat-card .stat-icon {
-        font-size: 1.25rem;
+    .stat-card:last-child { border-right: none; }
+    .stat-card:hover { background: #f5f7fa; }
+    
+    .stat-card .stat-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #65676b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
         margin-bottom: 0.35rem;
     }
-    .stat-card .value {
+    .stat-card .stat-value {
         font-size: 1.5rem;
         font-weight: 700;
-        color: var(--text-dark);
+        color: #1c1e21;
         line-height: 1.2;
     }
-    .stat-card .label {
+    .stat-card .stat-sub {
         font-size: 0.75rem;
-        color: var(--gray-dark);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: #8a8d91;
         margin-top: 0.15rem;
     }
-    .stat-card.total::before { background: var(--primary); }
-    .stat-card.total .value { color: var(--primary); }
-    .stat-card.active::before { background: #48bb78; }
-    .stat-card.active .value { color: #48bb78; }
-    .stat-card.inactive::before { background: #fc8181; }
-    .stat-card.inactive .value { color: #fc8181; }
-    .stat-card.users::before { background: #667eea; }
-    .stat-card.users .value { color: #667eea; }
     
-    /* ============================================================
-       BARRA DE CONTROLES (BUSCA + FILTROS)
-       ============================================================ */
-    .list-controls {
+    /* Cores por tipo */
+    .stat-card.total .stat-value { color: #1877f2; }
+    .stat-card.active .stat-value { color: #31a24c; }
+    .stat-card.inactive .stat-value { color: #e41e3f; }
+    .stat-card.users .stat-value { color: #65676b; }
+    
+    /* Barra de ferramentas */
+    .toolbar {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.75rem;
         margin-bottom: 1rem;
-        flex-wrap: wrap;
         align-items: center;
-        padding: 0.75rem;
-        background: var(--gray-lightest);
-        border-radius: 8px;
-        border: 1px solid var(--gray-border);
+        flex-wrap: wrap;
     }
-    .list-controls label {
-        font-weight: 600;
-        font-size: 0.85rem;
-        white-space: nowrap;
-        color: var(--text-dark);
-    }
-    .list-controls input,
-    .list-controls select {
+    .toolbar-search {
         flex: 1;
-        min-width: 140px;
-        max-width: 280px;
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--gray-border);
-        border-radius: 6px;
-        font-size: 0.9rem;
-        transition: border-color 0.2s;
+        min-width: 200px;
+        position: relative;
     }
-    .list-controls input:focus,
-    .list-controls select:focus {
-        border-color: var(--primary);
+    .toolbar-search input {
+        width: 100%;
+        padding: 0.55rem 1rem 0.55rem 2.5rem;
+        border: none;
+        border-radius: 50px;
+        background: #f0f2f5;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+    }
+    .toolbar-search input:focus {
+        background: #fff;
+        box-shadow: 0 0 0 2px #1877f2;
         outline: none;
-        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    .toolbar-search .search-icon {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #65676b;
+        font-size: 0.9rem;
+    }
+    .toolbar-filter select {
+        padding: 0.55rem 2rem 0.55rem 1rem;
+        border: none;
+        border-radius: 50px;
+        background: #f0f2f5;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #1c1e21;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2365676b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+    }
+    .toolbar-filter select:focus {
+        background: #fff;
+        box-shadow: 0 0 0 2px #1877f2;
+        outline: none;
     }
     .search-count {
         font-size: 0.8rem;
-        font-weight: 500;
-        margin-left: auto;
+        color: #65676b;
+        white-space: nowrap;
     }
     
-    /* ============================================================
-       TABELA
-       ============================================================ */
+    /* Tabela estilo Facebook */
     .nc-table-container {
-        overflow-x: auto;
-        border-radius: 10px;
-        border: 1px solid var(--gray-border);
-        background: var(--white);
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        overflow: hidden;
     }
     .nc-table {
         width: 100%;
         border-collapse: collapse;
     }
     .nc-table thead {
-        background: var(--gray-lightest);
+        border-bottom: 1px solid #e4e6eb;
     }
     .nc-table th {
-        padding: 0.75rem 0.75rem;
-        font-size: 0.8rem;
-        font-weight: 700;
+        padding: 0.65rem 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #65676b;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--gray-dark);
+        letter-spacing: 0.3px;
         text-align: left;
-        border-bottom: 2px solid var(--gray-border);
         white-space: nowrap;
+        background: #fff;
     }
     .nc-table td {
-        padding: 0.7rem 0.75rem;
+        padding: 0.7rem 1rem;
         font-size: 0.9rem;
-        border-bottom: 1px solid #edf2f7;
+        color: #1c1e21;
+        border-bottom: 1px solid #f0f2f5;
         vertical-align: middle;
     }
     .nc-table tbody tr {
-        transition: background 0.15s ease;
+        transition: background 0.1s ease;
     }
     .nc-table tbody tr:hover {
-        background: #f7fafc;
+        background: #f5f7fa;
     }
     .nc-table tbody tr:last-child td {
         border-bottom: none;
     }
     
-    /* Linha da empresa atual */
+    /* Linha destacada */
     .nc-row-current {
-        background: #ebf8ff !important;
-        border-left: 3px solid var(--primary);
+        background: #e7f3ff !important;
     }
     
-    /* ============================================================
-       COLUNAS ORDENÁVEIS
-       ============================================================ */
+    /* Colunas ordenáveis */
     .sortable {
         cursor: pointer;
         user-select: none;
         position: relative;
-        padding-right: 1.5rem !important;
     }
-    .sortable:hover {
-        color: var(--primary);
-    }
+    .sortable:hover { color: #1877f2; }
     .sortable .sort-icon {
-        position: absolute;
-        right: 0.5rem;
-        top: 50%;
-        transform: translateY(-50%);
-        opacity: 0.4;
-        font-size: 0.7rem;
+        font-size: 0.65rem;
+        margin-left: 0.25rem;
+        opacity: 0.5;
     }
     .sortable.asc .sort-icon::after { content: "▲"; opacity: 1; }
     .sortable.desc .sort-icon::after { content: "▼"; opacity: 1; }
     
-    /* ============================================================
-       STATUS BADGE
-       ============================================================ */
+    /* Badge de status */
     .status-badge {
         display: inline-flex;
         align-items: center;
         gap: 0.3rem;
-        padding: 0.25rem 0.6rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
+        padding: 0.2rem 0.65rem;
+        border-radius: 50px;
+        font-size: 0.78rem;
         font-weight: 600;
     }
     .status-badge.ativo {
-        background: #f0fff4;
-        color: #22543d;
+        background: #e6f4ea;
+        color: #137333;
     }
     .status-badge.inativo {
-        background: #fff5f5;
-        color: #742a2a;
+        background: #fce8e6;
+        color: #c5221f;
+    }
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-dot.active { background: #31a24c; }
+    .status-dot.inactive { background: #e41e3f; }
+    
+    /* Nome da empresa */
+    .empresa-nome {
+        font-weight: 600;
+        color: #1c1e21;
+    }
+    .empresa-nome .tag-atual {
+        font-size: 0.65rem;
+        background: #e7f3ff;
+        color: #1877f2;
+        padding: 0.15rem 0.5rem;
+        border-radius: 50px;
+        margin-left: 0.5rem;
+        font-weight: 500;
     }
     
-    /* ============================================================
-       AÇÕES
-       ============================================================ */
-    .nc-table-actions {
-        display: flex;
-        gap: 0.3rem;
-        justify-content: flex-end;
-        flex-wrap: nowrap;
+    /* Documento */
+    .doc-code {
+        font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+        font-size: 0.82rem;
+        color: #65676b;
+        background: #f0f2f5;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
     }
-    .action-btn {
+    
+    /* Ações */
+    .actions-cell {
+        display: flex;
+        gap: 0.25rem;
+        justify-content: flex-end;
+    }
+    .action-icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        border: 1px solid transparent;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: none;
         cursor: pointer;
         transition: all 0.15s ease;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         text-decoration: none;
+        background: transparent;
+        color: #65676b;
     }
-    .action-btn.edit {
-        background: #ebf8ff;
-        color: #2b6cb0;
-        border-color: #bee3f8;
+    .action-icon:hover {
+        background: #f0f2f5;
     }
-    .action-btn.edit:hover { background: #bee3f8; }
-    .action-btn.view {
-        background: #faf5ff;
-        color: #6b46c1;
-        border-color: #e9d8fd;
-    }
-    .action-btn.view:hover { background: #e9d8fd; }
-    .action-btn.delete {
-        background: #fff5f5;
-        color: #c53030;
-        border-color: #fed7d7;
-    }
-    .action-btn.delete:hover { background: #fed7d7; }
+    .action-icon.edit:hover { color: #1877f2; background: #e7f3ff; }
+    .action-icon.view:hover { color: #1c1e21; background: #f0f2f5; }
+    .action-icon.delete:hover { color: #e41e3f; background: #fce8e6; }
     
-    /* ============================================================
-       PAGINAÇÃO
-       ============================================================ */
+    /* Paginação */
     .nc-pagination {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 0.75rem;
-        margin-top: 1.25rem;
+        margin-top: 1rem;
         padding: 0.75rem;
     }
     .nc-page-info {
         font-size: 0.85rem;
-        color: var(--gray-dark);
+        color: #65676b;
         font-weight: 500;
     }
     
-    /* ============================================================
-       EMPTY STATE
-       ============================================================ */
+    /* Empty state */
     .nc-empty-state {
         text-align: center;
-        padding: 3rem 1rem;
-        background: var(--white);
-        border-radius: 10px;
-        border: 2px dashed var(--gray-border);
+        padding: 4rem 1rem;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
     .nc-empty-state .empty-icon {
         font-size: 3rem;
         margin-bottom: 1rem;
+        opacity: 0.6;
     }
     .nc-empty-state h3 {
-        color: var(--text-dark);
-        margin-bottom: 0.5rem;
+        font-size: 1.25rem;
+        color: #1c1e21;
+        margin-bottom: 0.35rem;
     }
     .nc-empty-state p {
-        color: var(--gray-dark);
+        color: #65676b;
         margin-bottom: 1.5rem;
+        font-size: 0.9rem;
     }
     
-    /* ============================================================
-       RESPONSIVO
-       ============================================================ */
+    /* Botão primário estilo FB */
+    .btn-primary-fb {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1.25rem;
+        background: #1877f2;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s ease;
+    }
+    .btn-primary-fb:hover {
+        background: #166fe5;
+        color: #fff;
+    }
+    .btn-secondary-fb {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.5rem 1.25rem;
+        background: #e4e6eb;
+        color: #1c1e21;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s ease;
+    }
+    .btn-secondary-fb:hover {
+        background: #d8dadf;
+        color: #1c1e21;
+    }
+    
+    /* Responsivo */
     @media (max-width: 768px) {
         .empresas-stats {
-            grid-template-columns: repeat(2, 1fr);
+            flex-wrap: wrap;
         }
-        .list-controls {
+        .stat-card {
+            flex: 1 1 50%;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .stat-card:nth-child(3),
+        .stat-card:nth-child(4) {
+            border-bottom: none;
+        }
+        .toolbar {
             flex-direction: column;
             align-items: stretch;
         }
-        .list-controls input,
-        .list-controls select {
-            max-width: 100%;
+        .toolbar-search input {
+            width: 100%;
         }
-        .nc-table th:nth-child(5),
-        .nc-table td:nth-child(5) {
-            display: none;
+    }
+    @media (max-width: 480px) {
+        .stat-card {
+            flex: 1 1 100%;
+            border-right: none;
+            border-bottom: 1px solid #f0f2f5;
         }
+        .stat-card:last-child { border-bottom: none; }
     }
 </style>
 {% endblock %}
@@ -312,20 +379,23 @@
             <a href="{{ url_for('dashboard.dashboard') }}" class="nc-btn nc-btn-primary">Voltar ao dashboard</a>
         </div>
     {% else %}
-        <div class="nc-section-header">
+        <!-- Cabeçalho -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
             <div>
-                <h2>🏢 Gerenciar Empresas</h2>
+                <h2 style="margin:0;font-size:1.35rem;font-weight:700;color:#1c1e21;">🏢 Gerenciar Empresas</h2>
                 {% if empresas and empresas.total %}
-                <p class="nc-section-subtitle">{{ empresas.total }} empresa(s) cadastrada(s)</p>
+                <p style="margin:0.15rem 0 0 0;font-size:0.85rem;color:#65676b;">{{ empresas.total }} empresa(s) cadastrada(s)</p>
                 {% endif %}
             </div>
-            <div style="display: flex; gap: 0.5rem;">
+            <div style="display:flex;gap:0.5rem;">
                 {% if empresas and empresas.items %}
-                <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" onclick="exportarEmpresasCSV()">
-                    📥 Exportar CSV
+                <button type="button" class="btn-secondary-fb" onclick="exportarEmpresasCSV()">
+                    📥 Exportar
                 </button>
                 {% endif %}
-                <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
+                <a href="{{ url_for('empresas.nova_empresa') }}" class="btn-primary-fb">
+                    + Nova empresa
+                </a>
             </div>
         </div>
         
@@ -333,49 +403,50 @@
             <!-- Cards de estatísticas -->
             <div class="empresas-stats">
                 <div class="stat-card total">
-                    <div class="stat-icon">🏢</div>
-                    <div class="value">{{ empresas.total }}</div>
-                    <div class="label">Total</div>
+                    <div class="stat-label">Total de empresas</div>
+                    <div class="stat-value">{{ empresas.total }}</div>
+                    <div class="stat-sub">Cadastradas</div>
                 </div>
                 <div class="stat-card active">
-                    <div class="stat-icon">✅</div>
-                    <div class="value">{{ empresas.items | selectattr('ativo') | list | length }}</div>
-                    <div class="label">Ativas</div>
+                    <div class="stat-label">Ativas</div>
+                    <div class="stat-value">{{ empresas.items | selectattr('ativo') | list | length }}</div>
+                    <div class="stat-sub">Em operação</div>
                 </div>
                 <div class="stat-card inactive">
-                    <div class="stat-icon">⏸️</div>
-                    <div class="value">{{ empresas.items | rejectattr('ativo') | list | length }}</div>
-                    <div class="label">Inativas</div>
+                    <div class="stat-label">Inativas</div>
+                    <div class="stat-value">{{ empresas.items | rejectattr('ativo') | list | length }}</div>
+                    <div class="stat-sub">Desativadas</div>
                 </div>
                 <div class="stat-card users">
-                    <div class="stat-icon">👥</div>
-                    <div class="value">{{ total_usuarios | default(0) }}</div>
-                    <div class="label">Usuários Total</div>
+                    <div class="stat-label">Usuários</div>
+                    <div class="stat-value">{{ total_usuarios | default(0) }}</div>
+                    <div class="stat-sub">No sistema</div>
                 </div>
             </div>
             
-            <!-- Controles de busca e filtro -->
-            <div class="list-controls">
-                <label for="empresaSearch">🔍</label>
-                <input type="search" id="empresaSearch" 
-                       placeholder="Buscar por nome ou documento..." 
-                       onkeyup="filtrarEmpresas()"
-                       aria-label="Buscar empresas por nome ou documento">
-                
-                <label for="filtroStatus">Status:</label>
-                <select id="filtroStatus" onchange="filtrarEmpresas()" aria-label="Filtrar por status">
-                    <option value="">Todos</option>
-                    <option value="ativo">Ativas</option>
-                    <option value="inativo">Inativas</option>
-                </select>
-                
+            <!-- Barra de ferramentas -->
+            <div class="toolbar">
+                <div class="toolbar-search">
+                    <span class="search-icon">🔍</span>
+                    <input type="search" id="empresaSearch" 
+                           placeholder="Buscar empresas..." 
+                           onkeyup="filtrarEmpresas()"
+                           aria-label="Buscar empresas">
+                </div>
+                <div class="toolbar-filter">
+                    <select id="filtroStatus" onchange="filtrarEmpresas()" aria-label="Filtrar por status">
+                        <option value="">Todos os status</option>
+                        <option value="ativo">Ativas</option>
+                        <option value="inativo">Inativas</option>
+                    </select>
+                </div>
                 <span class="search-count" id="searchCount" aria-live="polite"></span>
             </div>
             
             <!-- Tabela -->
             <div class="nc-table-container">
-                <table class="nc-table" role="table" aria-label="Lista de empresas cadastradas">
-                    <caption class="nc-sr-only">Tabela com {{ empresas.total }} empresas cadastradas.</caption>
+                <table class="nc-table" role="table" aria-label="Lista de empresas">
+                    <caption class="nc-sr-only">{{ empresas.total }} empresas cadastradas</caption>
                     <thead>
                         <tr>
                             <th scope="col" class="sortable" onclick="ordenarTabela('id')" aria-sort="none">
@@ -384,16 +455,12 @@
                             <th scope="col" class="sortable" onclick="ordenarTabela('nome')" aria-sort="none">
                                 Nome <span class="sort-icon"></span>
                             </th>
-                            <th scope="col" class="sortable" onclick="ordenarTabela('documento')" aria-sort="none">
-                                Documento <span class="sort-icon"></span>
-                            </th>
+                            <th scope="col">Documento</th>
                             <th scope="col" class="sortable" onclick="ordenarTabela('ativo')" aria-sort="none">
                                 Status <span class="sort-icon"></span>
                             </th>
-                            <th scope="col" class="sortable" onclick="ordenarTabela('criado_em')" aria-sort="none">
-                                Criada em <span class="sort-icon"></span>
-                            </th>
-                            <th scope="col">Usuários</th>
+                            <th scope="col">Criada em</th>
+                            <th scope="col" style="text-align:center;">Usuários</th>
                             <th scope="col" style="text-align:right;">Ações</th>
                         </tr>
                     </thead>
@@ -403,43 +470,39 @@
                             data-nome="{{ e.nome | lower | e }}" 
                             data-documento="{{ (e.documento or '') | lower | e }}" 
                             data-status="{{ 'ativo' if e.ativo else 'inativo' }}">
-                            <td><span style="color:var(--gray-dark);font-weight:600;">#{{ e.id }}</span></td>
+                            <td><span style="color:#65676b;font-size:0.8rem;">#{{ e.id }}</span></td>
                             <td>
-                                <strong>{{ e.nome | e }}</strong>
+                                <span class="empresa-nome">{{ e.nome | e }}</span>
                                 {% if e.id == session.get('empresa_id') %}
-                                <span style="font-size:0.7rem;color:var(--primary);margin-left:0.5rem;">(atual)</span>
+                                <span class="tag-atual">você</span>
                                 {% endif %}
                             </td>
-                            <td><code style="font-size:0.85rem;">{{ e.documento | e if e.documento else "—" }}</code></td>
+                            <td>
+                                {% if e.documento %}
+                                <span class="doc-code">{{ e.documento | e }}</span>
+                                {% else %}
+                                <span style="color:#8a8d91;">—</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 <span class="status-badge {{ 'ativo' if e.ativo else 'inativo' }}">
-                                    {{ "✅ Ativa" if e.ativo else "⏸️ Inativa" }}
+                                    <span class="status-dot {{ 'active' if e.ativo else 'inactive' }}"></span>
+                                    {{ 'Ativa' if e.ativo else 'Inativa' }}
                                 </span>
                             </td>
                             <td>{{ e.criado_em.strftime("%d/%m/%Y") if e.criado_em else "—" }}</td>
                             <td style="text-align:center;">{{ e.total_usuarios | default(0) }}</td>
                             <td>
-                                <div class="nc-table-actions">
+                                <div class="actions-cell">
                                     <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}" 
-                                       class="action-btn edit"
-                                       aria-label="Editar {{ e.nome | e }}"
-                                       title="Editar empresa">
-                                        ✏️
-                                    </a>
+                                       class="action-icon edit" title="Editar" aria-label="Editar {{ e.nome | e }}">✏️</a>
                                     <a href="{{ url_for('empresas.empresa_detalhe', empresa_id=e.id) }}" 
-                                       class="action-btn view"
-                                       aria-label="Ver detalhes de {{ e.nome | e }}"
-                                       title="Ver detalhes">
-                                        👁️
-                                    </a>
+                                       class="action-icon view" title="Detalhes" aria-label="Ver {{ e.nome | e }}">👁️</a>
                                     {% if not e.ativo or empresas.items | length > 1 %}
                                     <button type="button"
-                                            class="action-btn delete"
+                                            class="action-icon delete"
                                             onclick="confirmarExclusao({{ e.id }}, '{{ e.nome | e }}')"
-                                            aria-label="Excluir {{ e.nome | e }}"
-                                            title="Excluir empresa">
-                                        🗑️
-                                    </button>
+                                            title="Excluir" aria-label="Excluir {{ e.nome | e }}">🗑️</button>
                                     {% endif %}
                                 </div>
                             </td>
@@ -451,17 +514,13 @@
             
             <!-- Paginação -->
             {% if empresas.pages > 1 %}
-            <nav class="nc-pagination" role="navigation" aria-label="Paginação de empresas">
+            <nav class="nc-pagination" role="navigation" aria-label="Paginação">
                 {% if empresas.has_prev %}
-                <a href="{{ build_pagination_url(empresas.page - 1) }}" class="nc-btn nc-btn-sm nc-btn-outline" aria-label="Página anterior">← Anterior</a>
+                <a href="{{ build_pagination_url(empresas.page - 1) }}" class="btn-secondary-fb">← Anterior</a>
                 {% endif %}
-                
-                <span class="nc-page-info" aria-current="page">
-                    Página {{ empresas.page }} de {{ empresas.pages }}
-                </span>
-                
+                <span class="nc-page-info" aria-current="page">Página {{ empresas.page }} de {{ empresas.pages }}</span>
                 {% if empresas.has_next %}
-                <a href="{{ build_pagination_url(empresas.page + 1) }}" class="nc-btn nc-btn-sm nc-btn-outline" aria-label="Próxima página">Próxima →</a>
+                <a href="{{ build_pagination_url(empresas.page + 1) }}" class="btn-secondary-fb">Próxima →</a>
                 {% endif %}
             </nav>
             {% endif %}
@@ -471,88 +530,65 @@
                 <div class="empty-icon">🏢</div>
                 <h3>Nenhuma empresa cadastrada</h3>
                 <p>Comece cadastrando a primeira empresa do sistema.</p>
-                <a href="{{ url_for('empresas.nova_empresa') }}" class="nc-btn nc-btn-primary">+ Nova empresa</a>
+                <a href="{{ url_for('empresas.nova_empresa') }}" class="btn-primary-fb">+ Nova empresa</a>
             </div>
         {% endif %}
     {% endif %}
 </section>
 
-<!-- Modal de confirmação de exclusão -->
+<!-- Modal de exclusão -->
 <div id="modalExclusaoEmpresa" class="nc-modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalExclusaoTitulo">
     <div class="nc-modal-backdrop" onclick="fecharModalExclusao()"></div>
-    <div class="nc-modal-content">
-        <div class="nc-modal-header">
-            <h3 id="modalExclusaoTitulo">🗑️ Confirmar Exclusão</h3>
-            <button type="button" class="nc-modal-close" aria-label="Fechar modal" onclick="fecharModalExclusao()">✕</button>
+    <div class="nc-modal-content" style="border-radius:8px;max-width:440px;">
+        <div class="nc-modal-header" style="border-bottom:1px solid #e4e6eb;">
+            <h3 id="modalExclusaoTitulo" style="font-size:1.1rem;font-weight:700;">🗑️ Confirmar Exclusão</h3>
+            <button type="button" class="nc-modal-close" aria-label="Fechar" onclick="fecharModalExclusao()">✕</button>
         </div>
         <div class="nc-modal-body">
             <p>Tem certeza que deseja excluir a empresa <strong id="exclusaoNomeEmpresa"></strong>?</p>
-            <div class="nc-flash nc-flash-warning" style="margin: 1rem 0;">
-                <strong>⚠️ Atenção:</strong> Esta ação irá:
-                <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
-                    <li>Desativar todos os usuários vinculados</li>
-                    <li>Manter vendas e recebimentos existentes</li>
-                    <li>Impedir novos acessos à empresa</li>
-                </ul>
+            <div style="background:#fff3cd;padding:0.75rem;border-radius:6px;margin:1rem 0;font-size:0.85rem;">
+                <strong>⚠️ Atenção:</strong> Esta ação irá desativar todos os usuários vinculados e impedir novos acessos.
             </div>
-            <form id="formExclusao" method="POST" action="/empresas/0/excluir" style="display: none;">
+            <form id="formExclusao" method="POST" action="/empresas/0/excluir" style="display:none;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="confirmar_exclusao" value="sim">
             </form>
         </div>
-        <div class="nc-modal-footer">
-            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModalExclusao()">Cancelar</button>
-            <button type="button" class="nc-btn nc-btn-danger" id="btnConfirmarExclusao">🗑️ Excluir Permanentemente</button>
+        <div class="nc-modal-footer" style="border-top:1px solid #e4e6eb;">
+            <button type="button" class="btn-secondary-fb" onclick="fecharModalExclusao()">Cancelar</button>
+            <button type="button" class="btn-primary-fb" id="btnConfirmarExclusao" style="background:#e41e3f;">🗑️ Excluir</button>
         </div>
     </div>
 </div>
 
 {% if empresas and empresas.items %}
 <script>
-// ============================================================
-// Dados serializados do backend
-// ============================================================
 const empresasJSON = {{ empresas_json | tojson }};
 
-// ============================================================
-// Filtro de busca
-// ============================================================
 function filtrarEmpresas() {
     const termo = document.getElementById('empresaSearch').value.toLowerCase().trim();
     const statusFiltro = document.getElementById('filtroStatus').value;
-    const tbody = document.getElementById('empresasTableBody');
-    const rows = tbody.querySelectorAll('tr');
+    const rows = document.querySelectorAll('#empresasTableBody tr');
     let visiveis = 0;
     
     rows.forEach(row => {
         const nome = row.dataset.nome || '';
-        const documento = row.dataset.documento || '';
+        const doc = row.dataset.documento || '';
         const status = row.dataset.status || '';
-        
-        const matchTexto = nome.includes(termo) || documento.includes(termo);
-        const matchStatus = !statusFiltro || status === statusFiltro;
-        const match = matchTexto && matchStatus;
-        
+        const match = (nome.includes(termo) || doc.includes(termo)) && (!statusFiltro || status === statusFiltro);
         row.style.display = match ? '' : 'none';
         if (match) visiveis++;
     });
     
-    const total = rows.length;
-    const countEl = document.getElementById('searchCount');
-    
+    const el = document.getElementById('searchCount');
     if (termo || statusFiltro) {
-        countEl.textContent = visiveis > 0 ? 
-            `${visiveis} de ${total} empresa(s)` : 
-            'Nenhuma encontrada';
-        countEl.style.color = visiveis === 0 ? '#dc2626' : 'var(--gray-dark)';
+        el.textContent = visiveis ? `${visiveis} de ${rows.length}` : 'Nenhuma encontrada';
+        el.style.color = visiveis ? '#65676b' : '#e41e3f';
     } else {
-        countEl.textContent = '';
+        el.textContent = '';
     }
 }
 
-// ============================================================
-// Ordenação da tabela (frontend)
-// ============================================================
 let ordemAtual = { coluna: 'id', direcao: 'desc' };
 
 function ordenarTabela(coluna) {
@@ -560,175 +596,67 @@ function ordenarTabela(coluna) {
     const tbody = document.getElementById('empresasTableBody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
     
-    if (ordemAtual.coluna === coluna) {
-        ordemAtual.direcao = ordemAtual.direcao === 'asc' ? 'desc' : 'asc';
-    } else {
-        ordemAtual.coluna = coluna;
-        ordemAtual.direcao = 'asc';
-    }
+    ordemAtual.direcao = (ordemAtual.coluna === coluna && ordemAtual.direcao === 'asc') ? 'desc' : 'asc';
+    ordemAtual.coluna = coluna;
     
-    headers.forEach(th => {
-        th.classList.remove('asc', 'desc');
-        th.setAttribute('aria-sort', 'none');
-    });
-    
-    const headerAtual = document.querySelector(`th.sortable[onclick="ordenarTabela('${coluna}')"]`);
-    if (headerAtual) {
-        headerAtual.classList.add(ordemAtual.direcao);
-        headerAtual.setAttribute('aria-sort', ordemAtual.direcao === 'asc' ? 'ascending' : 'descending');
-    }
+    headers.forEach(th => { th.classList.remove('asc', 'desc'); th.setAttribute('aria-sort', 'none'); });
+    const h = document.querySelector(`th.sortable[onclick="ordenarTabela('${coluna}')"]`);
+    if (h) { h.classList.add(ordemAtual.direcao); h.setAttribute('aria-sort', ordemAtual.direcao === 'asc' ? 'ascending' : 'descending'); }
     
     rows.sort((a, b) => {
-        let valA, valB;
-        
+        let va, vb;
+        const cells = [a.cells, b.cells];
         switch(coluna) {
-            case 'id':
-                valA = parseInt(a.cells[0].textContent.replace('#', ''));
-                valB = parseInt(b.cells[0].textContent.replace('#', ''));
-                break;
-            case 'nome':
-                valA = a.cells[1].textContent.trim().toLowerCase();
-                valB = b.cells[1].textContent.trim().toLowerCase();
-                break;
-            case 'documento':
-                valA = a.cells[2].textContent.trim();
-                valB = b.cells[2].textContent.trim();
-                break;
-            case 'ativo':
-                valA = a.dataset.status === 'ativo' ? 1 : 0;
-                valB = b.dataset.status === 'ativo' ? 1 : 0;
-                break;
-            case 'criado_em':
-                valA = a.cells[4].textContent.trim();
-                valB = b.cells[4].textContent.trim();
-                break;
-            default:
-                return 0;
+            case 'id': va = parseInt(cells[0][0].textContent.replace('#','')); vb = parseInt(cells[1][0].textContent.replace('#','')); break;
+            case 'nome': va = cells[0][1].textContent.trim().toLowerCase(); vb = cells[1][1].textContent.trim().toLowerCase(); break;
+            case 'ativo': va = a.dataset.status === 'ativo' ? 1 : 0; vb = b.dataset.status === 'ativo' ? 1 : 0; break;
+            default: return 0;
         }
-        
-        if (valA < valB) return ordemAtual.direcao === 'asc' ? -1 : 1;
-        if (valA > valB) return ordemAtual.direcao === 'asc' ? 1 : -1;
-        return 0;
+        return (va < vb ? -1 : va > vb ? 1 : 0) * (ordemAtual.direcao === 'asc' ? 1 : -1);
     });
-    
-    rows.forEach(row => tbody.appendChild(row));
+    rows.forEach(r => tbody.appendChild(r));
 }
 
-// ============================================================
-// Exportar CSV
-// ============================================================
 function exportarEmpresasCSV() {
     const termo = (document.getElementById('empresaSearch')?.value || '').toLowerCase().trim();
     const statusFiltro = document.getElementById('filtroStatus')?.value || '';
-    
     const dados = empresasJSON.filter(e => {
         if (!termo && !statusFiltro) return true;
-        const nome = (e.nome || '').toLowerCase();
-        const documento = (e.documento || '').toLowerCase();
-        const status = e.ativo ? 'ativo' : 'inativo';
-        return (!termo || nome.includes(termo) || documento.includes(termo)) &&
-               (!statusFiltro || status === statusFiltro);
+        const n = (e.nome || '').toLowerCase();
+        const d = (e.documento || '').toLowerCase();
+        const s = e.ativo ? 'ativo' : 'inativo';
+        return (!termo || n.includes(termo) || d.includes(termo)) && (!statusFiltro || s === statusFiltro);
     });
+    if (!dados.length) { alert('Nenhuma empresa encontrada.'); return; }
     
-    if (!dados.length) {
-        alert('Nenhuma empresa corresponde aos filtros atuais.');
-        return;
-    }
-    
-    const headers = ['ID', 'Nome', 'Documento', 'Status', 'Criada em'];
-    const csv = [
-        headers.join(';'),
-        ...dados.map(e => [
-            e.id,
-            `"${(e.nome || '').replace(/"/g, '""')}"`,
-            e.documento || '',
-            e.ativo ? 'Ativa' : 'Inativa',
-            e.criado_em ? new Date(e.criado_em).toLocaleDateString('pt-BR') : ''
-        ].join(';'))
+    const csv = [['ID','Nome','Documento','Status','Criada em'].join(';'),
+        ...dados.map(e => [e.id, `"${(e.nome||'').replace(/"/g,'""')}"`, e.documento||'', e.ativo?'Ativa':'Inativa', e.criado_em?new Date(e.criado_em).toLocaleDateString('pt-BR'):''].join(';'))
     ].join('\n');
     
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `empresas_nouscard_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `empresas_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(a.href);
 }
 
-// ============================================================
-// Modal de exclusão
-// ============================================================
-function confirmarExclusao(empresaId, empresaNome) {
-    const modal = document.getElementById('modalExclusaoEmpresa');
-    const form = document.getElementById('formExclusao');
-    
-    document.getElementById('exclusaoNomeEmpresa').textContent = empresaNome;
-    form.action = `/empresas/${empresaId}/excluir`;
-    
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
+function confirmarExclusao(id, nome) {
+    document.getElementById('exclusaoNomeEmpresa').textContent = nome;
+    document.getElementById('formExclusao').action = `/empresas/${id}/excluir`;
+    const m = document.getElementById('modalExclusaoEmpresa');
+    m.style.display = 'flex'; m.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
     document.getElementById('btnConfirmarExclusao').focus();
 }
 
 function fecharModalExclusao() {
-    const modal = document.getElementById('modalExclusaoEmpresa');
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
+    const m = document.getElementById('modalExclusaoEmpresa');
+    m.style.display = 'none'; m.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
 }
 
-// ============================================================
-// Inicialização
-// ============================================================
-document.addEventListener('DOMContentLoaded', function() {
-    const btnConfirmar = document.getElementById('btnConfirmarExclusao');
-    if (btnConfirmar) {
-        btnConfirmar.addEventListener('click', function() {
-            const form = document.getElementById('formExclusao');
-            if (form) form.submit();
-        });
-    }
-    
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            const modal = document.getElementById('modalExclusaoEmpresa');
-            if (modal && modal.style.display !== 'none') {
-                fecharModalExclusao();
-            }
-        }
-    });
-    
-    const modal = document.getElementById('modalExclusaoEmpresa');
-    if (modal) {
-        modal.addEventListener('keydown', function(e) {
-            if (e.key === 'Tab') {
-                const focusable = modal.querySelectorAll(
-                    'button:not([disabled]), [href], input:not([disabled])'
-                );
-                if (focusable.length === 0) return;
-                
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                
-                if (e.shiftKey && document.activeElement === first) {
-                    e.preventDefault();
-                    last.focus();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    e.preventDefault();
-                    first.focus();
-                }
-            }
-        });
-        
-        const backdrop = modal.querySelector('.nc-modal-backdrop');
-        if (backdrop) {
-            backdrop.addEventListener('click', fecharModalExclusao);
-        }
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnConfirmarExclusao')?.addEventListener('click', () => document.getElementById('formExclusao')?.submit());
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModalExclusao(); });
 });
 </script>
 {% endif %}
