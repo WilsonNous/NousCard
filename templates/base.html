@@ -129,6 +129,12 @@
                             👥 Usuários
                         </a>
                     </li>
+                    <li>
+                        <a href="{{ url_for('master.teste_ofx_page') }}" 
+                           class="nc-topbar-item {% if request.endpoint and 'teste_ofx' in request.endpoint %}active{% endif %}">
+                            🧪 Teste OFX
+                        </a>
+                    </li>
                 {% endif %}
                 
                 <li>
