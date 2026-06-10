@@ -1,12 +1,10 @@
-# ============================================================
-#  PARSERS • NousCard (VERSÃO PRODUÇÃO COM FLOW + PIX)
-#  Suporte: CSV Flow, CSV genérico, Excel, OFX com fallback robusto
-# ============================================================
+# utils/parsers.py - VERSÃO OTIMIZADA COM PERFORMANCE LOGS
 
 import csv
 import io
 import re
 import logging
+import time
 from datetime import datetime, date
 from decimal import Decimal, InvalidOperation
 from openpyxl import load_workbook
@@ -19,9 +17,10 @@ logger = logging.getLogger(__name__)
 # ============================================================
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_ROWS = 10000
+OFX_TIMEOUT_SECONDS = 10  # ✅ Timeout para parser OFX
 
 # ============================================================
-# DETECTAR ENCODING
+# DETECTAR ENCODING (mantém igual)
 # ============================================================
 def detectar_encoding(file_stream):
     """Detecta encoding do arquivo com fallback seguro"""
@@ -31,22 +30,18 @@ def detectar_encoding(file_stream):
         file_stream.seek(0)
         result = chardet.detect(raw)
         encoding = result.get('encoding') or 'utf-8'
-        # Validar encoding suportado
         if encoding.lower() in ('ascii', 'utf-8', 'utf-16', 'latin-1', 'iso-8859-1', 'cp1252'):
             return encoding
-        return 'utf-8'  # Fallback seguro
+        return 'utf-8'
     except Exception:
         file_stream.seek(0)
         return 'utf-8'
 
 # ============================================================
-# PARSE VALOR MONETÁRIO (DECIMAL - PRECISO)
+# PARSE VALOR MONETÁRIO (mantém igual)
 # ============================================================
 def parse_valor(value, raise_on_error=False):
-    """
-    Converte valor para Decimal de forma segura.
-    Suporta formatos: "1.234,56", "1234.56", "R$ 1.234,56", float, int
-    """
+    """Converte valor para Decimal de forma segura."""
     if value is None:
         return Decimal("0")
     
@@ -60,15 +55,11 @@ def parse_valor(value, raise_on_error=False):
         value = str(value).strip()
         value = value.replace("R$", "").replace(" ", "").replace("\xa0", "")
         
-        # Formato brasileiro "1.234,56" → "1234.56"
         if "," in value and "." in value:
-            # Tem ambos: assume formato BR (milhar com ponto, decimal com vírgula)
             value = value.replace(".", "").replace(",", ".")
         elif "," in value:
-            # Só vírgula: assume decimal BR
             value = value.replace(",", ".")
         
-        # Remover caracteres não numéricos exceto ponto e sinal
         value = re.sub(r'[^\d.\-+]', '', value)
         
         if not value or value in ['.', '-', '+']:
@@ -83,13 +74,10 @@ def parse_valor(value, raise_on_error=False):
         return Decimal("0")
 
 # ============================================================
-# PARSE DATA (MULTI-FORMATO)
+# PARSE DATA (mantém igual)
 # ============================================================
 def parse_data(value):
-    """
-    Converte valor para date de forma segura.
-    Suporta múltiplos formatos comuns em bancos brasileiros.
-    """
+    """Converte valor para date de forma segura."""
     if not value:
         return None
     
@@ -99,16 +87,15 @@ def parse_data(value):
     try:
         value = str(value).strip()
         
-        # Lista de formatos em ordem de probabilidade para BR
         formatos = [
-            "%Y-%m-%d",           # 2024-01-15 (ISO)
-            "%d/%m/%Y",           # 15/01/2024 (BR padrão)
-            "%d-%m-%Y",           # 15-01-2024
-            "%Y/%m/%d",           # 2024/01/15
-            "%m/%d/%Y",           # 01/15/2024 (US - fallback)
-            "%Y-%m-%d %H:%M:%S",  # 2024-01-15 14:30:00
-            "%d/%m/%Y %H:%M:%S",  # 15/01/2024 14:30:00
-            "%Y%m%d",             # 20240115 (OFX)
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+            "%d-%m-%Y",
+            "%Y/%m/%d",
+            "%m/%d/%Y",
+            "%Y-%m-%d %H:%M:%S",
+            "%d/%m/%Y %H:%M:%S",
+            "%Y%m%d",
         ]
         
         for fmt in formatos:
@@ -117,7 +104,6 @@ def parse_data(value):
             except ValueError:
                 continue
         
-        # Tentar extrair data de string livre (ex: "15/01/2024 14:30")
         match = re.search(r'(\d{2}[/-]\d{2}[/-]\d{4})', value)
         if match:
             data_str = match.group(1)
@@ -135,27 +121,21 @@ def parse_data(value):
         return None
 
 # ============================================================
-# SANITIZAR CÉLULA (PREVENIR CSV/EXCEL INJECTION)
+# SANITIZAR CÉLULA (mantém igual)
 # ============================================================
 def sanitizar_celula(value):
-    """
-    Previne CSV/Excel injection sanitizando valores de células.
-    Remove fórmulas maliciosas e caracteres de controle.
-    """
+    """Previne CSV/Excel injection sanitizando valores de células."""
     if not value:
         return ""
     
     try:
         value = str(value).strip()
         
-        # Caracteres que iniciam fórmulas perigosas em Excel/CSV
         if value and value[0] in ('=', '+', '-', '@', '\t', '\r', '\n'):
-            value = "'" + value  # Prefixa com apóstrofo para escapar
+            value = "'" + value
         
-        # Remove caracteres de controle não imprimíveis
         value = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', value)
         
-        # Limitar tamanho máximo para prevenir DoS
         if len(value) > 1000:
             value = value[:1000] + "..."
         
@@ -166,19 +146,16 @@ def sanitizar_celula(value):
         return ""
 
 # ============================================================
-# NORMALIZAR ROW (MAPEAMENTO DE COLUNAS)
+# NORMALIZAR ROW (mantém igual)
 # ============================================================
 def normalize_row(row: dict):
-    """
-    Normaliza uma linha de dados mapeando nomes de colunas variados
-    para um schema padrão: {valor, data, descricao, tipo_pagamento, ...}
-    """
+    """Normaliza uma linha de dados mapeando nomes de colunas."""
     if not row:
         return {
             "valor": Decimal("0"), 
             "data": None, 
             "descricao": "",
-            "tipo_pagamento": "cartao"  # Default para cartão
+            "tipo_pagamento": "cartao"
         }
     
     new = {}
@@ -190,44 +167,36 @@ def normalize_row(row: dict):
         
         k = str(key).strip().lower()
         
-        # 1) Colunas de valor definitivas
         if k in ("valor", "amount", "valor_bruto", "vlr", "price", "value"):
             new["valor"] = parse_valor(value)
         
-        # 2) Nomes alternativos para valor (recebimentos)
         elif k in ("entrada", "creditado", "credito", "valor_liquido", 
                    "vlr_liq", "valor_liq", "lancado", "liquid_value"):
             valor_alternativo = parse_valor(value)
         
-        # 3) Detecção por regex para casos não mapeados
         elif re.search(r"valor|liq|credit|amount", k):
             valor_alternativo = parse_valor(value)
         
-        # 4) Datas
         elif k in ("data", "date", "dt", "transaction_date", "data_venda", "data_pagamento"):
             new["data"] = parse_data(value)
         elif re.search(r"data|date|dt", k):
             new["data"] = parse_data(value)
         
-        # 5) Descrição (sanitizada!)
         elif k in ("descricao", "desc", "memo", "historico", "detalhe", "description", "note"):
             new["descricao"] = sanitizar_celula(value)
         
-        # 6) Campos adicionais úteis
         elif k in ("nsu", "id", "transaction_id", "codigo"):
             new["nsu"] = sanitizar_celula(value) if value else None
         elif k in ("adquirente", "merchant", "estabelecimento"):
             new["adquirente"] = sanitizar_celula(value) if value else None
         elif k in ("bandeira", "card", "brand"):
             val = sanitizar_celula(value) if value else None
-            # PIX não tem bandeira tradicional
             if val and val.lower() == 'pix':
                 new["bandeira"] = None
                 new["tipo_pagamento"] = 'pix'
             else:
                 new["bandeira"] = val
         
-        # ✅ NOVO: Detectar tipo de pagamento (PIX, boleto, cartão)
         elif k in ("tipo_pagamento", "forma_pagamento", "payment_method", "payment_type", "produto"):
             val = str(value).strip().lower()
             if 'pix' in val:
@@ -239,28 +208,22 @@ def normalize_row(row: dict):
             else:
                 new["tipo_pagamento"] = 'outros'
         
-        # 7) Outros campos: sanitizar e incluir
         else:
             new[k] = sanitizar_celula(value) if value else ""
     
-    # Garantir valor (usar alternativo se principal não encontrado)
     if "valor" not in new or new["valor"] == Decimal("0"):
         if valor_alternativo is not None:
             new["valor"] = valor_alternativo
         else:
             new["valor"] = Decimal("0")
     
-    # Garantir descrição
     if "descricao" not in new:
         new["descricao"] = ""
     
-    # Garantir data
     if "data" not in new:
         new["data"] = None
     
-    # ✅ Garantir tipo_pagamento (default: cartão)
     if "tipo_pagamento" not in new:
-        # Inferir pelo produto ou bandeira se disponível
         produto = new.get("produto", "").lower() if new.get("produto") else ""
         bandeira = new.get("bandeira", "").lower() if new.get("bandeira") else ""
         
@@ -269,21 +232,18 @@ def normalize_row(row: dict):
         elif 'boleto' in produto:
             new["tipo_pagamento"] = 'boleto'
         else:
-            new["tipo_pagamento"] = 'cartao'  # Default para cartão
+            new["tipo_pagamento"] = 'cartao'
     
     return new
 
 # ============================================================
-# PARSE CSV (GENÉRICO COM ENCODING DETECTION)
+# PARSE CSV (mantém igual)
 # ============================================================
 def parse_csv_generic(file_stream, filename=None):
-    """
-    Parse CSV com detecção automática de encoding e validações.
-    Suporta delimitadores , ; | tab
-    """
-    logger.info(f"Início parse CSV: {filename}")
+    """Parse CSV com detecção automática de encoding."""
+    inicio = time.time()
+    logger.info(f"📄 Início parse CSV: {filename}")
     
-    # Validar tamanho
     file_stream.seek(0, 2)
     size = file_stream.tell()
     file_stream.seek(0)
@@ -291,15 +251,12 @@ def parse_csv_generic(file_stream, filename=None):
     if size > MAX_FILE_SIZE:
         raise ValueError(f"Arquivo CSV excede {MAX_FILE_SIZE/1024/1024}MB")
     
-    # Detectar encoding
     encoding = detectar_encoding(file_stream)
-    logger.info(f"Encoding detectado para CSV: {encoding}")
+    logger.info(f"🔍 Encoding detectado: {encoding}")
     
     try:
-        # Ler conteúdo
         raw = file_stream.read().decode(encoding, errors="replace")
         
-        # Tentar detectar delimitador automático
         sample = raw[:4096]
         delimitador = ','
         if ';' in sample and sample.count(';') > sample.count(','):
@@ -311,43 +268,40 @@ def parse_csv_generic(file_stream, filename=None):
         
         reader = csv.DictReader(io.StringIO(raw), delimiter=delimitador)
         
-        # Parse com limite de linhas
         registros = []
         for i, row in enumerate(reader):
             if i >= MAX_ROWS:
-                logger.warning(f"Limite de {MAX_ROWS} linhas atingido no CSV")
+                logger.warning(f"⚠️ Limite de {MAX_ROWS} linhas atingido")
                 break
-            if row:  # Ignorar linhas vazias
+            if row:
                 registros.append(normalize_row(dict(row)))
         
-        logger.info(f"Fim parse CSV: {len(registros)} registros processados")
+        tempo = time.time() - inicio
+        logger.info(f"✅ Fim parse CSV: {len(registros)} registros em {tempo:.2f}s")
         return registros
         
     except UnicodeDecodeError as e:
-        logger.error(f"Erro de encoding no CSV: {str(e)}")
-        # Tentar fallback com latin-1
+        logger.error(f"Erro de encoding: {str(e)}")
         file_stream.seek(0)
         raw = file_stream.read().decode('latin-1', errors='replace')
         reader = csv.DictReader(io.StringIO(raw))
         registros = [normalize_row(dict(row)) for i, row in enumerate(reader) if i < MAX_ROWS and row]
-        logger.info(f"Fim parse CSV (fallback): {len(registros)} registros")
+        tempo = time.time() - inicio
+        logger.info(f"✅ Fim parse CSV (fallback): {len(registros)} registros em {tempo:.2f}s")
         return registros
         
     except Exception as e:
-        logger.error(f"Erro ao parsear CSV: {str(e)}")
+        logger.error(f"❌ Erro ao parsear CSV: {str(e)}")
         raise ValueError(f"Erro ao processar arquivo CSV: {str(e)}")
 
 # ============================================================
-# PARSE EXCEL (COM PROTEÇÃO XXE E VALIDAÇÕES)
+# PARSE EXCEL (mantém igual)
 # ============================================================
 def parse_excel_generic(file_stream, filename=None):
-    """
-    Parse Excel (.xlsx, .xls) com proteção contra XXE e validações.
-    Usa openpyxl para .xlsx e fallback para .xls se necessário.
-    """
-    logger.info(f"Início parse Excel: {filename}")
+    """Parse Excel com proteção XXE."""
+    inicio = time.time()
+    logger.info(f"📊 Início parse Excel: {filename}")
     
-    # Validar tamanho
     file_stream.seek(0, 2)
     size = file_stream.tell()
     file_stream.seek(0)
@@ -356,12 +310,11 @@ def parse_excel_generic(file_stream, filename=None):
         raise ValueError(f"Arquivo Excel excede {MAX_FILE_SIZE/1024/1024}MB")
     
     try:
-        # Carregar workbook com proteções de segurança
         workbook = load_workbook(
             filename=io.BytesIO(file_stream.read()),
-            data_only=True,      # Usar valores, não fórmulas
-            keep_links=False,    # Desabilitar links externos (XXE protection)
-            read_only=True       # Modo leitura para performance
+            data_only=True,
+            keep_links=False,
+            read_only=True
         )
         
         sheet = workbook.active
@@ -369,72 +322,56 @@ def parse_excel_generic(file_stream, filename=None):
             logger.warning("Excel sem sheet ativa")
             return []
         
-        # Ler headers da primeira linha
         rows = list(sheet.rows)
         if not rows:
             return []
         
         headers = [str(c.value).strip() if c.value is not None else "" for c in rows[0]]
-        if not any(headers):  # Headers vazios
+        if not any(headers):
             logger.warning("Excel sem headers válidos")
             return []
         
-        # Processar linhas de dados
         registros = []
         for i, row in enumerate(rows[1:], start=1):
             if i > MAX_ROWS:
-                logger.warning(f"Limite de {MAX_ROWS} linhas atingido no Excel")
+                logger.warning(f"⚠️ Limite de {MAX_ROWS} linhas atingido")
                 break
             
             row_dict = {}
             for j, cell in enumerate(row):
                 if j < len(headers) and headers[j]:
-                    # Extrair valor da célula (handle diferentes tipos)
                     val = cell.value
                     if val is not None:
                         row_dict[headers[j]] = val
             
-            if row_dict:  # Ignorar linhas completamente vazias
+            if row_dict:
                 registros.append(normalize_row(row_dict))
         
         workbook.close()
-        logger.info(f"Fim parse Excel: {len(registros)} registros processados")
+        tempo = time.time() - inicio
+        logger.info(f"✅ Fim parse Excel: {len(registros)} registros em {tempo:.2f}s")
         return registros
         
     except Exception as e:
-        logger.error(f"Erro ao parsear Excel: {str(e)}")
+        logger.error(f"❌ Erro ao parsear Excel: {str(e)}")
         raise ValueError(f"Erro ao processar arquivo Excel: {str(e)}")
 
 # ============================================================
-# PRÉ-PROCESSAMENTO DE OFX (CORREÇÕES PARA BANCOS BR)
+# PRÉ-PROCESSAMENTO DE OFX (mantém igual)
 # ============================================================
 def _preprocess_ofx(content: str) -> str:
-    """
-    Corrige problemas comuns em arquivos OFX de bancos brasileiros:
-    - Remove BOM (Byte Order Mark)
-    - Corrige encoding de acentos
-    - Normaliza tags para maiúsculas
-    - Remove linhas vazias excessivas
-    - Corrige campos mal formados
-    """
-    # Remover BOM se existir
+    """Corrige problemas comuns em arquivos OFX de bancos brasileiros."""
     if content.startswith('\ufeff'):
         content = content[1:]
     
-    # Corrigir encoding de acentos mal formados (comum em OFX BR)
     content = content.replace('', '')
     
-    # Normalizar tags OFX para maiúsculas (alguns bancos enviam minúsculas)
-    # Ex: <STMTTRN> em vez de <stmttrn>
     content = re.sub(r'<(/?)([a-zA-Z][a-zA-Z0-9_]*)>', 
                      lambda m: f"<{m.group(1)}{m.group(2).upper()}>", 
                      content)
     
-    # Remover linhas vazias excessivas que podem quebrar parsers
     content = re.sub(r'\n{3,}', '\n\n', content)
     
-    # Corrigir campos de valor com formato BR dentro de tags OFX
-    # Ex: <TRNAMT>1.234,56</TRNAMT> → <TRNAMT>1234.56</TRNAMT>
     def fix_amount(match):
         val = match.group(1)
         if ',' in val and '.' in val:
@@ -448,86 +385,113 @@ def _preprocess_ofx(content: str) -> str:
     return content
 
 # ============================================================
-# FALLBACK PARSER OFX (REGEX - QUANDO OFXPARSE FALHA)
+# ✅ FALLBACK PARSER OFX OTIMIZADO (COM TIMEOUT)
 # ============================================================
-def _parse_ofx_fallback(content: str) -> list:
+def _parse_ofx_fallback_otimizado(content: str, timeout_seconds=10) -> list:
     """
-    Fallback simples: extrai transações com regex quando o parser oficial falha.
-    Retorna estrutura compatível com normalize_row.
-    Útil para OFX mal formados de alguns bancos brasileiros.
+    Fallback OFX otimizado com timeout e regex eficiente.
+    
+    ✅ Melhorias:
+    - Timeout de 10 segundos
+    - Regex pré-compilado (mais rápido)
+    - Logs de performance
+    - Limite de transações
     """
+    inicio = time.time()
+    logger.info(f"🔍 Iniciando fallback OFX otimizado (timeout={timeout_seconds}s)")
+    
     registros = []
     
-    # Pattern para blocos de transação OFX
-    stmttrn_pattern = re.compile(
-        r'<STMTTRN>(.*?)</STMTTRN>', 
-        re.DOTALL | re.IGNORECASE
-    )
+    # ✅ Regex pré-compilado (MUITO mais rápido)
+    stmttrn_pattern = re.compile(r'<STMTTRN>(.*?)</STMTTRN>', re.DOTALL | re.IGNORECASE)
+    data_pattern = re.compile(r'<DTPOSTED>(\d{8})', re.IGNORECASE)
+    valor_pattern = re.compile(r'<TRNAMT>(-?[\d.,]+)', re.IGNORECASE)
+    memo_pattern = re.compile(r'<MEMO>(.*?)</MEMO>', re.DOTALL | re.IGNORECASE)
+    name_pattern = re.compile(r'<NAME>(.*?)</NAME>', re.DOTALL | re.IGNORECASE)
     
-    for match in stmttrn_pattern.finditer(content):
-        block = match.group(1)
+    # Encontrar todas as transações
+    matches = stmttrn_pattern.findall(content)
+    total_matches = len(matches)
+    logger.info(f"🔍 Encontradas {total_matches} transações no OFX")
+    
+    # ✅ Limitar processamento para não travar
+    max_transacoes = min(total_matches, 5000)
+    
+    for i, block in enumerate(matches[:max_transacoes]):
+        # ✅ Verificar timeout a cada 100 transações
+        if i % 100 == 0:
+            if time.time() - inicio > timeout_seconds:
+                logger.warning(f"⚠️ Timeout atingido após {i} transações ({time.time() - inicio:.2f}s)")
+                break
         
-        # Extrair campos básicos com regex tolerante
-        data_match = re.search(r'<DTPOSTED>(\d+)', block, re.IGNORECASE)
-        valor_match = re.search(r'<TRNAMT>(-?[\d.,]+)', block, re.IGNORECASE)
-        desc_match = re.search(r'<MEMO>(.*?)</MEMO>', block, re.DOTALL | re.IGNORECASE)
-        payee_match = re.search(r'<NAME>(.*?)</NAME>', block, re.DOTALL | re.IGNORECASE)
-        
-        if not valor_match:
-            continue  # Pular transação sem valor
-        
-        # Parse de data OFX (formato: YYYYMMDD[HHMMSS])
-        data = None
-        if data_match:
-            try:
-                dt_str = data_match.group(1)
-                if len(dt_str) >= 8:
-                    data = datetime.strptime(dt_str[:8], "%Y%m%d").date()
-            except ValueError:
-                pass  # Manter None se não conseguir parsear
-        
-        # Parse de valor (suportar formato BR)
         try:
-            valor_str = valor_match.group(1)
-            if ',' in valor_str and '.' in valor_str:
-                valor_str = valor_str.replace('.', '').replace(',', '.')
-            elif ',' in valor_str:
-                valor_str = valor_str.replace(',', '.')
-            valor = Decimal(valor_str)
-        except (InvalidOperation, ValueError):
-            continue  # Pular se não conseguir parsear valor
-        
-        # Descrição: preferir MEMO, fallback para NAME
-        descricao = ""
-        if desc_match:
-            descricao = desc_match.group(1).strip()
-        elif payee_match:
-            descricao = payee_match.group(1).strip()
-        
-        registros.append({
-            "data": data,
-            "valor": valor,
-            "descricao": descricao,
-            "id": None,
-            "tipo_ofx": None
-        })
+            # Extrair campos
+            data_match = data_pattern.search(block)
+            valor_match = valor_pattern.search(block)
+            memo_match = memo_pattern.search(block)
+            name_match = name_pattern.search(block)
+            
+            if not valor_match:
+                continue
+            
+            # Parse de data
+            data = None
+            if data_match:
+                try:
+                    dt_str = data_match.group(1)
+                    data = datetime.strptime(dt_str[:8], "%Y%m%d").date()
+                except ValueError:
+                    pass
+            
+            # Parse de valor
+            try:
+                valor_str = valor_match.group(1)
+                if ',' in valor_str and '.' in valor_str:
+                    valor_str = valor_str.replace('.', '').replace(',', '.')
+                elif ',' in valor_str:
+                    valor_str = valor_str.replace(',', '.')
+                valor = Decimal(valor_str)
+            except (InvalidOperation, ValueError):
+                continue
+            
+            # Descrição
+            descricao = ""
+            if memo_match:
+                descricao = memo_match.group(1).strip()
+            elif name_match:
+                descricao = name_match.group(1).strip()
+            
+            registros.append({
+                "data": data,
+                "valor": valor,
+                "descricao": descricao,
+                "id": None,
+                "tipo_ofx": None
+            })
+            
+        except Exception as e:
+            logger.debug(f"⚠️ Erro ao parsear transação {i}: {str(e)}")
+            continue
+    
+    tempo = time.time() - inicio
+    logger.info(f"✅ Fallback OFX: {len(registros)} registros em {tempo:.2f}s")
     
     return registros
 
 # ============================================================
-# PARSE OFX (COM FALLBACK ROBUSTO PARA BANCOS BR)
+# ✅ PARSE OFX OTIMIZADO (COM TIMEOUT E LOGS)
 # ============================================================
 def parse_ofx_generic(file_stream, filename=None):
     """
-    Parse OFX com fallback robusto para arquivos de bancos brasileiros.
+    Parse OFX otimizado com timeout e logs de performance.
     
-    Fluxo:
-    1. Tenta parse com ofxparse oficial
-    2. Se falhar, pré-processa e tenta novamente
-    3. Se ainda falhar, usa fallback com regex
-    4. Se tudo falhar, lança erro informativo
+    ✅ Melhorias:
+    - Timeout de 10s no fallback
+    - Logs de performance em cada etapa
+    - Regex otimizado
     """
-    logger.info(f"Início parse OFX: {filename}")
+    inicio_total = time.time()
+    logger.info(f"🏦 Início parse OFX: {filename}")
     
     # Validar tamanho
     file_stream.seek(0, 2)
@@ -537,47 +501,57 @@ def parse_ofx_generic(file_stream, filename=None):
     if size > MAX_FILE_SIZE:
         raise ValueError(f"Arquivo OFX excede {MAX_FILE_SIZE/1024/1024}MB")
     
-    # Ler conteúdo para processamento
+    # Ler conteúdo
     file_stream.seek(0)
     raw_content = file_stream.read()
     
-    # Detectar e decodificar encoding
+    inicio_decode = time.time()
     encoding = detectar_encoding(io.BytesIO(raw_content))
     try:
         content = raw_content.decode(encoding, errors='replace')
     except Exception:
         content = raw_content.decode('utf-8', errors='replace')
     
-    # Tentar parse com ofxparse oficial
+    tempo_decode = time.time() - inicio_decode
+    logger.info(f"⏱️ Decode OFX: {tempo_decode:.2f}s (encoding={encoding})")
+    
+    # Tentar ofxparse oficial
+    inicio_ofxparse = time.time()
     try:
         from ofxparse import OfxParser
         
-        # Pré-processar para corrigir problemas comuns de bancos BR
         content_fixed = _preprocess_ofx(content)
-        
         ofx = OfxParser.parse(io.BytesIO(content_fixed.encode('utf-8', errors='ignore')))
         
+        tempo_ofxparse = time.time() - inicio_ofxparse
+        logger.info(f"✅ ofxparse bem-sucedido em {tempo_ofxparse:.2f}s")
+        
     except ImportError:
-        logger.error("ofxparse não instalado. Instale com: pip install ofxparse")
-        raise ValueError("Suporte a OFX não disponível. Use CSV ou Excel como alternativa.")
+        logger.error("❌ ofxparse não instalado")
+        raise ValueError("Suporte a OFX não disponível. Use CSV ou Excel.")
         
     except Exception as e:
-        logger.warning(f"ofxparse falhou: {str(e)}. Tentando fallback com regex...")
+        tempo_ofxparse = time.time() - inicio_ofxparse
+        logger.warning(f"⚠️ ofxparse falhou em {tempo_ofxparse:.2f}s: {str(e)}")
+        logger.info("🔄 Tentando fallback regex otimizado...")
         
-        # Tentar fallback com regex
+        # ✅ Usar fallback otimizado com timeout
         try:
-            registros = _parse_ofx_fallback(content)
+            registros = _parse_ofx_fallback_otimizado(content, timeout_seconds=OFX_TIMEOUT_SECONDS)
             if registros:
-                logger.info(f"Fallback OFX bem-sucedido: {len(registros)} registros")
+                tempo_total = time.time() - inicio_total
+                logger.info(f"✅ OFX parseado com fallback: {len(registros)} registros em {tempo_total:.2f}s")
                 return [normalize_row(r) for r in registros]
         except Exception as fallback_err:
-            logger.error(f"Fallback OFX também falhou: {str(fallback_err)}")
+            logger.error(f"❌ Fallback OFX também falhou: {str(fallback_err)}")
         
         raise ValueError(f"Arquivo OFX inválido ou não suportado: {str(e)}")
     
     # Processar contas e transações
+    inicio_process = time.time()
+    
     if not ofx.accounts:
-        logger.warning("OFX sem contas encontradas")
+        logger.warning("⚠️ OFX sem contas encontradas")
         return []
     
     registros = []
@@ -587,7 +561,6 @@ def parse_ofx_generic(file_stream, filename=None):
         
         for tx in account.statement.transactions:
             try:
-                # Extrair campos com fallback para None
                 registro = normalize_row({
                     "data": getattr(tx, 'date', None),
                     "valor": getattr(tx, 'amount', None),
@@ -598,31 +571,27 @@ def parse_ofx_generic(file_stream, filename=None):
                 registros.append(registro)
                 
             except Exception as e:
-                logger.warning(f"Transação OFX ignorada (erro ao normalizar): {str(e)}")
+                logger.warning(f"⚠️ Transação OFX ignorada: {str(e)}")
                 continue
     
-    logger.info(f"Fim parse OFX: {len(registros)} registros processados")
+    tempo_process = time.time() - inicio_process
+    tempo_total = time.time() - inicio_total
+    
+    logger.info(f"✅ OFX processado: {len(registros)} registros em {tempo_total:.2f}s (parse={tempo_ofxparse:.2f}s, process={tempo_process:.2f}s)")
+    
     return registros
 
 # ============================================================
-# DETECTOR E PARSER ESPECÍFICO: CLIENTE FLOW
+# DETECTOR E PARSER FLOW (mantém igual)
 # ============================================================
 
 def is_flow_csv(filename: str, sample_content: str) -> bool:
-    """
-    Detecta se o arquivo é do formato Cliente Flow.
-    
-    Critérios:
-    - Nome contém 'flow' ou 'relatorio sumarizado'
-    - OU conteúdo tem 'Relatório sumarizado de vendas' + 'Estabelecimento(s)'
-    """
+    """Detecta se o arquivo é do formato Cliente Flow."""
     filename_lower = filename.lower() if filename else ""
     
-    # Detectar pelo nome do arquivo
     if 'flow' in filename_lower or 'relatorio sumarizado' in filename_lower:
         return True
     
-    # Detectar pelo conteúdo (primeiras 500 chars)
     content_preview = sample_content[:500].lower()
     if 'relatório sumarizado de vendas' in content_preview or 'relatorio sumarizado de vendas' in content_preview:
         if 'estabelecimento' in content_preview:
@@ -632,27 +601,10 @@ def is_flow_csv(filename: str, sample_content: str) -> bool:
 
 
 def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
-    """
-    Parser específico para CSV do Cliente Flow.
+    """Parser específico para CSV do Cliente Flow."""
+    inicio = time.time()
+    logger.info(f"📄 Início parse Flow CSV: {filename}")
     
-    Formato esperado:
-    - Linha 0: "Relatório sumarizado de vendas"
-    - Linha 1: "Estabelecimento(s);CB-109264950001"
-    - Linha 2: Headers das colunas
-    - Linhas 3+: Dados
-    - Última linha: "Total;..." (ignorar)
-    
-    Args:
-        file_stream: Stream do arquivo
-        filename: Nome do arquivo
-        default_empresa_id: Fallback se estabelecimento não mapeado
-    
-    Returns:
-        Lista de registros normalizados com tipo_pagamento
-    """
-    logger.info(f"Início parse Flow CSV: {filename}")
-    
-    # Validar tamanho
     file_stream.seek(0, 2)
     size = file_stream.tell()
     file_stream.seek(0)
@@ -660,11 +612,9 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
     if size > MAX_FILE_SIZE:
         raise ValueError(f"Arquivo Flow CSV excede {MAX_FILE_SIZE/1024/1024}MB")
     
-    # Detectar encoding
     encoding = detectar_encoding(file_stream)
     
     try:
-        # Ler todo o conteúdo
         file_stream.seek(0)
         raw = file_stream.read().decode(encoding, errors="replace")
         lines = raw.strip().split('\n')
@@ -672,7 +622,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         if len(lines) < 3:
             raise ValueError("Arquivo Flow CSV muito curto")
         
-        # Extrair estabelecimento da linha 1 (índice 1)
         estabelecimento = None
         linha_estabelecimento = lines[1].strip() if len(lines) > 1 else ""
         if 'Estabelecimento' in linha_estabelecimento:
@@ -680,16 +629,13 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
             if len(partes) >= 2:
                 estabelecimento = partes[1].strip()
         
-        # Mapear estabelecimento para empresa_id
         empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento, default_empresa_id)
         if not empresa_id:
-            logger.error(f"❌ Não foi possível determinar empresa_id para estabelecimento: {estabelecimento}")
+            logger.error(f"❌ Não foi possível determinar empresa_id: {estabelecimento}")
             if not default_empresa_id:
                 return []
             empresa_id = default_empresa_id
         
-        # Pular linhas de cabeçalho (0 e 1) e linha de headers (2)
-        # Processar apenas linhas de dados (ignorar linha de Total)
         data_lines = []
         for i, line in enumerate(lines[3:], start=4):
             line_stripped = line.strip()
@@ -698,10 +644,9 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
             data_lines.append(line)
         
         if not data_lines:
-            logger.warning("Nenhuma linha de dados encontrada no Flow CSV")
+            logger.warning("⚠️ Nenhuma linha de dados encontrada")
             return []
         
-        # Parse CSV com delimitador ;
         reader = csv.DictReader(
             data_lines,
             delimiter=';',
@@ -715,34 +660,29 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         registros = []
         for row_num, row in enumerate(reader, start=4):
             try:
-                # Validar e converter valor_bruto (obrigatório para vendas)
                 valor_bruto = parse_valor(row.get('valor_bruto'))
                 if not valor_bruto or valor_bruto <= 0:
                     continue
                 
-                # Converter data
                 data_venda = parse_data(row.get('data_pagamento'))
                 if not data_venda:
-                    logger.warning(f"⚠️ Flow CSV linha {row_num}: data inválida '{row.get('data_pagamento')}', pulando")
+                    logger.warning(f"⚠️ Flow CSV linha {row_num}: data inválida")
                     continue
                 
-                # ✅ Detectar tipo de pagamento pelo campo 'produto' (Crédito/Débito/PIX)
                 produto_val = (row.get('produto') or '').strip().lower()
                 bandeira_val = (row.get('bandeira') or '').strip().lower()
                 
                 if 'pix' in produto_val or bandeira_val == 'pix':
                     tipo_pagamento = 'pix'
-                    bandeira = None  # PIX não tem bandeira tradicional
+                    bandeira = None
                 elif 'boleto' in produto_val:
                     tipo_pagamento = 'boleto'
                     bandeira = None
                 else:
-                    tipo_pagamento = 'cartao'  # Default para cartão
+                    tipo_pagamento = 'cartao'
                     bandeira = row.get('bandeira', '').strip() if row.get('bandeira') else None
                 
-                # Mapear para schema padrão do NousCard
                 registro = normalize_row({
-                    # Campos mapeados especificamente para Flow
                     'valor_bruto': str(valor_bruto),
                     'data_venda': data_venda.strftime('%Y-%m-%d') if data_venda else None,
                     'bandeira': bandeira,
@@ -750,43 +690,33 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     'quantidade': row.get('quantidade', '0'),
                     'desconto': row.get('desconto', '0'),
                     'valor_liquido': row.get('valor_liquido', '0'),
-                    'tipo_pagamento': tipo_pagamento,  # ✅ Definido explicitamente
-                    
-                    # Metadados para rastreabilidade
+                    'tipo_pagamento': tipo_pagamento,
                     'empresa_id': empresa_id,
                     'estabelecimento_origem': estabelecimento,
                     'arquivo_origem': filename.split('/')[-1] if filename else 'unknown',
                     'linha_origem': row_num,
                 })
                 
-                # Garantir que empresa_id e tipo_pagamento estão no registro final
                 registro['empresa_id'] = empresa_id
                 registro['tipo_pagamento'] = tipo_pagamento
                 
                 registros.append(registro)
                 
             except Exception as e:
-                logger.error(f"❌ Erro ao parsear linha {row_num} do Flow CSV: {str(e)}, row={row}")
+                logger.error(f"❌ Erro ao parsear linha {row_num}: {str(e)}")
                 continue
         
-        logger.info(f"✅ Parse Flow CSV: {len(registros)} registros válidos de {filename}")
+        tempo = time.time() - inicio
+        logger.info(f"✅ Parse Flow CSV: {len(registros)} registros em {tempo:.2f}s")
         return registros
         
     except Exception as e:
-        logger.error(f"❌ Erro ao processar Flow CSV {filename}: {str(e)}")
+        logger.error(f"❌ Erro ao processar Flow CSV: {str(e)}")
         raise ValueError(f"Erro ao processar arquivo Flow CSV: {str(e)}")
 
 
 def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: int = None) -> int:
-    """
-    Consulta mapeamento de estabelecimento → empresa_id.
-    
-    Prioridade:
-    1. Tabela do banco (se disponível)
-    2. Configuração estática em config/estabelecimentos.py
-    3. Fallback passado como parâmetro
-    """
-    # Tentar consultar tabela do banco (se modelos disponíveis)
+    """Consulta mapeamento de estabelecimento → empresa_id."""
     try:
         from models import EstabelecimentoMapeamento
         if codigo_estabelecimento:
@@ -797,11 +727,10 @@ def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: i
             if mapeamento:
                 return mapeamento.empresa_id
     except ImportError:
-        pass  # Modelos não disponíveis ainda
+        pass
     except Exception as e:
-        logger.warning(f"⚠️ Erro ao consultar mapeamento no banco: {str(e)}")
+        logger.warning(f"⚠️ Erro ao consultar mapeamento: {str(e)}")
     
-    # Fallback para configuração estática
     try:
         from config.estabelecimentos import ESTABELECIMENTO_PARA_EMPRESA
         if codigo_estabelecimento and codigo_estabelecimento in ESTABELECIMENTO_PARA_EMPRESA:
@@ -809,34 +738,22 @@ def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: i
     except ImportError:
         pass
     except Exception as e:
-        logger.warning(f"⚠️ Erro ao ler config de estabelecimentos: {str(e)}")
+        logger.warning(f"⚠️ Erro ao ler config: {str(e)}")
     
-    # Último fallback
     return fallback
 
 
 # ============================================================
-# FUNÇÃO GENÉRICA DE PARSE (AUTO-DETECT FORMATO + FLOW + PIX)
+# FUNÇÃO GENÉRICA (mantém igual)
 # ============================================================
 
 def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
-    """
-    Detecta formato automaticamente e chama parser apropriado.
-    
-    Args:
-        file_stream: Stream do arquivo
-        filename: Nome do arquivo (para detectar extensão)
-        default_empresa_id: Empresa_id fallback para parsers que precisam
-    
-    Returns:
-        List[dict]: Registros normalizados com empresa_id e tipo_pagamento
-    """
+    """Detecta formato automaticamente e chama parser apropriado."""
     if not filename:
-        raise ValueError("Nome do arquivo é obrigatório para detecção de formato")
+        raise ValueError("Nome do arquivo é obrigatório")
     
     filename_lower = filename.lower()
     
-    # 🔹 Detectar Flow CSV primeiro (antes do CSV genérico)
     file_stream.seek(0)
     sample = file_stream.read(1024).decode('utf-8', errors='ignore')
     file_stream.seek(0)
@@ -844,10 +761,8 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
     if is_flow_csv(filename, sample):
         return parse_flow_csv(file_stream, filename, default_empresa_id)
     
-    # 🔹 Formatos padrão
     if filename_lower.endswith(('.csv', '.txt')):
         registros = parse_csv_generic(file_stream, filename)
-        # Injetar empresa_id e tipo_pagamento se não estiverem presentes
         if default_empresa_id:
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
@@ -877,11 +792,9 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
         return registros
     
     else:
-        # Tentar detectar por conteúdo como fallback
         if sample.strip().startswith('<?xml') or '<OFX>' in sample.upper():
             registros = parse_ofx_generic(file_stream, filename)
         elif ',' in sample or ';' in sample:
-            # Verificar se é Flow mesmo sem nome específico
             if is_flow_csv(filename, sample):
                 registros = parse_flow_csv(file_stream, filename, default_empresa_id)
             else:
@@ -889,7 +802,6 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
         else:
             raise ValueError(f"Formato não suportado: {filename}")
         
-        # Injetar empresa_id e tipo_pagamento se necessário
         if default_empresa_id:
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
