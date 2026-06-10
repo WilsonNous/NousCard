@@ -353,3 +353,243 @@ def test_ofx_real():
         resultados["traceback_geral"] = traceback.format_exc()
     
     return jsonify(resultados), 200
+
+# routes/debug_routes.py - ADICIONE ESTA ROTA
+
+@debug_bp.route("/test-ofx-form", methods=["GET"])
+@master_required
+def test_ofx_form():
+    """
+    Retorna formulário HTML para testar upload OFX.
+    Acessível apenas pelo MASTER, dentro do próprio site.
+    
+    Uso: https://www.nouscard.com.br/debug/test-ofx-form
+    """
+    from flask import session
+    
+    # Gerar CSRF token se não existir
+    if 'csrf_token' not in session:
+        import secrets
+        session['csrf_token'] = secrets.token_urlsafe(32)
+    
+    csrf_token = session['csrf_token']
+    
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste Upload OFX - Debug</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }}
+        .container {{
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }}
+        h1 {{
+            color: #1d3469;
+            margin-top: 0;
+        }}
+        .info {{
+            background: #e8edf5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1d3469;
+        }}
+        input[type="file"] {{
+            display: block;
+            margin: 20px 0;
+            padding: 10px;
+            border: 2px dashed #1d3469;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+        }}
+        button {{
+            background: #1d3469;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }}
+        button:hover {{
+            background: #3d5c95;
+        }}
+        button:disabled {{
+            background: #ccc;
+            cursor: not-allowed;
+        }}
+        #resultado {{
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }}
+        .sucesso {{
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }}
+        .erro {{
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }}
+        pre {{
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 400px;
+        }}
+        .loading {{
+            display: none;
+            margin-top: 20px;
+            color: #1d3469;
+            font-weight: 600;
+        }}
+        .spinner {{
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e8edf5;
+            border-top-color: #1d3469;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 10px;
+        }}
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste Upload OFX - Debug</h1>
+        
+        <div class="info">
+            <strong>📋 Instruções:</strong>
+            <ol style="margin: 10px 0 0 0;">
+                <li>Selecione um arquivo OFX</li>
+                <li>Clique em "Testar Upload"</li>
+                <li>Aguarde o resultado (pode levar alguns segundos)</li>
+                <li>O JSON abaixo mostrará o tempo de cada etapa</li>
+            </ol>
+        </div>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{csrf_token}">
+            
+            <label for="file" style="font-weight: 600; color: #1d3469;">
+                Selecione o arquivo OFX:
+            </label>
+            <input type="file" id="file" name="file" accept=".ofx" required>
+            
+            <button type="submit" id="btnSubmit">🚀 Testar Upload</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <span class="spinner"></span>
+            Processando... aguarde (pode levar até 30 segundos)
+        </div>
+        
+        <div id="resultado"></div>
+    </div>
+    
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {{
+            e.preventDefault();
+            
+            const form = e.target;
+            const formData = new FormData(form);
+            const btn = document.getElementById('btnSubmit');
+            const loading = document.getElementById('loading');
+            const resultado = document.getElementById('resultado');
+            
+            // Desabilitar botão e mostrar loading
+            btn.disabled = true;
+            btn.textContent = '⏳ Processando...';
+            loading.style.display = 'block';
+            resultado.style.display = 'none';
+            
+            try {{
+                const response = await fetch('/debug/test-ofx-real', {{
+                    method: 'POST',
+                    body: formData,
+                    headers: {{
+                        'X-CSRF-Token': '{csrf_token}'
+                    }}
+                }});
+                
+                const data = await response.json();
+                
+                // Mostrar resultado
+                resultado.style.display = 'block';
+                
+                if (data.erro_geral || data.erro) {{
+                    resultado.className = 'erro';
+                    resultado.innerHTML = '<strong>❌ Erro:</strong><pre>' + 
+                        JSON.stringify(data, null, 2) + '</pre>';
+                }} else {{
+                    resultado.className = 'sucesso';
+                    
+                    let html = '<strong>✅ Teste concluído em ' + data.total_tempo + '</strong><br><br>';
+                    
+                    if (data.etapas) {{
+                        html += '<strong>📊 Etapas:</strong><table style="width:100%; border-collapse: collapse; margin-top: 10px;">';
+                        html += '<tr style="background:#e8edf5;"><th style="padding:8px; text-align:left;">Etapa</th><th style="padding:8px; text-align:right;">Tempo</th><th style="padding:8px; text-align:left;">Detalhes</th></tr>';
+                        
+                        data.etapas.forEach(etapa => {{
+                            const cor = etapa.ok === false ? '#f8d7da' : (parseFloat(etapa.tempo) > 5 ? '#fff3cd' : '#d4edda');
+                            html += '<tr style="background:' + cor + ';">';
+                            html += '<td style="padding:8px;">' + etapa.nome + '</td>';
+                            html += '<td style="padding:8px; text-align:right; font-weight:600;">' + etapa.tempo + '</td>';
+                            html += '<td style="padding:8px; font-size:12px;">' + 
+                                (typeof etapa.detalhes === 'object' ? JSON.stringify(etapa.detalhes) : etapa.detalhes) + 
+                                '</td>';
+                            html += '</tr>';
+                        }});
+                        
+                        html += '</table>';
+                    }}
+                    
+                    if (data.amostra) {{
+                        html += '<br><strong>📋 Amostra dos primeiros registros:</strong><pre>' + 
+                            JSON.stringify(data.amostra, null, 2) + '</pre>';
+                    }}
+                    
+                    html += '<br><strong>📄 JSON completo:</strong><pre>' + 
+                        JSON.stringify(data, null, 2) + '</pre>';
+                    
+                    resultado.innerHTML = html;
+                }}
+                
+            }} catch (error) {{
+                resultado.style.display = 'block';
+                resultado.className = 'erro';
+                resultado.innerHTML = '<strong>❌ Erro de conexão:</strong><pre>' + error.message + '</pre>';
+            }} finally {{
+                btn.disabled = false;
+                btn.textContent = '🚀 Testar Upload';
+                loading.style.display = 'none';
+            }}
+        }});
+    </script>
+</body>
+</html>"""
+    
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
