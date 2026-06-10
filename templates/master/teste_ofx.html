@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+
+{% block title %}🧪 Teste OFX - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .teste-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .teste-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .teste-header h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.5rem;
+    }
+    
+    .teste-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+    
+    .upload-area {
+        background: var(--white);
+        border: 2px dashed var(--gray-border);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.2s;
+        margin-bottom: 1.5rem;
+    }
+    
+    .upload-area:hover {
+        border-color: var(--primary);
+        background: var(--primary-light);
+    }
+    
+    .upload-area.dragging {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        transform: scale(1.02);
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .upload-area input[type="file"] {
+        display: block;
+        margin: 1rem auto;
+        padding: 0.5rem;
+    }
+    
+    .btn-testar {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-testar:hover:not(:disabled) {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+    }
+    
+    .btn-testar:disabled {
+        background: var(--gray);
+        cursor: not-allowed;
+    }
+    
+    .loading-box {
+        display: none;
+        background: var(--primary-light);
+        padding: 1.5rem;
+        border-radius: 8px;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid var(--primary);
+    }
+    
+    .spinner {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--gray-border);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        vertical-align: middle;
+        margin-right: 10px;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .resultado-box {
+        display: none;
+        background: var(--white);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+    }
+    
+    .resultado-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--gray-border);
+    }
+    
+    .resultado-header h3 {
+        margin: 0;
+    }
+    
+    .resultado-total {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .resultado-total.rapido { color: var(--success); }
+    .resultado-total.lento { color: var(--warning); }
+    .resultado-total.critico { color: var(--error); }
+    
+    .tabela-etapas {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+    
+    .tabela-etapas th {
+        background: var(--gray-light);
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .tabela-etapas td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--gray-border);
+    }
+    
+    .tabela-etapas tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .etapa-ok { background: var(--success-bg); }
+    .etapa-lenta { background: var(--warning-bg); }
+    .etapa-erro { background: var(--error-bg); }
+    
+    .tempo-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .tempo-rapido { background: var(--success-bg); color: var(--success); }
+    .tempo-lento { background: var(--warning-bg); color: var(--warning); }
+    .tempo-critico { background: var(--error-bg); color: var(--error); }
+    
+    .amostra-box {
+        background: var(--gray-light);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    
+    .amostra-box h4 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+    }
+    
+    .amostra-item {
+        background: var(--white);
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        font-family: 'SF Mono', Monaco, monospace;
+        font-size: 0.85rem;
+    }
+    
+    .json-box {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        max-height: 400px;
+        font-family: 'SF Mono', Monaco, monospace;
+        font-size: 0.8rem;
+        margin-top: 1rem;
+    }
+    
+    .alerta-box {
+        background: var(--info-bg);
+        border-left: 4px solid var(--info);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .alerta-box strong {
+        color: var(--info);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="teste-container">
+    
+    <div class="teste-header">
+        <h2>🧪 Teste de Upload OFX</h2>
+        <p>Diagnóstico detalhado do processamento de arquivos OFX em etapas</p>
+    </div>
+    
+    <div class="alerta-box">
+        <strong>ℹ️ Como funciona:</strong>
+        <ol style="margin: 0.5rem 0 0 0; padding-left: 1.5rem;">
+            <li>Selecione um arquivo OFX do seu computador</li>
+            <li>Clique em "Testar Upload"</li>
+            <li>O sistema processa em 5 etapas e mostra o tempo de cada uma</li>
+            <li><strong>Nenhum dado é salvo no banco</strong> (é apenas um teste)</li>
+        </ol>
+    </div>
+    
+    <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📁</div>
+        <h3 style="margin: 0 0 0.5rem 0;">Arraste o arquivo OFX aqui</h3>
+        <p style="color: var(--text-muted); margin: 0 0 1rem 0;">ou clique para selecionar</p>
+        
+        <form id="uploadForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="file" id="fileInput" name="file" accept=".ofx" required>
+            <button type="submit" class="btn-testar" id="btnTestar">
+                🚀 Testar Upload
+            </button>
+        </form>
+    </div>
+    
+    <div class="loading-box" id="loadingBox">
+        <span class="spinner"></span>
+        <strong>Processando arquivo...</strong>
+        <p style="margin: 0.5rem 0 0 0; color: var(--text-muted);">
+            Isso pode levar alguns segundos. Aguarde.
+        </p>
+    </div>
+    
+    <div class="resultado-box" id="resultadoBox"></div>
+    
+</div>
+
+<script>
+// Drag and drop
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragging');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragging');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragging');
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+    }
+});
+
+// Submit do formulário
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    const btn = document.getElementById('btnTestar');
+    const loading = document.getElementById('loadingBox');
+    const resultado = document.getElementById('resultadoBox');
+    
+    if (!fileInput.files.length) {
+        alert('Selecione um arquivo OFX primeiro!');
+        return;
+    }
+    
+    // Mostrar loading
+    btn.disabled = true;
+    btn.textContent = '⏳ Processando...';
+    loading.style.display = 'block';
+    resultado.style.display = 'none';
+    
+    try {
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+        
+        const response = await fetch('/master/teste-ofx/processar', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-Token': csrfToken
+            }
+        });
+        
+        const data = await response.json();
+        
+        // Renderizar resultado
+        resultado.style.display = 'block';
+        resultado.innerHTML = renderResultado(data);
+        
+        // Scroll suave até o resultado
+        resultado.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+    } catch (error) {
+        resultado.style.display = 'block';
+        resultado.innerHTML = `
+            <div class="resultado-header">
+                <h3>❌ Erro de Conexão</h3>
+            </div>
+            <p style="color: var(--error);">${error.message}</p>
+            <p style="color: var(--text-muted);">Verifique sua conexão e tente novamente.</p>
+        `;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Testar Upload';
+        loading.style.display = 'none';
+    }
+});
+
+function renderResultado(data) {
+    if (data.erro_geral) {
+        return `
+            <div class="resultado-header">
+                <h3>❌ Erro Geral</h3>
+            </div>
+            <p style="color: var(--error);">${data.erro_geral}</p>
+            ${data.traceback_geral ? `<div class="json-box">${escapeHtml(data.traceback_geral)}</div>` : ''}
+        `;
+    }
+    
+    // Determinar classe de cor baseada no tempo total
+    const tempoTotal = data.total_tempo_num || 0;
+    let classeCor = 'rapido';
+    if (tempoTotal > 20) classeCor = 'critico';
+    else if (tempoTotal > 5) classeCor = 'lento';
+    
+    let html = `
+        <div class="resultado-header">
+            <div>
+                <h3>✅ Teste Concluído</h3>
+                <p style="margin: 0.25rem 0 0 0; color: var(--text-muted);">
+                    Arquivo: <strong>${escapeHtml(data.arquivo || 'N/A')}</strong>
+                </p>
+            </div>
+            <div class="resultado-total ${classeCor}">
+                ${data.total_tempo}
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+            <div style="background: var(--gray-light); padding: 1rem; border-radius: 8px; text-align: center;">
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Transações</div>
+                <div style="font-size: 1.5rem; font-weight: 700;">${data.total_transacoes || 0}</div>
+            </div>
+            <div style="background: var(--gray-light); padding: 1rem; border-radius: 8px; text-align: center;">
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Registros</div>
+                <div style="font-size: 1.5rem; font-weight: 700;">${data.total_registros || 0}</div>
+            </div>
+            <div style="background: var(--gray-light); padding: 1rem; border-radius: 8px; text-align: center;">
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Tempo Total</div>
+                <div style="font-size: 1.5rem; font-weight: 700;" class="${classeCor}">${data.total_tempo}</div>
+            </div>
+        </div>
+        
+        <h4 style="margin: 1rem 0 0.5rem 0; color: var(--text);">📊 Etapas do Processamento</h4>
+        <table class="tabela-etapas">
+            <thead>
+                <tr>
+                    <th>Etapa</th>
+                    <th style="text-align: right;">Tempo</th>
+                    <th>Detalhes</th>
+                    <th style="text-align: center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    if (data.etapas) {
+        data.etapas.forEach(etapa => {
+            const tempoNum = etapa.tempo_num || 0;
+            let classeLinha = 'etapa-ok';
+            let classeTempo = 'tempo-rapido';
+            
+            if (etapa.ok === false) {
+                classeLinha = 'etapa-erro';
+                classeTempo = 'tempo-critico';
+            } else if (tempoNum > 10) {
+                classeLinha = 'etapa-erro';
+                classeTempo = 'tempo-critico';
+            } else if (tempoNum > 3) {
+                classeLinha = 'etapa-lenta';
+                classeTempo = 'tempo-lento';
+            }
+            
+            const detalhes = typeof etapa.detalhes === 'object' 
+                ? JSON.stringify(etapa.detalhes) 
+                : etapa.detalhes;
+            
+            const statusIcon = etapa.ok === false ? '❌' : '✅';
+            
+            html += `
+                <tr class="${classeLinha}">
+                    <td><strong>${escapeHtml(etapa.nome)}</strong></td>
+                    <td style="text-align: right;">
+                        <span class="tempo-badge ${classeTempo}">${etapa.tempo}</span>
+                    </td>
+                    <td style="font-size: 0.9rem;">${escapeHtml(detalhes)}</td>
+                    <td style="text-align: center;">${statusIcon}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    html += `</tbody></table>`;
+    
+    // Amostra dos registros
+    if (data.amostra && data.amostra.length > 0) {
+        html += `
+            <div class="amostra-box">
+                <h4>📋 Amostra dos primeiros registros</h4>
+        `;
+        data.amostra.forEach(r => {
+            html += `
+                <div class="amostra-item">
+                    📅 ${escapeHtml(r.data)} • 💰 R$ ${escapeHtml(r.valor)} • ${escapeHtml(r.descricao)}
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+    
+    // Tracebacks se houver erros
+    if (data.traceback) {
+        html += `
+            <details style="margin-top: 1rem;">
+                <summary style="cursor: pointer; color: var(--error); font-weight: 600;">
+                    ⚠️ Ver erro do parser
+                </summary>
+                <div class="json-box">${escapeHtml(data.traceback)}</div>
+            </details>
+        `;
+    }
+    
+    if (data.traceback_save) {
+        html += `
+            <details style="margin-top: 1rem;">
+                <summary style="cursor: pointer; color: var(--error); font-weight: 600;">
+                    ⚠️ Ver erro do salvamento
+                </summary>
+                <div class="json-box">${escapeHtml(data.traceback_save)}</div>
+            </details>
+        `;
+    }
+    
+    // JSON completo (colapsável)
+    html += `
+        <details style="margin-top: 1rem;">
+            <summary style="cursor: pointer; color: var(--text-muted);">
+                📄 Ver JSON completo
+            </summary>
+            <div class="json-box">${escapeHtml(JSON.stringify(data, null, 2))}</div>
+        </details>
+    `;
+    
+    return html;
+}
+
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
