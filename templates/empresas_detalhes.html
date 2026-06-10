@@ -4,6 +4,9 @@
 
 {% block extra_head %}
 <style>
+    /* ============================================================
+       ✅ PADRONIZADO - Usa variáveis globais
+       ============================================================ */
     .empresa-header {
         display: flex;
         align-items: center;
@@ -24,7 +27,7 @@
         align-items: center;
         justify-content: center;
         overflow: hidden;
-        background: var(--gray-lightest);
+        background: var(--gray-light);
         flex-shrink: 0;
     }
     .empresa-logo img {
@@ -34,7 +37,7 @@
     }
     .empresa-logo .logo-placeholder {
         font-size: 2.5rem;
-        color: var(--gray-dark);
+        color: var(--text-muted);
     }
     .empresa-info {
         flex: 1;
@@ -60,8 +63,9 @@
         font-size: 0.8rem;
         font-weight: 600;
     }
-    .badge-success { background: #f0fff4; color: #22543d; }
-    .badge-danger { background: #fff5f5; color: #742a2a; }
+    /* ✅ Usa variáveis globais */
+    .badge-success { background: var(--success-bg); color: var(--success); }
+    .badge-danger { background: var(--error-bg); color: var(--error); }
     
     .detail-grid {
         display: grid;
@@ -80,7 +84,7 @@
         font-size: 0.9rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: var(--gray-dark);
+        color: var(--text-muted);
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -93,12 +97,12 @@
     }
     .detail-card dt {
         font-weight: 600;
-        color: var(--text-dark);
+        color: var(--text);
         font-size: 0.85rem;
     }
     .detail-card dd {
         margin: 0;
-        color: var(--gray-dark);
+        color: var(--text-muted);
         font-size: 0.9rem;
         word-break: break-word;
     }
@@ -115,13 +119,13 @@
         align-items: flex-start;
         gap: 0.75rem;
         padding: 0.5rem 0;
-        border-bottom: 1px solid #edf2f7;
+        border-bottom: 1px solid var(--gray-border);
         font-size: 0.85rem;
     }
     .log-item:last-child { border-bottom: none; }
     .log-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
     .log-text { flex: 1; }
-    .log-date { color: var(--gray-dark); font-size: 0.75rem; white-space: nowrap; }
+    .log-date { color: var(--text-muted); font-size: 0.75rem; white-space: nowrap; }
     
     .action-bar {
         display: flex;
@@ -161,11 +165,11 @@
                 <span class="badge {% if empresa.ativo %}badge-success{% else %}badge-danger{% endif %}">
                     {{ '✅ Ativa' if empresa.ativo else '⏸️ Inativa' }}
                 </span>
-                <span style="color:var(--gray-dark);font-size:0.85rem;">
+                <span style="color:var(--text-muted);font-size:0.85rem;">
                     ID: #{{ empresa.id }}
                 </span>
-                <span style="color:var(--gray-dark);font-size:0.85rem;">
-                    📅 {{ empresa.criado_em.strftime('%d/%m/%Y') if empresa.criado_em else '—' }}
+                <span style="color:var(--text-muted);font-size:0.85rem;">
+                    📅 {{ empresa.criado_em | hora_brasil('%d/%m/%Y') if empresa.criado_em else '—' }}
                 </span>
             </div>
         </div>
@@ -193,11 +197,11 @@
                 </dd>
                 
                 <dt>Criada em:</dt>
-                <dd>{{ empresa.criado_em.strftime('%d/%m/%Y %H:%M') if empresa.criado_em else '—' }}</dd>
+                <dd>{{ empresa.criado_em | hora_brasil if empresa.criado_em else '—' }}</dd>
                 
                 {% if empresa.atualizado_em %}
                 <dt>Atualizada em:</dt>
-                <dd>{{ empresa.atualizado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
+                <dd>{{ empresa.atualizado_em | hora_brasil }}</dd>
                 {% endif %}
             </dl>
         </div>
@@ -237,7 +241,7 @@
                 {% else %}📋{% endif %}
             </span>
             <span class="log-text">{{ log.detalhes | e }}</span>
-            <span class="log-date">{{ log.criado_em.strftime('%d/%m/%Y %H:%M') if log.criado_em else '' }}</span>
+            <span class="log-date">{{ log.criado_em | hora_brasil if log.criado_em else '' }}</span>
         </div>
         {% endfor %}
     </div>
