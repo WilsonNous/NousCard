@@ -1,4 +1,4 @@
-# services/importer_db_movimento.py - CORRIGIR salvar_recebimentos
+# services/importer_db_movimento.py - VERSÃO FINAL
 
 from models import db, MovAdquirente, MovBanco, Adquirente, ContaBancaria
 from datetime import datetime, date, timezone
@@ -9,27 +9,29 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# CONFIGURAÇÕES
-# ============================================================
 BATCH_SIZE = 100
 
+
 # ============================================================
-# ✅ NOVO: FUNÇÃO PARA OBTER/CREAR CONTA PADRÃO
+# ✅ NOVO: AUTO-CRIAR CONTA PADRÃO
 # ============================================================
 def obter_ou_criar_conta_padrao(empresa_id, nome_banco=None):
     """
     Obtém a conta padrão da empresa ou cria uma automaticamente.
     
-    ✅ Se não houver conta cadastrada, cria uma "Conta Principal"
-    ✅ Se houver nome do banco no OFX, usa como nome da conta
+    ✅ Campos usados (confirmados no modelo):
+    - nome: "Conta Principal" ou nome do banco
+    - banco: Nome extraído do OFX
+    - agencia: "0000" (placeholder)
+    - conta: "00000-0" (placeholder)
+    - tipo: "corrente"
     
     Args:
         empresa_id: ID da empresa
         nome_banco: Nome do banco extraído do OFX (opcional)
     
     Returns:
-        int: ID da conta bancária
+        int: ID da conta bancária ou None se falhar
     """
     # Tentar encontrar conta existente
     conta = ContaBancaria.query.filter_by(
@@ -51,13 +53,12 @@ def obter_ou_criar_conta_padrao(empresa_id, nome_banco=None):
             agencia="0000",
             conta="00000-0",
             tipo="corrente",
-            ativo=True,
-            criado_em=datetime.now(timezone.utc)
+            ativo=True
         )
         db.session.add(nova_conta)
         db.session.flush()  # Gera ID sem commit
         
-        logger.info(f"✅ Conta padrão criada automaticamente: id={nova_conta.id}, nome={nome_conta}, empresa={empresa_id}")
+        logger.info(f"✅ Conta padrão criada: id={nova_conta.id}, nome={nome_conta}, empresa={empresa_id}")
         return nova_conta.id
         
     except Exception as e:
@@ -66,54 +67,39 @@ def obter_ou_criar_conta_padrao(empresa_id, nome_banco=None):
 
 
 # ============================================================
-# CONVERTERS SEGUROS (mantém igual)
+# CONVERTERS (mantém igual)
 # ============================================================
 
 def to_date(valor):
-    """Converte valor para date de forma segura."""
     if not valor:
         return None
-    
     if isinstance(valor, date) and not isinstance(valor, datetime):
         return valor
-    
     if isinstance(valor, datetime):
         return valor.date()
-    
     if isinstance(valor, str):
         valor = valor.strip()
-        formatos = [
-            "%Y-%m-%d",
-            "%d/%m/%Y",
-            "%Y-%m-%d %H:%M:%S",
-            "%d/%m/%Y %H:%M:%S",
-        ]
+        formatos = ["%Y-%m-%d", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"]
         for fmt in formatos:
             try:
                 return datetime.strptime(valor, fmt).date()
             except (ValueError, TypeError):
                 continue
-        logger.warning(f"⚠️ Não foi possível parsear data: '{valor}'")
-        return None
-    
     return None
 
 
 def to_decimal(valor, default=Decimal("0")):
-    """Converte valor para Decimal de forma segura"""
     try:
         if valor is None:
             return default
         if isinstance(valor, Decimal):
             return valor
         return Decimal(str(valor))
-    except (InvalidOperation, ValueError, TypeError) as e:
-        logger.warning(f"⚠️ Valor inválido para Decimal: {valor} (erro: {e})")
+    except (InvalidOperation, ValueError, TypeError):
         return default
 
 
 def to_int(valor, default=None):
-    """Converte valor para int de forma segura"""
     try:
         if valor is None:
             return default
@@ -122,13 +108,11 @@ def to_int(valor, default=None):
             if not valor:
                 return default
         return int(valor)
-    except (ValueError, TypeError) as e:
-        logger.warning(f"⚠️ Valor inválido para int: {valor} (erro: {e})")
+    except (ValueError, TypeError):
         return default
 
 
 def inferir_tipo_pagamento(registro):
-    """Infere o tipo de pagamento baseado nos campos do registro."""
     produto = str(registro.get('produto') or '').strip().lower()
     bandeira = str(registro.get('bandeira') or '').strip().lower()
     
@@ -142,11 +126,10 @@ def inferir_tipo_pagamento(registro):
 
 
 # ============================================================
-# VALIDAÇÕES INTELIGENTES
+# VALIDAÇÕES
 # ============================================================
 
 def validar_adquirente(valor, empresa_id=None):
-    """Valida adquirente por ID numérico OU por nome (string)."""
     if not valor:
         return None
     
@@ -160,35 +143,25 @@ def validar_adquirente(valor, empresa_id=None):
     
     if isinstance(valor, str):
         nome_normalizado = valor.strip().lower()
-        
-        adquirente = Adquirente.query.filter(
-            func.lower(Adquirente.nome) == nome_normalizado
-        ).first()
+        adquirente = Adquirente.query.filter(func.lower(Adquirente.nome) == nome_normalizado).first()
         if adquirente:
             return adquirente.id
         
-        adquirente = Adquirente.query.filter(
-            func.lower(Adquirente.nome).contains(nome_normalizado)
-        ).first()
+        adquirente = Adquirente.query.filter(func.lower(Adquirente.nome).contains(nome_normalizado)).first()
         if adquirente:
             return adquirente.id
-        
-        logger.warning(f"⚠️ Adquirente não encontrada: '{valor}'")
     
     return None
 
 
 def validar_conta_bancaria(conta_id, empresa_id):
-    """Valida se conta bancária existe e pertence à empresa"""
     if not conta_id:
         return None
-    
     if isinstance(conta_id, str) and conta_id.strip().isdigit():
         try:
             conta_id = int(conta_id.strip())
         except (ValueError, TypeError):
             return None
-    
     try:
         conta = ContaBancaria.query.filter_by(id=int(conta_id), empresa_id=empresa_id).first()
         return conta.id if conta else None
@@ -197,7 +170,6 @@ def validar_conta_bancaria(conta_id, empresa_id):
 
 
 def verificar_venda_duplicada(empresa_id, nsu, adquirente_id):
-    """Verifica se venda já existe pelo NSU (evita duplicatas)"""
     if not nsu:
         return False
     try:
@@ -216,8 +188,6 @@ def verificar_venda_duplicada(empresa_id, nsu, adquirente_id):
 # ============================================================
 
 def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
-    """Salva vendas em batches com suporte a tipo_pagamento."""
-    
     logger.info(f"🔍 Início importação vendas: empresa={empresa_id}, registros={len(registros)}")
     
     estatisticas = {
@@ -245,7 +215,6 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                     adquirente_id = validar_adquirente(adquirente_valor, empresa_id)
                     
                     if not adquirente_id:
-                        logger.warning(f"⚠️ Falha ao validar adquirente: {adquirente_valor}")
                         estatisticas["falhas"] += 1
                         continue
                     
@@ -253,9 +222,7 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                         estatisticas["duplicatas"] += 1
                         continue
                     
-                    tipo_pagamento = r.get('tipo_pagamento')
-                    if not tipo_pagamento:
-                        tipo_pagamento = inferir_tipo_pagamento(r)
+                    tipo_pagamento = r.get('tipo_pagamento') or inferir_tipo_pagamento(r)
                     
                     venda = MovAdquirente(
                         empresa_id=empresa_id,
@@ -281,7 +248,7 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
                     estatisticas["sucesso"] += 1
                     
                 except Exception as e:
-                    logger.error(f"❌ Erro ao processar venda: {str(e)}, registro={r}")
+                    logger.error(f"❌ Erro ao processar venda: {str(e)}")
                     estatisticas["falhas"] += 1
                     continue
             
@@ -291,28 +258,22 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
             db.session.rollback()
             logger.error(f"❌ Erro no batch {i}: {str(e)}")
             estatisticas["falhas"] += len(batch)
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"❌ Erro inesperado no batch {i}: {str(e)}")
-            estatisticas["falhas"] += len(batch)
-    
-    logger.info(f"✅ Fim importação vendas: {estatisticas}")
     
     return estatisticas
 
 
 # ============================================================
-# ✅ CORRIGIDO: SALVAR RECEBIMENTOS COM AUTO-CRIAÇÃO DE CONTA
+# ✅ CORRIGIDO: SALVAR RECEBIMENTOS COM AUTO-CRIAÇÃO
 # ============================================================
 
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
     """
-    Salva recebimentos em batches com validação e tratamento de erro.
+    Salva recebimentos em batches com auto-criação de conta padrão.
     
     ✅ CORREÇÃO CRÍTICA:
-    - Se não houver conta bancária cadastrada, cria uma automaticamente
+    - Se não houver conta bancária, cria uma automaticamente
     - Usa nome do banco do OFX se disponível
-    - Melhora mensagens de erro
+    - Retorna estatísticas detalhadas
     """
     
     logger.info(f"🔍 Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
@@ -326,16 +287,6 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
         "conta_criada": False,
         "conta_padrao_id": None
     }
-    
-    # ✅ PRÉ-VALIDAÇÃO: Verificar se existe conta bancária
-    conta_existente = ContaBancaria.query.filter_by(
-        empresa_id=empresa_id,
-        ativo=True
-    ).first()
-    
-    if not conta_existente:
-        logger.warning(f"⚠️ Nenhuma conta bancária encontrada para empresa {empresa_id}. Criando conta padrão...")
-        estatisticas["conta_criada"] = True
     
     # Cache da conta padrão para não criar múltiplas vezes
     conta_padrao_id = None
@@ -362,6 +313,8 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                             nome_banco = str(r.get("banco") or r.get("instituicao") or "").strip()
                             conta_padrao_id = obter_ou_criar_conta_padrao(empresa_id, nome_banco)
                             estatisticas["conta_padrao_id"] = conta_padrao_id
+                            if conta_padrao_id:
+                                estatisticas["conta_criada"] = True
                         
                         conta_id = conta_padrao_id
                     
@@ -387,7 +340,7 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                     estatisticas["sucesso"] += 1
                     
                 except Exception as e:
-                    logger.error(f"❌ Erro ao processar recebimento: {str(e)}, registro={r}")
+                    logger.error(f"❌ Erro ao processar recebimento: {str(e)}")
                     estatisticas["falhas"] += 1
                     continue
             
@@ -396,10 +349,6 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
         except SQLAlchemyError as e:
             db.session.rollback()
             logger.error(f"❌ Erro no batch {i}: {str(e)}")
-            estatisticas["falhas"] += len(batch)
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"❌ Erro inesperado no batch {i}: {str(e)}")
             estatisticas["falhas"] += len(batch)
     
     logger.info(f"✅ Fim importação recebimentos: {estatisticas}")
