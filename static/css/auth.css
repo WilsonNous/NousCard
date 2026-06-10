@@ -1,18 +1,19 @@
 /* ============================================================
    AUTH PAGES • NousCard (Login, Registro, Recuperação)
+   ✅ IDENTIDADE VISUAL: AZUL FACEBOOK (#1877f2)
    ✅ VERSÃO ESCOPADA - Não interfere em outras páginas
    Compatível com base.html, acessível e com tema escuro
 ============================================================ */
 
 /* ============================================================
-   VARIÁVEIS CSS (globais - não causam conflito)
+   VARIÁVEIS CSS - PALETA AZUL FACEBOOK
 ============================================================ */
 :root {
-    /* Cores primárias */
-    --auth-primary: #667eea;
-    --auth-primary-dark: #5568d3;
-    --auth-gradient-start: #667eea;
-    --auth-gradient-end: #764ba2;
+    /* ✅ Cores primárias - Azul Facebook */
+    --auth-primary: #1877f2;
+    --auth-primary-dark: #0d5bd4;
+    --auth-gradient-start: #1877f2;
+    --auth-gradient-end: #0d5bd4;
     
     /* Cores de estado */
     --auth-error: #e53e3e;
@@ -29,7 +30,8 @@
     --auth-bg-card: #ffffff;
     --auth-bg-input: #ffffff;
     --auth-border: #e2e8f0;
-    --auth-border-focus: rgba(102, 126, 234, 0.15);
+    /* ✅ Focus agora em azul Facebook */
+    --auth-border-focus: rgba(24, 119, 242, 0.15);
     
     /* Espaçamento e bordas */
     --auth-radius: 10px;
@@ -56,8 +58,9 @@
         --auth-success-bg: #1a3a2a;
     }
     
+    /* ✅ Dark mode com azul mais profundo */
     body.nc-login-body {
-        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        background: linear-gradient(135deg, #0d5bd4 0%, #084298 100%);
     }
     
     .nc-login-box .nc-toggle-password:hover {
@@ -71,12 +74,13 @@
 }
 
 /* ============================================================
-   CORPO DAS PÁGINAS DE AUTH (escopo: body.nc-login-body)
+   CORPO DAS PÁGINAS DE AUTH - ✅ AZUL FACEBOOK
 ============================================================ */
 body.nc-login-body {
     margin: 0;
     padding: 0;
     font-family: var(--auth-font-family);
+    /* ✅ Gradiente azul Facebook */
     background: linear-gradient(135deg, var(--auth-gradient-start) 0%, var(--auth-gradient-end) 100%);
     display: flex;
     justify-content: center;
@@ -85,7 +89,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   CAIXA DE LOGIN/REGISTRO (escopo: .nc-login-box)
+   CAIXA DE LOGIN/REGISTRO
 ============================================================ */
 .nc-login-box {
     width: 100%;
@@ -102,7 +106,6 @@ body.nc-login-body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Títulos - escopados */
 .nc-login-box h2 {
     margin: 0 0 1.5rem 0;
     color: var(--auth-text-primary);
@@ -112,7 +115,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   GRUPOS DE FORMULÁRIO (✅ ESCOPADOS para .nc-login-box)
+   GRUPOS DE FORMULÁRIO (escopados)
 ============================================================ */
 .nc-login-box .nc-form-group {
     margin-bottom: 1.25rem;
@@ -133,7 +136,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   INPUTS (✅ ESCOPADOS para .nc-login-box)
+   INPUTS (escopados)
 ============================================================ */
 .nc-login-box .nc-form-input,
 .nc-login-box input[type="email"],
@@ -151,14 +154,12 @@ body.nc-login-body {
     box-sizing: border-box;
 }
 
-/* Placeholder */
 .nc-login-box .nc-form-input::placeholder,
 .nc-login-box input::placeholder {
     color: var(--auth-text-muted);
     opacity: 1;
 }
 
-/* Foco */
 .nc-login-box .nc-form-input:focus-visible,
 .nc-login-box input:focus-visible {
     border-color: var(--auth-primary);
@@ -173,7 +174,6 @@ body.nc-login-body {
     box-shadow: 0 0 0 3px var(--auth-border-focus);
 }
 
-/* Estado inválido */
 .nc-login-box .nc-form-input[aria-invalid="true"],
 .nc-login-box input[aria-invalid="true"] {
     border-color: var(--auth-error);
@@ -185,7 +185,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   MENSAGENS DE ERRO E HINT (✅ ESCOPADOS)
+   MENSAGENS DE ERRO E HINT (escopados)
 ============================================================ */
 .nc-login-box .nc-field-error {
     display: flex;
@@ -221,7 +221,6 @@ body.nc-login-body {
     flex-shrink: 0;
 }
 
-/* Hint text */
 .nc-login-box .nc-form-hint {
     display: block;
     margin-top: 0.375rem;
@@ -230,7 +229,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   CHECKBOX (✅ ESCOPADOS)
+   CHECKBOX (escopados)
 ============================================================ */
 .nc-login-box .nc-form-group-checkbox {
     margin: 1rem 0;
@@ -270,11 +269,12 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   BOTÕES (✅ ESCOPADOS - CRÍTICO!)
+   BOTÕES (escopados - AZUL FACEBOOK)
 ============================================================ */
 .nc-login-box .nc-btn-primary {
     width: 100%;
     padding: 0.875rem 1.5rem;
+    /* ✅ Gradiente azul Facebook */
     background: linear-gradient(135deg, var(--auth-gradient-start) 0%, var(--auth-gradient-end) 100%);
     color: #ffffff !important;
     border: none;
@@ -292,7 +292,8 @@ body.nc-login-body {
 
 .nc-login-box .nc-btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    /* ✅ Sombra azul Facebook */
+    box-shadow: 0 4px 12px rgba(24, 119, 242, 0.4);
 }
 
 .nc-login-box .nc-btn-primary:active:not(:disabled) {
@@ -349,7 +350,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   LINKS DE AJUDA (escopo específico do auth)
+   LINKS DE AJUDA (escopo específico)
 ============================================================ */
 .nc-login-box .nc-login-forgot,
 .nc-login-box .nc-login-register {
