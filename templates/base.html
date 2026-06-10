@@ -139,39 +139,53 @@
     <!-- ===================== CONTEÚDO ===================== -->
     <main id="main-content" class="nc-content" role="main" tabindex="-1">
         
-        <!-- ✅ Barra de Status do Usuário -->
+        <!-- ✅ Barra de Status do Usuário + Logo da Empresa -->
         {% if usuario %}
-        <div class="nc-user-status-bar">
-            <div class="nc-user-info">
-                <strong>👤 {{ usuario.nome | e }}</strong>
-                <span class="nc-user-badge {% if is_master %}nc-badge-master{% elif usuario.admin %}nc-badge-admin{% else %}nc-badge-user{% endif %}">
-                    {% if is_master %}MASTER{% elif usuario.admin %}ADMIN{% else %}Usuário{% endif %}
-                </span>
+        <div class="nc-user-status-bar" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:0.75rem 1.25rem;">
+            <!-- Logo da Empresa -->
+            {% if not is_master and usuario.empresa and usuario.empresa.logo_base64 %}
+            <div style="width:40px;height:40px;border-radius:8px;overflow:hidden;flex-shrink:0;border:2px solid #e4e6eb;">
+                <img src="{{ usuario.empresa.logo_base64 }}" alt="Logo" style="width:100%;height:100%;object-fit:contain;padding:2px;">
+            </div>
+            {% endif %}
+            
+            <!-- Info do Usuário -->
+            <div style="flex:1;min-width:150px;">
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <strong style="color:#1c1e21;">👤 {{ usuario.nome | e }}</strong>
+                    <span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.5rem;border-radius:50px;
+                                 {% if is_master %}background:#fce8e6;color:#c5221f;
+                                 {% elif usuario.admin %}background:#e7f3ff;color:#1877f2;
+                                 {% else %}background:#f0f2f5;color:#65676b;{% endif %}">
+                        {% if is_master %}MASTER{% elif usuario.admin %}ADMIN{% else %}Usuário{% endif %}
+                    </span>
+                </div>
+                
+                <!-- Empresa -->
+                <div style="font-size:0.85rem;color:#65676b;margin-top:0.15rem;">
+                    <span style="font-weight:500;">Empresa:</span>
+                    <strong style="color:#1c1e21;">
+                        {% if is_master %}
+                            (Todas)
+                        {% elif usuario.empresa and usuario.empresa.nome %}
+                            {{ usuario.empresa.nome | e }}
+                        {% elif empresa_nome %}
+                            {{ empresa_nome | e }}
+                        {% else %}
+                            <span style="color:#e41e3f;">Não vinculada</span>
+                        {% endif %}
+                    </strong>
+                </div>
             </div>
             
-            <div class="nc-user-company">
-                <span class="nc-label">Empresa:</span>
-                <strong class="nc-value">
-                    {% if is_master %}
-                        (Todas)
-                    {% elif usuario.empresa and usuario.empresa.nome %}
-                        {{ usuario.empresa.nome | e }}
-                    {% elif empresa_nome %}
-                        {{ empresa_nome | e }}
-                    {% else %}
-                        <span class="nc-warning">Não vinculada</span>
-                    {% endif %}
-                </strong>
-            </div>
-            
+            <!-- Último acesso -->
             {% if usuario.ultimo_login %}
-            <div class="nc-user-last-login">
-                Último acesso: {{ usuario.ultimo_login.strftime('%d/%m/%Y %H:%M') }}
+            <div style="font-size:0.78rem;color:#8a8d91;white-space:nowrap;">
+                📅 {{ usuario.ultimo_login.strftime('%d/%m/%Y %H:%M') }}
             </div>
             {% endif %}
         </div>
         {% endif %}
-        <!-- ✅ FIM: Barra de Status do Usuário -->
         
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
