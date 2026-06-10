@@ -5,290 +5,665 @@
 {% block extra_head %}
 <style>
     /* ============================================================
-       BARRA DE FILTROS
+       VARIÁVEIS E RESET
+       ============================================================ */
+    :root {
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-900: #111827;
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --radius: 12px;
+        --radius-sm: 8px;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    /* ============================================================
+       HEADER DO DASHBOARD
+       ============================================================ */
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: var(--radius);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+
+    .dashboard-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.875rem;
+        font-weight: 700;
+        position: relative;
+    }
+
+    .dashboard-header p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+        position: relative;
+    }
+
+    .dashboard-meta {
+        display: flex;
+        gap: 1.5rem;
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        opacity: 0.85;
+    }
+
+    /* ============================================================
+       BARRA DE FILTROS MODERNA
        ============================================================ */
     .filters-bar {
-        display: flex;
-        gap: 0.75rem;
-        margin-bottom: 1.25rem;
-        padding: 1rem 1.25rem;
-        background: #fff;
-        border-radius: 10px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        flex-wrap: wrap;
-        align-items: flex-end;
+        background: white;
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+        border: 1px solid var(--gray-200);
     }
-    .filters-bar .filter-group {
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-group {
         display: flex;
         flex-direction: column;
-        gap: 0.3rem;
-        min-width: 140px;
+        gap: 0.375rem;
     }
-    .filters-bar label {
+
+    .filter-group label {
         font-size: 0.75rem;
         font-weight: 600;
-        color: #65676b;
+        color: var(--gray-700);
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.05em;
     }
-    .filters-bar input,
-    .filters-bar select {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid #e4e6eb;
-        border-radius: 6px;
+
+    .filter-group input,
+    .filter-group select {
+        padding: 0.625rem 0.875rem;
+        border: 1.5px solid var(--gray-200);
+        border-radius: var(--radius-sm);
         font-size: 0.9rem;
-        background: #f0f2f5;
         transition: all 0.2s;
+        background: var(--gray-50);
     }
-    .filters-bar input:focus,
-    .filters-bar select:focus {
-        background: #fff;
-        border-color: #1877f2;
-        box-shadow: 0 0 0 2px rgba(24,119,242,0.15);
+
+    .filter-group input:focus,
+    .filter-group select:focus {
         outline: none;
+        border-color: var(--primary);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
-    .filters-bar .hint {
-        width: 100%;
-        font-size: 0.75rem;
-        color: #8a8d91;
-        margin-top: 0.35rem;
-    }
-    
-    /* ============================================================
-       KPIs - CARDS EM LINHA
-       ============================================================ */
-    .kpi-grid {
+
+    .filters-actions {
         display: flex;
         gap: 0.75rem;
-        margin-bottom: 1.25rem;
+        align-items: center;
         flex-wrap: wrap;
     }
-    .kpi-card {
-        flex: 1;
-        min-width: 140px;
-        background: #fff;
-        border-radius: 10px;
-        padding: 1.1rem 1.25rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border: 1px solid transparent;
-        text-align: left;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-    .kpi-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        border-color: #e4e6eb;
-        transform: translateY(-1px);
-    }
-    .kpi-card .kpi-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.3rem;
-        flex-shrink: 0;
-    }
-    .kpi-card .kpi-icon.blue { background: #e7f3ff; }
-    .kpi-card .kpi-icon.green { background: #e6f4ea; }
-    .kpi-card .kpi-icon.yellow { background: #fef7e0; }
-    .kpi-card .kpi-icon.purple { background: #f3e8ff; }
-    .kpi-card .kpi-icon.red { background: #fce8e6; }
-    
-    .kpi-card .kpi-info { flex: 1; }
-    .kpi-card .kpi-label {
-        font-size: 0.75rem;
+
+    .nc-btn {
+        padding: 0.625rem 1.25rem;
+        border: none;
+        border-radius: var(--radius-sm);
         font-weight: 600;
-        color: #65676b;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        margin-bottom: 0.2rem;
-    }
-    .kpi-card .kpi-value {
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: #1c1e21;
-        line-height: 1.2;
-    }
-    
-    /* ============================================================
-       SEÇÕES
-       ============================================================ */
-    .section-card {
-        background: #fff;
-        border-radius: 10px;
-        padding: 1.25rem;
-        margin-bottom: 1.25rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-    }
-    .section-card h2 {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #1c1e21;
-        margin: 0 0 0.75rem 0;
-        display: flex;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .section-card .subtitle {
+
+    .nc-btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .nc-btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .nc-btn-secondary {
+        background: var(--gray-100);
+        color: var(--gray-700);
+    }
+
+    .nc-btn-secondary:hover {
+        background: var(--gray-200);
+    }
+
+    .filter-hint {
         font-size: 0.8rem;
-        color: #65676b;
-        margin-bottom: 0.75rem;
+        color: var(--gray-600);
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
     }
-    
-    .chart-container {
-        width: 100%;
-        max-height: 320px;
+
+    /* ============================================================
+       GRID DE KPIs
+       ============================================================ */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 2rem;
     }
-    .chart-container canvas {
-        width: 100% !important;
-        max-height: 320px;
+
+    .kpi-card {
+        background: white;
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
     }
-    
+
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary);
+        transform: scaleX(0);
+        transition: transform 0.3s;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .kpi-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .kpi-card.sales::before { background: var(--primary); }
+    .kpi-card.received::before { background: var(--success); }
+    .kpi-card.difference::before { background: var(--warning); }
+    .kpi-card.pix::before { background: #8b5cf6; }
+    .kpi-card.alerts::before { background: var(--danger); }
+
+    .kpi-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+
+    .kpi-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .kpi-card.sales .kpi-icon { background: #dbeafe; }
+    .kpi-card.received .kpi-icon { background: #d1fae5; }
+    .kpi-card.difference .kpi-icon { background: #fef3c7; }
+    .kpi-card.pix .kpi-icon { background: #ede9fe; }
+    .kpi-card.alerts .kpi-icon { background: #fee2e2; }
+
+    .kpi-trend {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.625rem;
+        border-radius: 9999px;
+    }
+
+    .kpi-trend.positive {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .kpi-trend.negative {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .kpi-label {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .kpi-subtitle {
+        font-size: 0.8rem;
+        color: var(--gray-600);
+    }
+
+    /* ============================================================
+       SEÇÕES DE CONTEÚDO
+       ============================================================ */
+    .content-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section-card {
+        background: white;
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--gray-100);
+    }
+
+    .section-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--gray-900);
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        margin: 0;
+    }
+
+    .section-subtitle {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        margin: 0;
+    }
+
+    /* ============================================================
+     CARDS DE ADQUIRENTES
+       ============================================================ */
     .acq-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
     }
+
     .acq-card {
-        background: #f7f8fa;
-        border-radius: 8px;
-        padding: 1rem;
+        background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+        border: 2px solid var(--gray-200);
+        border-radius: var(--radius-sm);
+        padding: 1.25rem;
         cursor: pointer;
-        transition: all 0.2s;
-        border: 1px solid transparent;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
     }
+
+    .acq-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--primary);
+        transform: scaleX(0);
+        transition: transform 0.3s;
+    }
+
     .acq-card:hover {
-        background: #fff;
-        border-color: #1877f2;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border-color: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
     }
-    .acq-card .acq-nome { font-weight: 600; font-size: 0.9rem; color: #1c1e21; }
-    .acq-card .acq-valor { font-size: 1.1rem; font-weight: 700; color: #1877f2; margin-top: 0.25rem; }
-    
-    @media (max-width: 640px) {
-        .kpi-grid { flex-direction: column; }
-        .kpi-card { min-width: 100%; }
-        .filters-bar { flex-direction: column; }
+
+    .acq-card:hover::after {
+        transform: scaleX(1);
+    }
+
+    .acq-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+
+    .acq-name {
+        font-weight: 600;
+        color: var(--gray-900);
+        font-size: 0.95rem;
+    }
+
+    .acq-badge {
+        background: var(--primary);
+        color: white;
+        font-size: 0.7rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        font-weight: 600;
+    }
+
+    .acq-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .acq-details {
+        font-size: 0.8rem;
+        color: var(--gray-600);
+    }
+
+    /* ============================================================
+       GRÁFICOS
+       ============================================================ */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-top: 1rem;
+    }
+
+    /* ============================================================
+       RESPONSIVIDADE
+       ============================================================ */
+    @media (max-width: 768px) {
+        .dashboard-header {
+            padding: 1.5rem;
+        }
+
+        .dashboard-header h1 {
+            font-size: 1.5rem;
+        }
+
+        .kpi-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .filters-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .filter-hint {
+            margin-left: 0;
+            text-align: center;
+        }
+    }
+
+    /* ============================================================
+       ANIMAÇÕES
+       ============================================================ */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .kpi-card, .section-card {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    /* Loading state */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
+    .skeleton {
+        background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+        border-radius: var(--radius-sm);
+    }
+
+    @keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 
+<!-- ===================== HEADER ===================== -->
+<div class="dashboard-header">
+    <h1>📊 Dashboard</h1>
+    <p>Acompanhe suas vendas, recebimentos e conciliações em tempo real</p>
+    <div class="dashboard-meta">
+        <span>🏢 {{ current_user.empresa.nome if current_user.empresa else 'N/A' }}</span>
+        <span>👤 {{ current_user.nome }}</span>
+        <span>📅 {{ now.strftime('%d/%m/%Y %H:%M') if now else '' }}</span>
+    </div>
+</div>
+
 <!-- ===================== FILTROS ===================== -->
 <div class="filters-bar">
-    <div class="filter-group">
-        <label for="filtroInicio">Data Início</label>
-        <input type="date" id="filtroInicio" />
+    <div class="filters-grid">
+        <div class="filter-group">
+            <label for="filtroInicio">📅 Data Início</label>
+            <input type="date" id="filtroInicio" />
+        </div>
+        <div class="filter-group">
+            <label for="filtroFim">📅 Data Fim</label>
+            <input type="date" id="filtroFim" />
+        </div>
+        {% if features and features.pix_enabled %}
+        <div class="filter-group">
+            <label for="filtroTipoPagamento">💳 Tipo de Pagamento</label>
+            <select id="filtroTipoPagamento">
+                <option value="todos">Todos os tipos</option>
+                <option value="cartao">Cartão</option>
+                <option value="pix">PIX</option>
+                <option value="boleto">Boleto</option>
+            </select>
+        </div>
+        {% endif %}
     </div>
-    <div class="filter-group">
-        <label for="filtroFim">Data Fim</label>
-        <input type="date" id="filtroFim" />
+    <div class="filters-actions">
+        <button type="button" class="nc-btn nc-btn-primary" onclick="aplicarFiltros()">
+            🔍 Filtrar Dados
+        </button>
+        <button type="button" class="nc-btn nc-btn-secondary" onclick="limparFiltros()">
+            🧹 Limpar Filtros
+        </button>
+        <span class="filter-hint">
+            💡 Deixe em branco para ver todos os dados
+        </span>
     </div>
-    {% if features and features.pix_enabled %}
-    <div class="filter-group">
-        <label for="filtroTipoPagamento">Tipo</label>
-        <select id="filtroTipoPagamento">
-            <option value="todos">Todos</option>
-            <option value="cartao">Cartão</option>
-            <option value="pix">PIX</option>
-            <option value="boleto">Boleto</option>
-        </select>
-    </div>
-    {% endif %}
-    <button type="button" class="nc-btn nc-btn-primary" onclick="aplicarFiltros()">🔍 Filtrar</button>
-    <button type="button" class="nc-btn nc-btn-secondary" onclick="limparFiltros()">🧹 Limpar</button>
-    <span class="hint">💡 Deixe em branco para ver todos os dados.</span>
 </div>
+
+<div id="dashboard-error" style="display:none;padding:1rem;background:#fee2e2;border-left:4px solid #ef4444;border-radius:8px;margin-bottom:1.5rem;color:#991b1b;" role="alert"></div>
 
 <!-- ===================== KPIs ===================== -->
 <div class="kpi-grid">
-    <div class="kpi-card" onclick="abrirModalDetalhe('vendas')">
-        <div class="kpi-icon blue">🛍️</div>
-        <div class="kpi-info">
-            <div class="kpi-label">Total Vendas</div>
-            <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
+    <div class="kpi-card sales" onclick="abrirModalDetalhe('vendas')">
+        <div class="kpi-header">
+            <div class="kpi-icon">🛍️</div>
+            <span class="kpi-trend positive" id="trend-vendas">↑ 0%</span>
         </div>
+        <div class="kpi-label">Total em Vendas</div>
+        <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
+        <div class="kpi-subtitle">Acumuladas no período</div>
     </div>
-    <div class="kpi-card" onclick="abrirModalDetalhe('recebidos')">
-        <div class="kpi-icon green">💸</div>
-        <div class="kpi-info">
-            <div class="kpi-label">Total Recebido</div>
-            <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+
+    <div class="kpi-card received" onclick="abrirModalDetalhe('recebidos')">
+        <div class="kpi-header">
+            <div class="kpi-icon">💸</div>
+            <span class="kpi-trend positive" id="trend-recebido">↑ 0%</span>
         </div>
+        <div class="kpi-label">Total Recebido</div>
+        <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+        <div class="kpi-subtitle">Conciliado no banco</div>
     </div>
-    <div class="kpi-card" onclick="abrirModalDetalhe('diferencas')">
-        <div class="kpi-icon yellow">⚠️</div>
-        <div class="kpi-info">
-            <div class="kpi-label">Diferença</div>
-            <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
+
+    <div class="kpi-card difference" onclick="abrirModalDetalhe('diferencas')">
+        <div class="kpi-header">
+            <div class="kpi-icon">⚠️</div>
+            <span class="kpi-trend negative" id="trend-diferenca">↓ 0%</span>
         </div>
+        <div class="kpi-label">Diferença</div>
+        <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
+        <div class="kpi-subtitle">Para conciliar</div>
     </div>
+
     {% if features and features.pix_enabled %}
-    <div class="kpi-card">
-        <div class="kpi-icon purple">🔷</div>
-        <div class="kpi-info">
-            <div class="kpi-label">Total PIX</div>
-            <div class="kpi-value kpi-value-pix">R$ 0,00</div>
+    <div class="kpi-card pix">
+        <div class="kpi-header">
+            <div class="kpi-icon">🔷</div>
+            <span class="kpi-trend positive">↑ 0%</span>
         </div>
+        <div class="kpi-label">Total em PIX</div>
+        <div class="kpi-value kpi-value-pix">R$ 0,00</div>
+        <div class="kpi-subtitle">Recebimentos instantâneos</div>
     </div>
     {% endif %}
-    <div class="kpi-card">
-        <div class="kpi-icon red">🔔</div>
-        <div class="kpi-info">
-            <div class="kpi-label">Alertas</div>
-            <div class="kpi-value kpi-value-alertas">0</div>
+
+    <div class="kpi-card alerts">
+        <div class="kpi-header">
+            <div class="kpi-icon">🔔</div>
+            <span class="kpi-trend negative" id="trend-alertas">0</span>
+        </div>
+        <div class="kpi-label">Alertas</div>
+        <div class="kpi-value kpi-value-alertas">0</div>
+        <div class="kpi-subtitle">Requerem atenção</div>
+    </div>
+</div>
+
+<!-- ===================== CONTEÚDO PRINCIPAL ===================== -->
+<div class="content-grid">
+    <!-- Adquirentes -->
+    <div class="section-card" style="grid-column: 1 / -1;">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">💳 Adquirentes</h2>
+                <p class="section-subtitle">Clique em uma adquirente para ver detalhes</p>
+            </div>
+        </div>
+        <div id="acqContainer" class="acq-grid">
+            <div class="skeleton" style="height:120px;"></div>
+            <div class="skeleton" style="height:120px;"></div>
+            <div class="skeleton" style="height:120px;"></div>
         </div>
     </div>
-</div>
 
-<div id="dashboard-error" style="display:none;color:#e41e3f;margin-bottom:1rem;" role="alert"></div>
-
-<!-- ===================== ADQUIRENTES ===================== -->
-<div class="section-card">
-    <h2>💳 Totais por Adquirente</h2>
-    <p class="subtitle">Clique na adquirente para ver o detalhamento.</p>
-    <div id="acqContainer" class="acq-grid">
-        <p style="color:#8a8d91;">Nenhuma adquirente encontrada.</p>
+    <!-- Gráfico Vendas x Recebidos -->
+    <div class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">📈 Vendas vs Recebimentos</h2>
+                <p class="section-subtitle">Comparativo mensal</p>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="graficoVendasRecebidos"></canvas>
+        </div>
     </div>
-</div>
 
-<!-- ===================== GRÁFICOS ===================== -->
-<div class="section-card">
-    <h2>📊 Gráfico de Vendas x Recebido</h2>
-    <div class="chart-container">
-        <canvas id="graficoVendasRecebidos" role="img" aria-label="Gráfico de barras comparando vendas e recebimentos"></canvas>
-    </div>
-</div>
-
-<div class="section-card">
-    <h2>🏷️ Vendas por Bandeira</h2>
-    <div class="chart-container">
-        <canvas id="graficoBandeiras" role="img" aria-label="Gráfico de rosca mostrando distribuição de vendas por bandeira"></canvas>
+    <!-- Gráfico por Bandeira -->
+    <div class="section-card">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">🏷️ Vendas por Bandeira</h2>
+                <p class="section-subtitle">Distribuição percentual</p>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="graficoBandeiras"></canvas>
+        </div>
     </div>
 </div>
 
 <!-- ===================== MODAL ===================== -->
 <div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
-    <div class="nc-modal-backdrop" tabindex="-1"></div>
-    <div class="nc-modal-content">
+    <div class="nc-modal-backdrop" tabindex="-1" onclick="fecharModal()"></div>
+    <div class="nc-modal-content" style="max-width:900px;">
         <div class="nc-modal-header">
-            <h3 id="modalTitulo"></h3>
-            <button type="button" class="nc-modal-close" aria-label="Fechar modal">✕</button>
+            <h3 id="modalTitulo" style="margin:0;font-size:1.25rem;"></h3>
+            <button type="button" class="nc-modal-close" onclick="fecharModal()" aria-label="Fechar">✕</button>
         </div>
-        <div class="nc-modal-body">
-            <div class="table-container">
-                <table id="modalTabela" class="nc-table" role="table" aria-label="Tabela de detalhamento"></table>
+        <div class="nc-modal-body" style="max-height:60vh;overflow:auto;">
+            <div id="modal-loading" style="text-align:center;padding:2rem;">
+                <div class="skeleton" style="height:200px;"></div>
             </div>
-            <div id="modal-empty" style="display:none;" role="status">Nenhum dado para exibir.</div>
+            <div id="modal-content" style="display:none;">
+                <table id="modalTabela" class="nc-table" style="width:100%;border-collapse:collapse;">
+                    <thead style="background:var(--gray-100);"></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="modal-empty" style="display:none;text-align:center;padding:2rem;color:var(--gray-600);">
+                Nenhum dado para exibir.
+            </div>
         </div>
         <div class="nc-modal-footer">
-            <button type="button" class="nc-btn-secondary" onclick="fecharModal()">Fechar</button>
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModal()">Fechar</button>
         </div>
     </div>
 </div>
@@ -297,6 +672,10 @@
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 
 <script>
+// Configurações globais do Chart.js
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = '#4b5563';
+
 function getCsrfTokenFallback() {
     return window.getCsrfToken?.() || 
            document.querySelector('meta[name="csrf-token"]')?.content || 
@@ -308,43 +687,60 @@ document.addEventListener("DOMContentLoaded", function() {
     const filtroFim = document.getElementById('filtroFim');
     const filtroTipo = document.getElementById('filtroTipoPagamento');
     
-    if (filtroInicio) filtroInicio.value = '';
-    if (filtroFim) filtroFim.value = '';
-    if (filtroTipo) filtroTipo.value = 'todos';
-    
+    // Aplicar filtros
     window.aplicarFiltros = function() {
         const inicio = filtroInicio?.value;
         const fim = filtroFim?.value;
         const tipo = filtroTipo?.value || 'todos';
         const params = new URLSearchParams();
-        if (inicio && fim) { params.append('periodo', 'personalizado'); params.append('data_inicio', inicio); params.append('data_fim', fim); }
-        else if (inicio) { params.append('periodo', 'personalizado'); params.append('data_inicio', inicio); }
-        else if (fim) { params.append('periodo', 'personalizado'); params.append('data_fim', fim); }
-        else { params.append('periodo', 'todos'); }
-        if (tipo && tipo !== 'todos') params.append('tipo_pagamento', tipo);
+        
+        if (inicio && fim) {
+            params.append('periodo', 'personalizado');
+            params.append('data_inicio', inicio);
+            params.append('data_fim', fim);
+        } else if (inicio) {
+            params.append('periodo', 'personalizado');
+            params.append('data_inicio', inicio);
+        } else if (fim) {
+            params.append('periodo', 'personalizado');
+            params.append('data_fim', fim);
+        } else {
+            params.append('periodo', 'todos');
+        }
+        
+        if (tipo && tipo !== 'todos') {
+            params.append('tipo_pagamento', tipo);
+        }
+        
         carregarKPIsComFiltros(params.toString());
     };
 
+    // Limpar filtros
     window.limparFiltros = function() {
         if (filtroInicio) filtroInicio.value = '';
         if (filtroFim) filtroFim.value = '';
         if (filtroTipo) filtroTipo.value = 'todos';
-        if (typeof window.carregarKPIs === 'function') window.carregarKPIs();
-        else setTimeout(() => window.carregarKPIs?.() || window.location.reload(), 100);
+        location.reload();
     };
 
+    // Carregar KPIs com filtros
     window.carregarKPIsComFiltros = async function(queryString = '') {
-        let retries = 0;
-        while ((typeof window.atualizarKPIs !== 'function') && retries < 10) {
-            await new Promise(r => setTimeout(r, 50));
-            retries++;
-        }
         const url = `/api/v1/dashboard/kpis${queryString ? '?' + queryString : ''}`;
+        
         try {
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfTokenFallback() } });
+            const res = await fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCsrfTokenFallback()
+                }
+            });
+            
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
+            
             if (!data.ok) throw new Error(data.error || 'Erro');
+            
+            // Atualizar KPIs
             if (typeof window.atualizarKPIs === 'function') {
                 window.atualizarKPIs(data.kpis, {
                     kpiVendas: document.querySelector(".kpi-value-vendas"),
@@ -354,17 +750,62 @@ document.addEventListener("DOMContentLoaded", function() {
                     kpiPix: document.querySelector(".kpi-value-pix")
                 });
             }
+            
+            // Atualizar adquirentes
             if (typeof window.atualizarAcquirers === 'function') {
                 window.atualizarAcquirers(data.kpis.adquirentes || {}, document.getElementById("acqContainer"));
             }
+            
             document.getElementById("dashboard-error").style.display = 'none';
         } catch (err) {
-            document.getElementById("dashboard-error").textContent = '⚠️ Erro ao carregar dados.';
+            console.error('Erro ao carregar dashboard:', err);
+            document.getElementById("dashboard-error").textContent = '⚠️ Erro ao carregar dados. Tente novamente.';
             document.getElementById("dashboard-error").style.display = 'block';
         }
     };
     
-    if (typeof window.carregarKPIs === 'function') window.carregarKPIs();
+    // Carregar dados iniciais
+    if (typeof window.carregarKPIs === 'function') {
+        window.carregarKPIs();
+    }
+});
+
+// Funções do modal
+window.abrirModalDetalhe = function(tipo) {
+    const modal = document.getElementById('modalDetalhe');
+    const titulo = document.getElementById('modalTitulo');
+    const loading = document.getElementById('modal-loading');
+    const content = document.getElementById('modal-content');
+    const empty = document.getElementById('modal-empty');
+    
+    const titulos = {
+        'vendas': '📊 Detalhamento de Vendas',
+        'recebidos': '💸 Detalhamento de Recebimentos',
+        'diferencas': '⚠️ Diferenças para Conciliar'
+    };
+    
+    titulo.textContent = titulos[tipo] || 'Detalhamento';
+    modal.style.display = 'flex';
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    
+    // Aqui você implementaria a busca dos dados detalhados
+    setTimeout(() => {
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+    }, 500);
+};
+
+window.fecharModal = function() {
+    document.getElementById('modalDetalhe').style.display = 'none';
+};
+
+// Fechar modal com ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharModal();
+    }
 });
 </script>
 
