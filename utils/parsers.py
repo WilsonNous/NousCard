@@ -745,3 +745,25 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
                     reg['tipo_pagamento'] = 'cartao'
         
         return registros
+# utils/parsers.py - DENTRO de parse_ofx_generic()
+
+# ... [código existente] ...
+
+    # ✅ TIMEOUT DE SEGURANÇA (evita loop infinito em arquivos corrompidos)
+    import signal
+    
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Parser OFX excedeu tempo limite de 10s")
+    
+    try:
+        # Configurar timeout apenas para Unix/Linux (Render usa Linux)
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(10)  # 10 segundos
+        
+        # ... [código de processamento das transações] ...
+        
+    except TimeoutError:
+        logger.error("⚠️ Parser OFX travou. Timeout acionado.")
+        return []
+    finally:
+        signal.alarm(0)  # Desligar timeout
