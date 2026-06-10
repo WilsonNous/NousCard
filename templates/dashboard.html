@@ -26,7 +26,7 @@
     }
 
     /* ============================================================
-       BARRA DE FILTROS - MODERNA
+       BARRA DE FILTROS - MODERNA (HORIZONTAL)
        ============================================================ */
     .filters-bar {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -35,30 +35,34 @@
         margin-bottom: 2rem;
         box-shadow: var(--shadow-lg);
         display: flex;
-        gap: 1rem;
         flex-wrap: wrap;
-        align-items: flex-end;
+        gap: 1rem;
+        align-items: center;
     }
 
     .filter-group {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
         flex: 1;
-        min-width: 180px;
+        min-width: 280px;
     }
 
     .filter-group label {
-        display: block;
         color: white;
-        font-size: 0.75rem;
+        font-size: 0.85rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
-        opacity: 0.9;
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     .filter-group input,
     .filter-group select {
-        width: 100%;
+        flex: 1;
+        min-width: 0;
         padding: 0.75rem 1rem;
         border: 2px solid rgba(255,255,255,0.2);
         border-radius: 10px;
@@ -80,6 +84,7 @@
         display: flex;
         gap: 0.75rem;
         align-items: center;
+        flex-shrink: 0;
     }
 
     .btn-filter {
@@ -94,6 +99,7 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        white-space: nowrap;
     }
 
     .btn-filter:hover {
@@ -110,6 +116,7 @@
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s;
+        white-space: nowrap;
     }
 
     .btn-clear:hover {
@@ -119,11 +126,13 @@
     .filter-hint {
         color: rgba(255,255,255,0.8);
         font-size: 0.85rem;
-        margin-top: 0.5rem;
+        width: 100%;
+        text-align: center;
+        margin-top: 0.25rem;
     }
 
     /* ============================================================
-       KPIs - CARDS EM LINHA HORIZONTAL (CORRIGIDO)
+       KPIs - CARDS EM LINHA HORIZONTAL
        ============================================================ */
     .kpi-grid {
         display: flex;
@@ -425,19 +434,27 @@
     @media (max-width: 768px) {
         .filters-bar {
             flex-direction: column;
+            align-items: stretch;
         }
         
         .filter-group {
             width: 100%;
+            min-width: 100%;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group label {
+            width: 100%;
+            margin-bottom: 0.25rem;
         }
         
         .filter-actions {
             width: 100%;
-            flex-direction: column;
+            justify-content: center;
         }
         
         .btn-filter, .btn-clear {
-            width: 100%;
+            flex: 1;
             justify-content: center;
         }
         
@@ -499,18 +516,18 @@
 <!-- ===================== FILTROS ===================== -->
 <div class="filters-bar">
     <div class="filter-group">
-        <label for="filtroInicio">📅 Data Início</label>
+        <label for="filtroInicio">📅 Início</label>
         <input type="date" id="filtroInicio" />
     </div>
     <div class="filter-group">
-        <label for="filtroFim">📅 Data Fim</label>
+        <label for="filtroFim">📅 Fim</label>
         <input type="date" id="filtroFim" />
     </div>
     {% if features and features.pix_enabled %}
     <div class="filter-group">
-        <label for="filtroTipoPagamento">💳 Tipo de Pagamento</label>
+        <label for="filtroTipoPagamento">💳 Tipo</label>
         <select id="filtroTipoPagamento">
-            <option value="todos">Todos os tipos</option>
+            <option value="todos">Todos</option>
             <option value="cartao">Cartão</option>
             <option value="pix">PIX</option>
             <option value="boleto">Boleto</option>
