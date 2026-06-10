@@ -1,4 +1,4 @@
-# routes/operacoes_routes.py - VERSÃO FINAL VERIFICADA
+# routes/operacoes_routes.py - VERSÃO FINAL CORRIGIDA
 
 from flask import Blueprint, render_template, request, jsonify, session, g, current_app, abort
 from utils.auth_middleware import login_required, empresa_required
@@ -37,23 +37,17 @@ def allowed_file(filename: str) -> bool:
 
 def validar_csrf_token():
     """Valida token CSRF manualmente para formulários e AJAX"""
-    # Ler de múltiplas fontes
     token_form = request.form.get('csrf_token')
     token_header = request.headers.get('X-CSRF-Token')
     
-    # Token da sessão: tentar múltiplas fontes
-    session_token = (
-        g.get('csrf_token') or 
-        session.get('csrf_token') or 
-        request.cookies.get('csrf_token')
-    )
+    # ✅ SEGURO: Usar apenas session (não cookie)
+    session_token = g.get('csrf_token') or session.get('csrf_token')
     
-    # Normalizar (remover espaços em branco)
+    # Normalizar
     token_form = token_form.strip() if token_form else None
     token_header = token_header.strip() if token_header else None
     session_token = session_token.strip() if session_token else None
     
-    # Debug logging (útil para diagnóstico)
     logger.debug(f"🔍 CSRF Debug: form={'✅' if token_form else '❌'}, "
                 f"header={'✅' if token_header else '❌'}, "
                 f"session={'✅' if session_token else '❌'}")
@@ -99,7 +93,6 @@ def upload_arquivos():
             "message": "Erro de segurança. Recarregue a página."
         }), 403
     
-    # ✅ CRÍTICO: getlist("files") deve bater com name="files" no HTML
     files = request.files.getlist("files")
     
     if not files or all(f.filename == '' for f in files):
@@ -198,28 +191,9 @@ def arquivo_detalhe_page(arquivo_id):
         registros = []
     return render_template("arquivo_detalhe.html", arquivo=arquivo, registros=registros)
 
-@operacoes_bp.route("/api/processar_conciliacao", methods=["POST"])
-@login_required
-@empresa_required
-def conciliar_api():
-    if not validar_csrf_token():
-        return jsonify({"ok": False, "message": "Erro de segurança"}), 403
-    
-    empresa_id = g.user.empresa_id
-    usuario_id = g.user.id
-    data = request.get_json(silent=True) or {}
-    tipo_pagamento = data.get('tipo_pagamento')
+# ❌ REMOVIDO: Rota duplicada /api/processar_conciliacao
+# ✅ Use /api/v1/conciliacao/processar do conciliacao_api.py
 
-    try:
-        from services.concilia import executar_conciliacao
-        resultado = executar_conciliacao(empresa_id, usuario_id=usuario_id, tipo_pagamento=tipo_pagamento)
-        logger.info(f"✅ Conciliação: empresa={empresa_id}, tipo={tipo_pagamento or 'todos'}")
-        return jsonify({"ok": True, "message": "Conciliação concluída.", "resultado": resultado, "timestamp": datetime.now(timezone.utc).isoformat()})
-    except Exception as e:
-        logger.error(f"❌ Erro na conciliação: {str(e)}", exc_info=True)
-        return jsonify({"ok": False, "message": "Erro ao processar conciliação."}), 500
-
-# ✅ ✅ ✅ NOVA API: Últimos Uploads (IMPLEMENTADA) ✅ ✅ ✅
 @operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
 @login_required
 @empresa_required
