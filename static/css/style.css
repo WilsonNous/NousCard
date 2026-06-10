@@ -17,7 +17,6 @@ html, body {
 
 *, *::before, *::after {
     box-sizing: border-box;
-    max-width: 100%;
 }
 
 img, canvas, svg, video, embed, object, iframe {
@@ -1021,6 +1020,7 @@ textarea:focus-visible,
     margin: 0 auto;
     padding: 2rem;
     width: 100%;
+   overflow-x: visible;
 }
 
 .nc-section {
