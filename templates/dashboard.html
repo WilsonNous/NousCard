@@ -5,176 +5,122 @@
 {% block extra_head %}
 <style>
     /* ============================================================
-       VARIÁVEIS E RESET
+       DASHBOARD - ESTILOS ESPECÍFICOS
+       (Usa variáveis globais do style.css)
        ============================================================ */
-    :root {
-        --primary: #2563eb;
-        --primary-dark: #1d4ed8;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --danger: #ef4444;
-        --info: #06b6d4;
-        --purple: #8b5cf6;
-        --gray-50: #f9fafb;
-        --gray-100: #f3f4f6;
-        --gray-200: #e5e7eb;
-        --gray-600: #4b5563;
-        --gray-800: #1f2937;
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    }
-
-    /* ============================================================
-       BARRA DE FILTROS - MODERNA (HORIZONTAL)
-       ============================================================ */
-    .filters-bar {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 16px;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-lg);
+    
+    /* Filtros */
+    .dashboard-filters {
+        background: linear-gradient(135deg, var(--primary) 0%, #764ba2 100%);
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 1.5rem;
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
         align-items: center;
     }
 
-    .filter-group {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 0.75rem;
-        flex: 1;
-        min-width: 280px;
-    }
-
-    .filter-group label {
-        color: white;
-        font-size: 0.85rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .filter-group input,
-    .filter-group select {
-        flex: 1;
-        min-width: 0;
-        padding: 0.75rem 1rem;
-        border: 2px solid rgba(255,255,255,0.2);
-        border-radius: 10px;
-        background: rgba(255,255,255,0.95);
-        font-size: 0.9rem;
-        transition: all 0.3s;
-        color: var(--gray-800);
-    }
-
-    .filter-group input:focus,
-    .filter-group select:focus {
-        outline: none;
-        border-color: white;
-        background: white;
-        box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
-    }
-
-    .filter-actions {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-shrink: 0;
-    }
-
-    .btn-filter {
-        background: white;
-        color: #667eea;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 10px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s;
+    .dashboard-filters .filter-group {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        white-space: nowrap;
+        flex: 1;
+        min-width: 200px;
     }
 
-    .btn-filter:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    .btn-clear {
-        background: rgba(255,255,255,0.2);
+    .dashboard-filters label {
         color: white;
-        border: 2px solid rgba(255,255,255,0.3);
-        padding: 0.75rem 1.5rem;
-        border-radius: 10px;
+        font-size: 0.875rem;
         font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s;
         white-space: nowrap;
     }
 
-    .btn-clear:hover {
-        background: rgba(255,255,255,0.3);
+    .dashboard-filters input,
+    .dashboard-filters select {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        background: rgba(255,255,255,0.95);
+        font-size: 0.875rem;
+        color: var(--text);
     }
 
-    .filter-hint {
+    .dashboard-filters input:focus,
+    .dashboard-filters select:focus {
+        outline: none;
+        border-color: white;
+        background: white;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+    }
+
+    .dashboard-filters .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .dashboard-filters .btn-filter {
+        background: white;
+        color: var(--primary);
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        transition: all 0.2s;
+    }
+
+    .dashboard-filters .btn-filter:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .dashboard-filters .btn-clear {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .dashboard-filters .btn-clear:hover {
+        background: rgba(255,255,255,0.25);
+    }
+
+    .dashboard-filters .filter-hint {
         color: rgba(255,255,255,0.8);
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         width: 100%;
         text-align: center;
         margin-top: 0.25rem;
     }
 
-    /* ============================================================
-       KPIs - CARDS EM LINHA HORIZONTAL
-       ============================================================ */
+    /* KPIs */
     .kpi-grid {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-        overflow-x: auto;
-        padding-bottom: 0.5rem;
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e1 transparent;
-    }
-
-    .kpi-grid::-webkit-scrollbar {
-        height: 6px;
-    }
-
-    .kpi-grid::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .kpi-grid::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
-    }
-
-    .kpi-grid::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
     }
 
     .kpi-card {
-        flex: 1 1 0;
-        min-width: 200px;
-        background: white;
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: var(--shadow);
-        transition: all 0.3s;
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: var(--border-radius);
+        padding: 1.25rem;
         cursor: pointer;
         position: relative;
         overflow: hidden;
-        border: 2px solid transparent;
+        transition: all 0.2s;
     }
 
     .kpi-card::before {
@@ -183,156 +129,100 @@
         top: 0;
         left: 0;
         right: 0;
-        height: 4px;
-        background: var(--gradient, linear-gradient(90deg, #667eea, #764ba2));
+        height: 3px;
+        background: var(--gradient, var(--primary));
     }
 
     .kpi-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-lg);
-        border-color: var(--border-color, #667eea);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary);
     }
 
-    .kpi-card.vendas { 
-        --gradient: linear-gradient(90deg, #3b82f6, #2563eb);
-        --border-color: #3b82f6;
-    }
-    .kpi-card.recebido { 
-        --gradient: linear-gradient(90deg, #10b981, #059669);
-        --border-color: #10b981;
-    }
-    .kpi-card.diferenca { 
-        --gradient: linear-gradient(90deg, #f59e0b, #d97706);
-        --border-color: #f59e0b;
-    }
-    .kpi-card.pix { 
-        --gradient: linear-gradient(90deg, #8b5cf6, #7c3aed);
-        --border-color: #8b5cf6;
-    }
-    .kpi-card.alertas { 
-        --gradient: linear-gradient(90deg, #ef4444, #dc2626);
-        --border-color: #ef4444;
-    }
+    .kpi-card.vendas { --gradient: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .kpi-card.recebido { --gradient: linear-gradient(90deg, #10b981, #059669); }
+    .kpi-card.diferenca { --gradient: linear-gradient(90deg, #f59e0b, #d97706); }
+    .kpi-card.pix { --gradient: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+    .kpi-card.alertas { --gradient: linear-gradient(90deg, #ef4444, #dc2626); }
 
     .kpi-header {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 1rem;
+        align-items: center;
+        margin-bottom: 0.75rem;
     }
 
     .kpi-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
-        background: var(--icon-bg, #e0e7ff);
+        font-size: 1.25rem;
     }
 
-    .kpi-card.vendas .kpi-icon { background: #dbeafe; }
-    .kpi-card.recebido .kpi-icon { background: #d1fae5; }
-    .kpi-card.diferenca .kpi-icon { background: #fef3c7; }
-    .kpi-card.pix .kpi-icon { background: #ede9fe; }
-    .kpi-card.alertas .kpi-icon { background: #fee2e2; }
+    .kpi-card.vendas .kpi-icon { background: var(--primary-light); }
+    .kpi-card.recebido .kpi-icon { background: var(--kpi-green-light); }
+    .kpi-card.diferenca .kpi-icon { background: var(--kpi-yellow-light); }
+    .kpi-card.pix .kpi-icon { background: var(--kpi-blue-light); }
+    .kpi-card.alertas .kpi-icon { background: var(--kpi-red-light); }
 
     .kpi-trend {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        background: var(--trend-bg, #e5e7eb);
-        color: var(--trend-color, #6b7280);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
     }
 
-    .kpi-trend.up { 
-        --trend-bg: #d1fae5;
-        --trend-color: #059669;
-    }
-    .kpi-trend.down { 
-        --trend-bg: #fee2e2;
-        --trend-color: #dc2626;
-    }
+    .kpi-trend.up { background: var(--kpi-green-light); color: var(--success); }
+    .kpi-trend.down { background: var(--kpi-red-light); color: var(--error); }
 
     .kpi-label {
-        font-size: 0.875rem;
-        color: var(--gray-600);
+        font-size: 0.8rem;
+        color: var(--text-muted);
         font-weight: 500;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
 
     .kpi-value {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
         font-weight: 700;
-        color: var(--gray-800);
+        color: var(--text);
         line-height: 1.2;
+        margin-bottom: 0.25rem;
     }
 
     .kpi-subtitle {
-        font-size: 0.75rem;
-        color: var(--gray-600);
-        margin-top: 0.25rem;
+        font-size: 0.7rem;
+        color: var(--text-muted);
     }
 
-    /* ============================================================
-       SEÇÕES - CARDS MODERNOS
-       ============================================================ */
+    /* Grid principal */
     .dashboard-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .section-card {
-        background: white;
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: var(--shadow);
-    }
-
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        grid-template-columns: 2fr 1fr;
+        gap: 1rem;
         margin-bottom: 1.5rem;
     }
 
-    .section-title {
-        font-size: 1.125rem;
-        font-weight: 700;
-        color: var(--gray-800);
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .section-subtitle {
-        font-size: 0.875rem;
-        color: var(--gray-600);
-        margin-top: 0.25rem;
-    }
-
-    /* ============================================================
-       ADQUIRENTES - GRID MODERNO
-       ============================================================ */
+    /* Adquirentes */
     .acq-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
     }
 
     .acq-card {
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border: 2px solid #bae6fd;
-        border-radius: 12px;
-        padding: 1.25rem;
+        background: var(--gray-light);
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        padding: 1rem;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: all 0.2s;
         position: relative;
-        overflow: hidden;
     }
 
     .acq-card::before {
@@ -340,313 +230,253 @@
         position: absolute;
         top: 0;
         left: 0;
-        width: 4px;
+        width: 3px;
         height: 100%;
-        background: linear-gradient(180deg, #3b82f6, #2563eb);
+        background: var(--primary);
+        border-radius: 3px 0 0 3px;
     }
 
     .acq-card:hover {
-        transform: translateX(4px);
-        box-shadow: var(--shadow-lg);
-        border-color: #3b82f6;
+        transform: translateX(2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary);
     }
 
     .acq-header {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.75rem;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
     }
+
+    .acq-icon { font-size: 1.25rem; }
 
     .acq-nome {
-        font-weight: 700;
-        font-size: 0.95rem;
-        color: var(--gray-800);
-    }
-
-    .acq-icon {
-        font-size: 1.5rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text);
     }
 
     .acq-valor {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 700;
-        color: #2563eb;
+        color: var(--primary);
+        margin-bottom: 0.25rem;
     }
 
     .acq-details {
         display: flex;
-        gap: 1rem;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid #bae6fd;
+        gap: 0.75rem;
+        font-size: 0.7rem;
+        color: var(--text-muted);
     }
 
-    .acq-detail {
-        font-size: 0.75rem;
-        color: var(--gray-600);
-    }
-
-    .acq-detail strong {
-        color: var(--gray-800);
-        display: block;
-        font-size: 0.875rem;
-    }
-
-    /* ============================================================
-       GRÁFICOS - CONTAINERS
-       ============================================================ */
+    /* Gráficos */
     .chart-container {
         position: relative;
-        height: 300px;
-        margin-top: 1rem;
+        height: 280px;
     }
 
-    /* ============================================================
-       ALERTA DE ERRO
-       ============================================================ */
+    /* Erro */
     .error-alert {
-        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        border: 2px solid #ef4444;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        margin-bottom: 1.5rem;
+        background: var(--error-bg);
+        border: 1px solid var(--error-border);
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
         display: none;
         align-items: center;
-        gap: 0.75rem;
-        color: #dc2626;
+        gap: 0.5rem;
+        color: var(--error);
+        font-size: 0.875rem;
         font-weight: 500;
     }
 
     .error-alert.show {
         display: flex;
-        animation: slideIn 0.3s ease;
+        animation: slideIn 0.2s ease;
     }
 
     @keyframes slideIn {
-        from { opacity: 0; transform: translateY(-10px); }
+        from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ============================================================
-       RESPONSIVIDADE
-       ============================================================ */
+    /* Responsivo */
+    @media (max-width: 1024px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @media (max-width: 768px) {
-        .filters-bar {
+        .dashboard-filters {
             flex-direction: column;
             align-items: stretch;
         }
         
-        .filter-group {
+        .dashboard-filters .filter-group {
             width: 100%;
-            min-width: 100%;
-            flex-wrap: wrap;
         }
         
-        .filter-group label {
+        .dashboard-filters .filter-actions {
             width: 100%;
-            margin-bottom: 0.25rem;
         }
         
-        .filter-actions {
-            width: 100%;
-            justify-content: center;
-        }
-        
-        .btn-filter, .btn-clear {
+        .dashboard-filters .btn-filter,
+        .dashboard-filters .btn-clear {
             flex: 1;
             justify-content: center;
         }
         
-        /* ✅ KPIs mantêm horizontal em mobile com scroll */
         .kpi-grid {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-        }
-        
-        .kpi-card {
-            min-width: 180px;
-            flex: 0 0 auto;
-        }
-        
-        .dashboard-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         }
         
         .acq-grid {
             grid-template-columns: 1fr;
         }
     }
-
-    /* Loading state */
-    .loading {
-        opacity: 0.6;
-        pointer-events: none;
-        position: relative;
-    }
-
-    .loading::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 40px;
-        height: 40px;
-        margin: -20px 0 0 -20px;
-        border: 3px solid #e5e7eb;
-        border-top-color: #3b82f6;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ALERTA DE ERRO -->
-<div id="dashboard-error" class="error-alert" role="alert">
-    <span>⚠️</span>
-    <span id="error-message">Erro ao carregar dados do dashboard.</span>
-</div>
+<!-- Wrapper principal usando nc-section (igual ao importar.html) -->
+<section class="nc-section">
+    
+    <!-- Título (usando nc-title global) -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem;">
+        <h2 class="nc-title" style="margin: 0;">📊 Dashboard</h2>
+        <span class="nc-muted" style="font-size: 0.875rem;">Visão geral das operações</span>
+    </div>
 
-<!-- ===================== FILTROS ===================== -->
-<div class="filters-bar">
-    <div class="filter-group">
-        <label for="filtroInicio">📅 Início</label>
-        <input type="date" id="filtroInicio" />
+    <!-- ALERTA DE ERRO -->
+    <div id="dashboard-error" class="error-alert" role="alert">
+        <span>⚠️</span>
+        <span id="error-message">Erro ao carregar dados do dashboard.</span>
     </div>
-    <div class="filter-group">
-        <label for="filtroFim">📅 Fim</label>
-        <input type="date" id="filtroFim" />
-    </div>
-    {% if features and features.pix_enabled %}
-    <div class="filter-group">
-        <label for="filtroTipoPagamento">💳 Tipo</label>
-        <select id="filtroTipoPagamento">
-            <option value="todos">Todos</option>
-            <option value="cartao">Cartão</option>
-            <option value="pix">PIX</option>
-            <option value="boleto">Boleto</option>
-        </select>
-    </div>
-    {% endif %}
-    <div class="filter-actions">
-        <button type="button" class="btn-filter" onclick="aplicarFiltros()">
-            <span>🔍</span>
-            <span>Filtrar</span>
-        </button>
-        <button type="button" class="btn-clear" onclick="limparFiltros()">
-            <span>🧹</span>
-            <span>Limpar</span>
-        </button>
-    </div>
-    <div class="filter-hint">💡 Deixe em branco para ver todos os dados</div>
-</div>
 
-<!-- ===================== KPIs ===================== -->
-<div class="kpi-grid">
-    <div class="kpi-card vendas" onclick="abrirModalDetalhe('vendas')">
-        <div class="kpi-header">
-            <div class="kpi-icon">🛍️</div>
-            <span class="kpi-trend up" id="trend-vendas">↑ 12%</span>
+    <!-- FILTROS -->
+    <div class="dashboard-filters">
+        <div class="filter-group">
+            <label for="filtroInicio">📅 Início</label>
+            <input type="date" id="filtroInicio" />
         </div>
-        <div class="kpi-label">Total em Vendas</div>
-        <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
-        <div class="kpi-subtitle">Acumulado no período</div>
-    </div>
-
-    <div class="kpi-card recebido" onclick="abrirModalDetalhe('recebidos')">
-        <div class="kpi-header">
-            <div class="kpi-icon">💸</div>
-            <span class="kpi-trend up" id="trend-recebido">↑ 8%</span>
+        <div class="filter-group">
+            <label for="filtroFim">📅 Fim</label>
+            <input type="date" id="filtroFim" />
         </div>
-        <div class="kpi-label">Total Recebido</div>
-        <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
-        <div class="kpi-subtitle">Conciliado no banco</div>
-    </div>
-
-    <div class="kpi-card diferenca" onclick="abrirModalDetalhe('diferencas')">
-        <div class="kpi-header">
-            <div class="kpi-icon">⚠️</div>
-            <span class="kpi-trend down" id="trend-diferenca">↓ 3%</span>
+        {% if features and features.pix_enabled %}
+        <div class="filter-group">
+            <label for="filtroTipoPagamento">💳 Tipo</label>
+            <select id="filtroTipoPagamento">
+                <option value="todos">Todos</option>
+                <option value="cartao">Cartão</option>
+                <option value="pix">PIX</option>
+                <option value="boleto">Boleto</option>
+            </select>
         </div>
-        <div class="kpi-label">Diferença</div>
-        <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
-        <div class="kpi-subtitle">Pendências de conciliação</div>
-    </div>
-
-    {% if features and features.pix_enabled %}
-    <div class="kpi-card pix">
-        <div class="kpi-header">
-            <div class="kpi-icon">🔷</div>
-            <span class="kpi-trend up" id="trend-pix">↑ 25%</span>
+        {% endif %}
+        <div class="filter-actions">
+            <button type="button" class="btn-filter" onclick="aplicarFiltros()">
+                <span>🔍</span>
+                <span>Filtrar</span>
+            </button>
+            <button type="button" class="btn-clear" onclick="limparFiltros()">
+                <span>🧹</span>
+                <span>Limpar</span>
+            </button>
         </div>
-        <div class="kpi-label">Total em PIX</div>
-        <div class="kpi-value kpi-value-pix">R$ 0,00</div>
-        <div class="kpi-subtitle">Pagamentos instantâneos</div>
+        <div class="filter-hint">💡 Deixe em branco para ver todos os dados</div>
     </div>
-    {% endif %}
 
-    <div class="kpi-card alertas">
-        <div class="kpi-header">
-            <div class="kpi-icon">🔔</div>
-            <span class="kpi-trend down" id="trend-alertas">↓ 2</span>
+    <!-- KPIs -->
+    <div class="kpi-grid">
+        <div class="kpi-card vendas" onclick="abrirModalDetalhe('vendas')">
+            <div class="kpi-header">
+                <div class="kpi-icon">🛍️</div>
+                <span class="kpi-trend up" id="trend-vendas">↑ 12%</span>
+            </div>
+            <div class="kpi-label">Total Vendas</div>
+            <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
+            <div class="kpi-subtitle">Acumulado no período</div>
         </div>
-        <div class="kpi-label">Alertas</div>
-        <div class="kpi-value kpi-value-alertas">0</div>
-        <div class="kpi-subtitle">Requerem atenção</div>
-    </div>
-</div>
 
-<!-- ===================== GRID PRINCIPAL ===================== -->
-<div class="dashboard-grid">
-    <!-- GRÁFICO VENDAS X RECEBIDOS -->
-    <div class="section-card" style="grid-column: span 2;">
-        <div class="section-header">
-            <div>
-                <div class="section-title">📊 Vendas x Recebimentos</div>
-                <div class="section-subtitle">Comparativo mensal entre vendas e recebimentos</div>
+        <div class="kpi-card recebido" onclick="abrirModalDetalhe('recebidos')">
+            <div class="kpi-header">
+                <div class="kpi-icon">💸</div>
+                <span class="kpi-trend up" id="trend-recebido">↑ 8%</span>
+            </div>
+            <div class="kpi-label">Total Recebido</div>
+            <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+            <div class="kpi-subtitle">Conciliado no banco</div>
+        </div>
+
+        <div class="kpi-card diferenca" onclick="abrirModalDetalhe('diferencas')">
+            <div class="kpi-header">
+                <div class="kpi-icon">⚠️</div>
+                <span class="kpi-trend down" id="trend-diferenca">↓ 3%</span>
+            </div>
+            <div class="kpi-label">Diferença</div>
+            <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
+            <div class="kpi-subtitle">Pendências</div>
+        </div>
+
+        {% if features and features.pix_enabled %}
+        <div class="kpi-card pix">
+            <div class="kpi-header">
+                <div class="kpi-icon">🔷</div>
+                <span class="kpi-trend up" id="trend-pix">↑ 25%</span>
+            </div>
+            <div class="kpi-label">Total PIX</div>
+            <div class="kpi-value kpi-value-pix">R$ 0,00</div>
+            <div class="kpi-subtitle">Pagamentos instantâneos</div>
+        </div>
+        {% endif %}
+
+        <div class="kpi-card alertas">
+            <div class="kpi-header">
+                <div class="kpi-icon">🔔</div>
+                <span class="kpi-trend down" id="trend-alertas">↓ 2</span>
+            </div>
+            <div class="kpi-label">Alertas</div>
+            <div class="kpi-value kpi-value-alertas">0</div>
+            <div class="kpi-subtitle">Requerem atenção</div>
+        </div>
+    </div>
+
+    <!-- GRID PRINCIPAL: Gráficos -->
+    <div class="dashboard-grid">
+        <div class="nc-section" style="padding: 1rem;">
+            <h3 class="nc-subtitle">📊 Vendas x Recebimentos</h3>
+            <div class="chart-container">
+                <canvas id="graficoVendasRecebidos"></canvas>
             </div>
         </div>
-        <div class="chart-container">
-            <canvas id="graficoVendasRecebidos"></canvas>
+
+        <div class="nc-section" style="padding: 1rem;">
+            <h3 class="nc-subtitle">🏷️ Bandeiras</h3>
+            <div class="chart-container">
+                <canvas id="graficoBandeiras"></canvas>
+            </div>
         </div>
     </div>
 
     <!-- ADQUIRENTES -->
-    <div class="section-card">
-        <div class="section-header">
-            <div>
-                <div class="section-title">💳 Adquirentes</div>
-                <div class="section-subtitle">Totais por maquininha</div>
-            </div>
-        </div>
+    <div class="nc-section" style="padding: 1rem;">
+        <h3 class="nc-subtitle">💳 Adquirentes</h3>
+        <p class="nc-muted" style="font-size: 0.875rem; margin-bottom: 1rem;">Totais por maquininha</p>
         <div id="acqContainer" class="acq-grid">
-            <p style="color: var(--gray-600); text-align: center; padding: 2rem;">
+            <p class="nc-muted" style="text-align: center; padding: 1.5rem;">
                 Nenhuma adquirente encontrada
             </p>
         </div>
     </div>
 
-    <!-- BANDEIRAS -->
-    <div class="section-card">
-        <div class="section-header">
-            <div>
-                <div class="section-title">🏷️ Bandeiras</div>
-                <div class="section-subtitle">Distribuição por bandeira</div>
-            </div>
-        </div>
-        <div class="chart-container">
-            <canvas id="graficoBandeiras"></canvas>
-        </div>
-    </div>
-</div>
+</section>
 
-<!-- ===================== MODAL ===================== -->
+<!-- MODAL (fora do nc-section) -->
 <div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="nc-modal-backdrop" tabindex="-1" onclick="fecharModal()"></div>
     <div class="nc-modal-content" style="max-width: 900px;">
@@ -655,7 +485,7 @@
             <button type="button" class="nc-modal-close" onclick="fecharModal()" aria-label="Fechar modal">✕</button>
         </div>
         <div class="nc-modal-body" style="max-height: 70vh; overflow-y: auto;">
-            <div id="modal-empty" style="display:none; text-align: center; padding: 3rem; color: var(--gray-600);">
+            <div id="modal-empty" style="display:none; text-align: center; padding: 3rem; color: var(--text-muted);">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
                 <p>Nenhum dado para exibir</p>
             </div>
@@ -664,7 +494,7 @@
                 </table>
             </div>
         </div>
-        <div class="nc-modal-footer" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <div class="nc-modal-footer">
             <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModal()">Fechar</button>
         </div>
     </div>
@@ -689,7 +519,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const filtroFim = document.getElementById('filtroFim');
     const filtroTipo = document.getElementById('filtroTipoPagamento');
     
-    // Inicializar filtros vazios
     if (filtroInicio) filtroInicio.value = '';
     if (filtroFim) filtroFim.value = '';
     if (filtroTipo) filtroTipo.value = 'todos';
@@ -734,7 +563,6 @@ document.addEventListener("DOMContentLoaded", function() {
     };
 
     window.carregarKPIsComFiltros = async function(queryString = '') {
-        // Aguardar funções estarem disponíveis
         let retries = 0;
         while ((typeof window.atualizarKPIs !== 'function') && retries < 10) {
             await new Promise(r => setTimeout(r, 50));
@@ -757,7 +585,6 @@ document.addEventListener("DOMContentLoaded", function() {
             
             if (!data.ok) throw new Error(data.error || 'Erro ao carregar dados');
             
-            // Atualizar KPIs
             if (typeof window.atualizarKPIs === 'function') {
                 window.atualizarKPIs(data.kpis, {
                     kpiVendas: document.querySelector(".kpi-value-vendas"),
@@ -768,12 +595,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 });
             }
             
-            // Atualizar adquirentes
             if (typeof window.atualizarAcquirers === 'function') {
-                window.atualizarAcquirers(data.kpis.adquirentes || {}, document.getElementById("acqContainer"));
+                window.atualizarAcquirers(data.kpis.adquirentes || [], document.getElementById("acqContainer"));
             }
             
-            // Esconder erro
             document.getElementById("dashboard-error").classList.remove('show');
             
         } catch (err) {
@@ -788,13 +613,11 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     };
     
-    // Carregar dados iniciais
     if (typeof window.carregarKPIs === 'function') {
         window.carregarKPIs();
     }
 });
 
-// Funções auxiliares do modal
 window.abrirModalDetalhe = function(tipo) {
     const modal = document.getElementById('modalDetalhe');
     const titulo = document.getElementById('modalTitulo');
@@ -810,8 +633,6 @@ window.abrirModalDetalhe = function(tipo) {
     
     titulo.textContent = titulos[tipo] || 'Detalhamento';
     
-    // Aqui você implementaria a lógica para buscar e mostrar os dados
-    // Por enquanto, mostramos uma mensagem
     container.style.display = 'none';
     empty.style.display = 'block';
     
@@ -825,7 +646,6 @@ window.fecharModal = function() {
     document.body.style.overflow = '';
 };
 
-// Fechar modal com ESC
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         fecharModal();
