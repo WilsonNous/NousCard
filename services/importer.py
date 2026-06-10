@@ -1,4 +1,4 @@
-# services/importer.py - VERSÃO CORRIGIDA COM SUPORTE FLOW + PIX
+# services/importer.py - VERSÃO COM EXTRAÇÃO AUTOMÁTICA DE CONTA OFX
 
 import os
 import hashlib
@@ -12,7 +12,8 @@ from utils.parsers import (
     parse_excel_generic,
     parse_ofx_generic,
     parse_flow_csv,
-    is_flow_csv
+    is_flow_csv,
+    extrair_dados_conta_ofx  # ← NOVO: Import da função de extração
 )
 from utils.helpers import gerar_hash_arquivo
 from services.importer_db import (
@@ -32,7 +33,7 @@ MAX_TOTAL_SIZE = 50 * 1024 * 1024
 MAX_REGISTROS_POR_ARQUIVO = 10000
 
 # ============================================================
-# 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS (ATUALIZADO)
+# 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS (mantido igual)
 # ============================================================
 
 COLUNAS_PADRAO_VENDA = {
@@ -43,7 +44,7 @@ COLUNAS_PADRAO_VENDA = {
     'data_venda': [
         'data_venda', 'data', 'dt_venda', 'dt', 'sale_date', 
         'transaction_date', 'data_transacao', 'dt_transacao',
-        'data do pagamento', 'datapagamento', 'data_pagamento'  # ← NOVO: Flow CSV
+        'data do pagamento', 'datapagamento', 'data_pagamento'
     ],
     'nsu': [
         'nsu', 'cod_nsu', 'numero_nsu', 'nsu_code', 'transaction_id', 
@@ -51,18 +52,18 @@ COLUNAS_PADRAO_VENDA = {
     ],
     'adquirente': [
         'adquirente', 'acquirer', 'operadora', 'maquininha', 'gateway',
-        'estabelecimento', 'no estabelecimento', 'noestabelecimento'  # ← NOVO: Flow
+        'estabelecimento', 'no estabelecimento', 'noestabelecimento'
     ],
     'bandeira': [
         'bandeira', 'flag', 'card_flag', 'brand', 'carteira'
     ],
     'taxa': [
         'taxa', 'fee', 'taxa_cobrada', 'commission', 'custo', 
-        'vlr_taxa', 'desconto', 'discount'  # ← NOVO: Flow usa "Desconto"
+        'vlr_taxa', 'desconto', 'discount'
     ],
     'valor_liquido': [
         'valor_liquido', 'vl_liquido', 'net_value', 'net_amount', 
-        'valor_recebido', 'vlr_liquido', 'valor líquido', 'valorliquido'  # ← NOVO
+        'valor_recebido', 'vlr_liquido', 'valor líquido', 'valorliquido'
     ],
     'parcela': [
         'parcela', 'installment', 'parcel', 'num_parcela'
@@ -75,9 +76,9 @@ COLUNAS_PADRAO_VENDA = {
     ],
     'produto': [
         'produto', 'product', 'description', 'descricao', 'item',
-        'tipo_pagamento', 'formapagamento', 'payment_type'  # ← NOVO: Para detectar PIX
+        'tipo_pagamento', 'formapagamento', 'payment_type'
     ],
-    'quantidade': [  # ← NOVO: Flow CSV tem esta coluna
+    'quantidade': [
         'quantidade', 'quantity', 'qtd', 'qtde'
     ],
 }
@@ -106,39 +107,31 @@ COLUNAS_PADRAO_RECEBIMENTO = {
     ],
 }
 
-# Colunas mínimas necessárias
 COLUNAS_MINIMAS_VENDA = ['valor_bruto', 'data_venda', 'nsu']
 COLUNAS_MINIMAS_RECEBIMENTO = ['valor', 'data_movimento', 'documento']
 
 # ============================================================
-# 🧰 UTILITÁRIOS DE NORMALIZAÇÃO (CORRIGIDO)
+# 🧰 UTILITÁRIOS DE NORMALIZAÇÃO (mantido igual)
 # ============================================================
 
 def normalizar_chave(key):
-    """
-    Normaliza chave para comparação: remove BOM, espaços extras, 
-    converte para minúsculo, remove acentos, mas PRESERVA palavras separadas.
-    """
+    """Normaliza chave para comparação."""
     if not isinstance(key, str):
         return key
     
-    # Remove BOM e espaços extras nas extremidades
     key = key.strip().replace('\ufeff', '').lower()
     
-    # Remove acentos (opcional, mas útil para comparação)
     import unicodedata
     key = ''.join(
         c for c in unicodedata.normalize('NFD', key)
         if unicodedata.category(c) != 'Mn'
     )
     
-    # Substitui espaços e hífens por underscore para padronizar
     key = re.sub(r'[\s\-]+', '_', key)
-    
-    # Remove caracteres especiais, mas mantém letras, números e underscore
     key = re.sub(r'[^a-z0-9_]', '', key)
     
     return key
+
 
 def encontrar_coluna_padrao(chave_disponivel, mapeamento):
     """Encontra o nome padrão para uma chave disponível no arquivo"""
@@ -149,6 +142,7 @@ def encontrar_coluna_padrao(chave_disponivel, mapeamento):
             if normalizar_chave(variacao) == chave_normalizada:
                 return nome_padrao
     return None
+
 
 def normalizar_registro(registro, mapeamento):
     """Normaliza as chaves de um registro para os nomes padrão"""
@@ -162,39 +156,31 @@ def normalizar_registro(registro, mapeamento):
             if nome_padrao:
                 registro_normalizado[nome_padrao] = value
             else:
-                # Mantém a chave original normalizada se não houver mapeamento
                 registro_normalizado[normalizar_chave(key)] = value
     return registro_normalizado
+
 
 def normalizar_registros(registros, mapeamento):
     """Normaliza uma lista de registros"""
     return [normalizar_registro(r, mapeamento) for r in registros]
 
+
 def inferir_tipo_pagamento(registro):
-    """
-    Infere o tipo de pagamento (cartao, pix, boleto, outros) baseado nos campos.
-    ✅ Suporta detecção de PIX no CSV Flow
-    """
+    """Infere o tipo de pagamento baseado nos campos."""
     produto = str(registro.get('produto') or '').strip().lower()
     bandeira = str(registro.get('bandeira') or '').strip().lower()
     
-    # Detectar PIX
     if 'pix' in produto or bandeira == 'pix':
         return 'pix'
-    
-    # Detectar boleto
     if 'boleto' in produto or 'billet' in produto:
         return 'boleto'
-    
-    # Detectar cartão (Crédito/Débito)
     if any(kw in produto for kw in ['crédito', 'credito', 'débito', 'debito', 'credit', 'debit']):
         return 'cartao'
-    
-    # Default: cartão (maioria dos casos)
     return 'cartao'
 
+
 # ============================================================
-# 🔍 VALIDAÇÕES INTELIGENTES
+# 🔍 VALIDAÇÕES (mantido igual)
 # ============================================================
 
 def validar_tamanho_arquivo(file_storage):
@@ -202,6 +188,7 @@ def validar_tamanho_arquivo(file_storage):
     size = file_storage.tell()
     file_storage.seek(0)
     return size <= MAX_FILE_SIZE, size
+
 
 def validar_registros(registros, tipo):
     """Valida registros verificando colunas mínimas"""
@@ -229,17 +216,16 @@ def validar_registros(registros, tipo):
     
     return True, "OK"
 
+
 def identificar_tipo_por_conteudo(registros, nome_arquivo):
     """Identifica se o arquivo é de venda ou recebimento"""
     nome = nome_arquivo.lower()
     
-    # Heurística por nome
     if any(kw in nome for kw in ['receb', 'extrato', 'ofx', 'banco', 'credito', 'deposito', 'movimento']):
         return "recebimento"
     if any(kw in nome for kw in ['venda', 'transacao', 'adquirente', 'cielo', 'rede', 'stone', 'pagseguro', 'getnet', 'maquininha']):
         return "venda"
     
-    # Análise de conteúdo
     if not registros:
         return "desconhecido"
     
@@ -263,16 +249,16 @@ def identificar_tipo_por_conteudo(registros, nome_arquivo):
     
     return "desconhecido"
 
+
 # ============================================================
-# 📦 PROCESSAR UM ARQUIVO (CORRIGIDO)
+# 📦 PROCESSAR UM ARQUIVO (✅ MODIFICADO PARA OFX)
 # ============================================================
 
 def process_file(file_storage, default_empresa_id=None):
     """
     Processa um arquivo e retorna registros normalizados.
     
-    ✅ NOVO: Suporte a CSV Flow com detecção automática
-    ✅ NOVO: Inferência de tipo_pagamento (PIX/cartão/boleto)
+    ✅ NOVO: Para OFX, extrai dados da conta automaticamente
     """
     nome = file_storage.filename.lower()
     
@@ -291,31 +277,46 @@ def process_file(file_storage, default_empresa_id=None):
     file_storage.seek(0)
     hash_arquivo = hashlib.sha256(conteudo).hexdigest()
     
+    # ✅ NOVO: Variável para armazenar dados da conta (apenas OFX)
+    dados_conta = None
+    
     try:
         # 🔹 Detectar CSV Flow ANTES de parsear
         sample = conteudo[:1024].decode('utf-8', errors='ignore') if isinstance(conteudo, bytes) else conteudo[:1024]
         
         if nome.endswith(('.csv', '.txt')) and is_flow_csv(nome, sample):
-            # ✅ Usar parser específico do Flow
             file_storage.seek(0)
             registros = parse_flow_csv(file_storage, nome, default_empresa_id=default_empresa_id)
-            tipo = "venda"  # Flow CSV é sempre de vendas
+            tipo = "venda"
             mapeamento = COLUNAS_PADRAO_VENDA
+            
         elif nome.endswith(".csv") or nome.endswith(".txt"):
             registros = parse_csv_generic(file_storage)
             tipo = identificar_tipo_por_conteudo(registros, nome)
             mapeamento = COLUNAS_PADRAO_VENDA if tipo == "venda" else COLUNAS_PADRAO_RECEBIMENTO
-            # Normalizar registros genéricos
             registros = normalizar_registros(registros, mapeamento)
+            
         elif nome.endswith(".xlsx") or nome.endswith(".xls"):
             registros = parse_excel_generic(file_storage)
             tipo = identificar_tipo_por_conteudo(registros, nome)
             mapeamento = COLUNAS_PADRAO_VENDA if tipo == "venda" else COLUNAS_PADRAO_RECEBIMENTO
             registros = normalizar_registros(registros, mapeamento)
+            
         elif nome.endswith(".ofx"):
+            # ✅ NOVO: Extrair dados da conta ANTES de parsear
+            try:
+                content_text = conteudo.decode('utf-8', errors='replace')
+                dados_conta = extrair_dados_conta_ofx(content_text)
+                logger.info(f"🏦 Dados da conta extraídos do OFX: {dados_conta}")
+            except Exception as e:
+                logger.warning(f"⚠️ Erro ao extrair dados da conta do OFX: {str(e)}")
+                dados_conta = None
+            
+            file_storage.seek(0)
             registros = parse_ofx_generic(file_storage)
-            tipo = "recebimento"  # OFX é geralmente extrato bancário
+            tipo = "recebimento"
             mapeamento = {}
+            
         else:
             return {
                 "ok": False,
@@ -347,11 +348,10 @@ def process_file(file_storage, default_empresa_id=None):
             "erro": msg
         }
     
-    # ✅ INFERIR tipo_pagamento para cada registro (se não estiver definido)
+    # Inferir tipo_pagamento para cada registro
     for reg in registros:
         if 'tipo_pagamento' not in reg or not reg['tipo_pagamento']:
             reg['tipo_pagamento'] = inferir_tipo_pagamento(reg)
-        # Garantir empresa_id se fornecido
         if default_empresa_id and ('empresa_id' not in reg or not reg['empresa_id']):
             reg['empresa_id'] = default_empresa_id
     
@@ -361,18 +361,20 @@ def process_file(file_storage, default_empresa_id=None):
         "tipo": tipo,
         "registros": registros,
         "hash": hash_arquivo,
-        "linhas": len(registros)
+        "linhas": len(registros),
+        "dados_conta": dados_conta  # ← NOVO: Retornar dados da conta
     }
 
-# ============================================================
-# 📦 PROCESSAR MÚLTIPLOS ARQUIVOS
-# ============================================================
 
-# services/importer.py - CORRIGIR process_uploaded_files para retornar mensagens claras
+# ============================================================
+# 📦 PROCESSAR MÚLTIPLOS ARQUIVOS (✅ MODIFICADO)
+# ============================================================
 
 def process_uploaded_files(files, empresa_id, usuario_id):
     """
     Processa múltiplos arquivos com logs de performance detalhados.
+    
+    ✅ NOVO: Passa dados_conta para salvar_recebimentos (OFX)
     """
     inicio_total = time.time()
     logger.info(f"🚀 INÍCIO UPLOAD: usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
@@ -413,6 +415,11 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 resultados.append(resultado)
                 continue
             
+            # ✅ NOVO: Capturar dados_conta do resultado
+            dados_conta = resultado.get("dados_conta")
+            if dados_conta:
+                logger.info(f"🏦 Dados da conta disponíveis para {nome}: {dados_conta}")
+            
             # Verificar duplicata
             inicio_duplicata = time.time()
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
@@ -443,7 +450,13 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             if resultado["tipo"] == "venda":
                 stats = salvar_vendas(resultado["registros"], empresa_id, arquivo_id)
             elif resultado["tipo"] == "recebimento":
-                stats = salvar_recebimentos(resultado["registros"], empresa_id, arquivo_id)
+                # ✅ NOVO: Passar dados_conta para salvar_recebimentos
+                stats = salvar_recebimentos(
+                    resultado["registros"], 
+                    empresa_id, 
+                    arquivo_id,
+                    dados_conta=dados_conta  # ← NOVO: Passar dados da conta
+                )
             
             db.session.commit()
             
@@ -463,7 +476,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             mensagens = []
             if stats:
                 if stats.get("conta_criada"):
-                    mensagens.append("⚠️ Nenhuma conta bancária cadastrada. Uma conta padrão foi criada automaticamente.")
+                    mensagens.append("✅ Conta bancária criada automaticamente a partir dos dados do OFX.")
                 
                 if stats.get("falhas", 0) > 0:
                     mensagens.append(f"⚠️ {stats['falhas']} registros não puderam ser importados.")
@@ -503,6 +516,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
     logger.info(f"🏁 FIM UPLOAD: {tempo_total:.2f}s total, {sucesso}/{len(files)} arquivos com sucesso")
     
     return resultados
+
 
 # ============================================================
 # 📋 LISTAR
