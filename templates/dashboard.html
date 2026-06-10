@@ -3,356 +3,439 @@
 {% block title %}Dashboard - NousCard{% endblock %}
 
 {% block extra_head %}
-<!-- ✅ NOVO: Estilos específicos do dashboard -->
 <style>
-    /* Loading skeleton para KPIs */
-    .kpi-value[data-loading="true"] {
-        min-height: 1.5rem;
-        background: linear-gradient(90deg, var(--gray-lightest) 25%, var(--gray-light) 50%, var(--gray-lightest) 75%);
-        background-size: 200% 100%;
-        animation: loading 1.5s infinite;
-        border-radius: 4px;
+    /* ============================================================
+       HEADER DO DASHBOARD - EMPRESA + USUÁRIO + LOGO
+       ============================================================ */
+    .dashboard-header {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+        padding: 1.25rem 1.5rem;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        flex-wrap: wrap;
     }
-    @keyframes loading {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
+    .dashboard-header .empresa-logo {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        background: #f0f2f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        flex-shrink: 0;
+        overflow: hidden;
+        border: 2px solid #e4e6eb;
+    }
+    .dashboard-header .empresa-logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 4px;
+    }
+    .dashboard-header .info {
+        flex: 1;
+        min-width: 180px;
+    }
+    .dashboard-header .empresa-nome {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #1c1e21;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .dashboard-header .empresa-nome .badge-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.2rem 0.6rem;
+        border-radius: 50px;
+    }
+    .badge-status.ativo {
+        background: #e6f4ea;
+        color: #137333;
+    }
+    .badge-status.inativo {
+        background: #fce8e6;
+        color: #c5221f;
+    }
+    .dashboard-header .usuario-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+        font-size: 0.85rem;
+        color: #65676b;
+    }
+    .dashboard-header .usuario-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #1877f2;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+    .dashboard-header .meta-info {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.78rem;
+        color: #8a8d91;
+        margin-top: 0.2rem;
     }
     
-    /* Badge para tipo de pagamento */
-    .kpi-badge {
-        display: inline-block;
-        padding: 0.125rem 0.375rem;
-        border-radius: 999px;
+    /* ============================================================
+       BARRA DE FILTROS
+       ============================================================ */
+    .filters-bar {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.25rem;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    .filters-bar .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 140px;
+    }
+    .filters-bar label {
         font-size: 0.75rem;
-        font-weight: 500;
-        margin-left: 0.25rem;
+        font-weight: 600;
+        color: #65676b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
     }
-    .kpi-badge-pix { background: #7c3aed; color: white; }
-    .kpi-badge-cartao { background: #3b82f6; color: white; }
+    .filters-bar input,
+    .filters-bar select {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #e4e6eb;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background: #f0f2f5;
+        transition: all 0.2s;
+    }
+    .filters-bar input:focus,
+    .filters-bar select:focus {
+        background: #fff;
+        border-color: #1877f2;
+        box-shadow: 0 0 0 2px rgba(24,119,242,0.15);
+        outline: none;
+    }
+    .filters-bar .hint {
+        width: 100%;
+        font-size: 0.75rem;
+        color: #8a8d91;
+        margin-top: 0.35rem;
+    }
     
-    /* Acessibilidade: foco visível */
-    .nc-kpi-card:focus-visible,
-    .nc-btn:focus-visible {
-        outline: 2px solid var(--primary);
-        outline-offset: 2px;
+    /* ============================================================
+       KPIs - CARDS EM LINHA
+       ============================================================ */
+    .kpi-grid {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+    .kpi-card {
+        flex: 1;
+        min-width: 140px;
+        background: #fff;
+        border-radius: 10px;
+        padding: 1.1rem 1.25rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .kpi-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-color: #e4e6eb;
+        transform: translateY(-1px);
+    }
+    .kpi-card .kpi-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+    }
+    .kpi-card .kpi-icon.blue { background: #e7f3ff; }
+    .kpi-card .kpi-icon.green { background: #e6f4ea; }
+    .kpi-card .kpi-icon.yellow { background: #fef7e0; }
+    .kpi-card .kpi-icon.purple { background: #f3e8ff; }
+    .kpi-card .kpi-icon.red { background: #fce8e6; }
+    
+    .kpi-card .kpi-info {
+        flex: 1;
+    }
+    .kpi-card .kpi-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #65676b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.2rem;
+    }
+    .kpi-card .kpi-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #1c1e21;
+        line-height: 1.2;
+    }
+    
+    /* ============================================================
+       SEÇÕES
+       ============================================================ */
+    .section-card {
+        background: #fff;
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .section-card h2 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1c1e21;
+        margin: 0 0 0.75rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-card .subtitle {
+        font-size: 0.8rem;
+        color: #65676b;
+        margin-bottom: 0.75rem;
+    }
+    
+    /* ============================================================
+       GRÁFICOS
+       ============================================================ */
+    .chart-container {
+        width: 100%;
+        max-height: 320px;
+    }
+    .chart-container canvas {
+        width: 100% !important;
+        max-height: 320px;
+    }
+    
+    /* ============================================================
+       GRID DE ADQUIRENTES
+       ============================================================ */
+    .acq-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
+    }
+    .acq-card {
+        background: #f7f8fa;
+        border-radius: 8px;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+    .acq-card:hover {
+        background: #fff;
+        border-color: #1877f2;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .acq-card .acq-nome {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #1c1e21;
+    }
+    .acq-card .acq-valor {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1877f2;
+        margin-top: 0.25rem;
+    }
+    
+    /* ============================================================
+       RESPONSIVO
+       ============================================================ */
+    @media (max-width: 640px) {
+        .dashboard-header {
+            flex-direction: column;
+            text-align: center;
+        }
+        .kpi-grid {
+            flex-direction: column;
+        }
+        .kpi-card {
+            min-width: 100%;
+        }
+        .filters-bar {
+            flex-direction: column;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ===================== FILTROS DE DATA E TIPO (HABILITADO) ===================== -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">🔍 Filtros</h2>
-    <div class="nc-filters" style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.5rem; padding:1rem; background:var(--gray-lightest); border-radius:8px;">
-        
-        <div class="nc-form-group" style="margin-bottom:0; min-width:150px;">
-            <label class="nc-form-label" for="filtroInicio">Data Início</label>
-            <input type="date" id="filtroInicio" class="nc-form-input" />
-        </div>
-        
-        <div class="nc-form-group" style="margin-bottom:0; min-width:150px;">
-            <label class="nc-form-label" for="filtroFim">Data Fim</label>
-            <input type="date" id="filtroFim" class="nc-form-input" />
-        </div>
-        
-        <!-- ✅ NOVO: Filtro por tipo de pagamento (com feature flag) -->
-        {% if features.pix_enabled %}
-        <div class="nc-form-group" style="margin-bottom:0; min-width:150px;">
-            <label class="nc-form-label" for="filtroTipoPagamento">Tipo</label>
-            <select id="filtroTipoPagamento" class="nc-form-input">
-                <option value="todos">Todos</option>
-                <option value="cartao">Cartão</option>
-                <option value="pix">PIX</option>
-                <option value="boleto">Boleto</option>
-            </select>
-        </div>
+<!-- ===================== HEADER: EMPRESA + LOGO + USUÁRIO ===================== -->
+<div class="dashboard-header">
+    <!-- Logo da empresa -->
+    <div class="empresa-logo">
+        {% if g.user and g.user.empresa %}
+            {% set logo = getattr(g.user.empresa, 'logo_url', None) %}
+            {% if logo %}
+                <img src="{{ logo }}" alt="Logo {{ g.user.empresa.nome | e }}">
+            {% else %}
+                🏢
+            {% endif %}
+        {% else %}
+            🏢
         {% endif %}
-        
-        <button type="button" class="nc-btn nc-btn-primary" onclick="aplicarFiltros()" style="height:42px;">
-            🔍 Filtrar
-        </button>
-        
-        <button type="button" class="nc-btn nc-btn-secondary" onclick="limparFiltros()" style="height:42px;">
-            🧹 Limpar
-        </button>
-        
-        <small class="nc-muted" style="width:100%; margin-top:0.5rem;">
-            💡 Deixe em branco para ver <strong>todos os dados</strong> (padrão).
-        </small>
     </div>
-</section>
+    
+    <!-- Informações -->
+    <div class="info">
+        <div class="empresa-nome">
+            {% if g.user and g.user.empresa %}
+                {{ g.user.empresa.nome | e }}
+                <span class="badge-status {% if g.user.empresa.ativo %}ativo{% else %}inativo{% endif %}">
+                    {{ '✅ Ativa' if g.user.empresa.ativo else '⏸️ Inativa' }}
+                </span>
+            {% else %}
+                Empresa não vinculada
+            {% endif %}
+        </div>
+        <div class="usuario-info">
+            <span class="usuario-avatar">{{ g.user.nome[:1] | upper if g.user and g.user.nome else '?' }}</span>
+            <span>{{ g.user.nome | e if g.user and g.user.nome else 'Usuário' }}</span>
+            <span style="color:#8a8d91;">•</span>
+            <span style="font-weight:600;color:#1877f2;">{{ g.user.perfil | e if g.user and g.user.perfil else 'ADMIN' }}</span>
+        </div>
+        <div class="meta-info">
+            <span>📅 {{ g.user.ultimo_acesso.strftime('%d/%m/%Y %H:%M') if g.user and g.user.ultimo_acesso else now().strftime('%d/%m/%Y') }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== FILTROS ===================== -->
+<div class="filters-bar">
+    <div class="filter-group">
+        <label for="filtroInicio">Data Início</label>
+        <input type="date" id="filtroInicio" />
+    </div>
+    <div class="filter-group">
+        <label for="filtroFim">Data Fim</label>
+        <input type="date" id="filtroFim" />
+    </div>
+    {% if features.pix_enabled %}
+    <div class="filter-group">
+        <label for="filtroTipoPagamento">Tipo</label>
+        <select id="filtroTipoPagamento">
+            <option value="todos">Todos</option>
+            <option value="cartao">Cartão</option>
+            <option value="pix">PIX</option>
+            <option value="boleto">Boleto</option>
+        </select>
+    </div>
+    {% endif %}
+    <button type="button" class="nc-btn nc-btn-primary" onclick="aplicarFiltros()">🔍 Filtrar</button>
+    <button type="button" class="nc-btn nc-btn-secondary" onclick="limparFiltros()">🧹 Limpar</button>
+    <span class="hint">💡 Deixe em branco para ver todos os dados.</span>
+</div>
 
 <!-- ===================== KPIs ===================== -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">Visão Geral</h2>
-
-    <div class="nc-kpis">
-        <button type="button" class="nc-kpi-card kpi-click" data-acao="vendas" aria-label="Ver detalhamento de vendas">
-            <div class="kpi-icon kpi-blue" aria-hidden="true">🛍️</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Total Vendas</div>
-                <div class="kpi-value kpi-value-vendas" data-loading="true">
-                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
-                </div>
-            </div>
-        </button>
-
-        <button type="button" class="nc-kpi-card kpi-click" data-acao="recebidos" aria-label="Ver detalhamento de recebimentos">
-            <div class="kpi-icon kpi-green" aria-hidden="true">💸</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Total Recebido</div>
-                <div class="kpi-value kpi-value-recebido" data-loading="true">
-                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
-                </div>
-            </div>
-        </button>
-
-        <button type="button" class="nc-kpi-card kpi-click" data-acao="diferencas" aria-label="Ver detalhamento de diferenças">
-            <div class="kpi-icon kpi-yellow" aria-hidden="true">⚠️</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Diferença</div>
-                <div class="kpi-value kpi-value-diferenca" data-loading="true">
-                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
-                </div>
-            </div>
-        </button>
-
-        <!-- ✅ NOVO: KPI de PIX (com feature flag) -->
-        {% if features.pix_enabled %}
-        <button type="button" class="nc-kpi-card" aria-label="Total em PIX">
-            <div class="kpi-icon kpi-purple" aria-hidden="true">🔷</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Total PIX</div>
-                <div class="kpi-value kpi-value-pix" data-loading="true">
-                    <span class="loading-spinner" aria-label="Carregando">⏳</span>
-                </div>
-            </div>
-        </button>
-        {% endif %}
-
-        <div class="nc-kpi-card">
-            <div class="kpi-icon kpi-red" aria-hidden="true">🔔</div>
-            <div class="kpi-info">
-                <div class="kpi-label">Alertas</div>
-                <div class="kpi-value kpi-value-alertas">0</div>
-            </div>
+<div class="kpi-grid">
+    <div class="kpi-card" onclick="abrirModalDetalhe('vendas')">
+        <div class="kpi-icon blue">🛍️</div>
+        <div class="kpi-info">
+            <div class="kpi-label">Total Vendas</div>
+            <div class="kpi-value kpi-value-vendas">R$ 0,00</div>
         </div>
     </div>
-    
-    <div id="dashboard-error" class="nc-error" role="alert" style="display:none;"></div>
-</section>
+    <div class="kpi-card" onclick="abrirModalDetalhe('recebidos')">
+        <div class="kpi-icon green">💸</div>
+        <div class="kpi-info">
+            <div class="kpi-label">Total Recebido</div>
+            <div class="kpi-value kpi-value-recebido">R$ 0,00</div>
+        </div>
+    </div>
+    <div class="kpi-card" onclick="abrirModalDetalhe('diferencas')">
+        <div class="kpi-icon yellow">⚠️</div>
+        <div class="kpi-info">
+            <div class="kpi-label">Diferença</div>
+            <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
+        </div>
+    </div>
+    {% if features.pix_enabled %}
+    <div class="kpi-card">
+        <div class="kpi-icon purple">🔷</div>
+        <div class="kpi-info">
+            <div class="kpi-label">Total PIX</div>
+            <div class="kpi-value kpi-value-pix">R$ 0,00</div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="kpi-card">
+        <div class="kpi-icon red">🔔</div>
+        <div class="kpi-info">
+            <div class="kpi-label">Alertas</div>
+            <div class="kpi-value kpi-value-alertas">0</div>
+        </div>
+    </div>
+</div>
+
+<div id="dashboard-error" style="display:none;color:#e41e3f;margin-bottom:1rem;" role="alert"></div>
 
 <!-- ===================== ADQUIRENTES ===================== -->
-<section class="nc-section">
-    <div class="nc-header-row">
-        <h2 class="nc-subtitle">Totais por Adquirente</h2>
-        <small class="nc-muted">Clique na adquirente ou no KPI para ver o detalhamento.</small>
+<div class="section-card">
+    <h2>💳 Totais por Adquirente</h2>
+    <p class="subtitle">Clique na adquirente para ver o detalhamento.</p>
+    <div id="acqContainer" class="acq-grid">
+        <p style="color:#8a8d91;">Nenhuma adquirente encontrada.</p>
     </div>
-    <div id="acqContainer" class="nc-acq-grid"></div>
-</section>
+</div>
 
-<!-- ===================== GRÁFICO VENDAS X RECEBIDO ===================== -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">Gráfico de Vendas x Recebido</h2>
-    <div class="nc-graphs-container">
+<!-- ===================== GRÁFICOS ===================== -->
+<div class="section-card">
+    <h2>📊 Gráfico de Vendas x Recebido</h2>
+    <div class="chart-container">
         <canvas id="graficoVendasRecebidos" role="img" aria-label="Gráfico de barras comparando vendas e recebimentos"></canvas>
     </div>
-</section>
+</div>
 
-<!-- ===================== GRÁFICO BANDEIRAS ===================== -->
-<section class="nc-section">
-    <h2 class="nc-subtitle">Vendas por Bandeira</h2>
-    <div class="nc-graphs-container">
+<div class="section-card">
+    <h2>🏷️ Vendas por Bandeira</h2>
+    <div class="chart-container">
         <canvas id="graficoBandeiras" role="img" aria-label="Gráfico de rosca mostrando distribuição de vendas por bandeira"></canvas>
     </div>
-</section>
+</div>
 
-<!-- Scripts -->
-<!-- ✅ CORREÇÃO: URL do Chart.js SEM espaços extras -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
-
-<!-- ===================== SCRIPTS DOS FILTROS (CORRIGIDO) ===================== -->
-<script>
-// ✅ Helper robusto para CSRF token (fallback se window.getCsrfToken não existir)
-function getCsrfTokenFallback() {
-    return window.getCsrfToken?.() || 
-           document.querySelector('meta[name="csrf-token"]')?.content || 
-           document.querySelector('input[name="csrf_token"]')?.value || 
-           '';
-}
-
-// ✅ Funções de filtro definidas após DOMContentLoaded
-document.addEventListener("DOMContentLoaded", function() {
-    // Garantir inputs vazios ao carregar
-    const filtroInicio = document.getElementById('filtroInicio');
-    const filtroFim = document.getElementById('filtroFim');
-    const filtroTipo = document.getElementById('filtroTipoPagamento');
-    
-    if (filtroInicio) filtroInicio.value = '';
-    if (filtroFim) filtroFim.value = '';
-    if (filtroTipo) filtroTipo.value = 'todos';
-    
-    // ✅ Atalho de teclado: Ctrl+Enter para aplicar filtros
-    document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            aplicarFiltros();
-        }
-    });
-    
-    // ✅ Função aplicarFiltros - exposta globalmente
-    window.aplicarFiltros = function() {
-        const inicio = filtroInicio?.value;
-        const fim = filtroFim?.value;
-        const tipo = filtroTipo?.value || 'todos';
-        
-        const params = new URLSearchParams();
-        if (inicio && fim) {
-            params.append('periodo', 'personalizado');
-            params.append('data_inicio', inicio);
-            params.append('data_fim', fim);
-        } else if (inicio) {
-            params.append('periodo', 'personalizado');
-            params.append('data_inicio', inicio);
-        } else if (fim) {
-            params.append('periodo', 'personalizado');
-            params.append('data_fim', fim);
-        } else {
-            params.append('periodo', 'todos');
-        }
-        if (tipo && tipo !== 'todos') {
-            params.append('tipo_pagamento', tipo);
-        }
-        
-        carregarKPIsComFiltros(params.toString());
-    };
-
-    // ✅ Função limparFiltros - com verificação de disponibilidade
-    window.limparFiltros = function() {
-        if (filtroInicio) filtroInicio.value = '';
-        if (filtroFim) filtroFim.value = '';
-        if (filtroTipo) filtroTipo.value = 'todos';
-        
-        if (typeof window.carregarKPIs === 'function') {
-            window.carregarKPIs();
-        } else {
-            setTimeout(() => {
-                if (typeof window.carregarKPIs === 'function') {
-                    window.carregarKPIs();
-                } else {
-                    window.location.reload();
-                }
-            }, 100);
-        }
-    };
-
-    // ✅ Função carregarKPIsComFiltros - versão segura
-    window.carregarKPIsComFiltros = async function(queryString = '') {
-        // Aguardar funções essenciais do dashboard.js
-        const maxRetries = 10;
-        let retries = 0;
-        
-        while ((typeof window.atualizarKPIs !== 'function' || typeof getCsrfTokenFallback !== 'function') && retries < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-            retries++;
-        }
-        
-        if (typeof window.atualizarKPIs !== 'function') {
-            console.error('❌ Funções do dashboard.js não carregaram após espera');
-            const dashboardError = document.getElementById("dashboard-error");
-            if (dashboardError) {
-                dashboardError.textContent = '⚠️ Erro ao carregar dashboard. Recarregue a página.';
-                dashboardError.style.display = 'block';
-            }
-            return;
-        }
-        
-        // Obter elementos DOM
-        const kpiVendas = document.querySelector(".kpi-value-vendas");
-        const kpiRecebido = document.querySelector(".kpi-value-recebido");
-        const kpiDiferenca = document.querySelector(".kpi-value-diferenca");
-        const kpiAlertas = document.querySelector(".kpi-value-alertas");
-        const kpiPix = document.querySelector(".kpi-value-pix"); // ✅ NOVO
-        const ctxGrafico = document.getElementById("graficoVendasRecebidos");
-        const ctxBandeiras = document.getElementById("graficoBandeiras");
-        const acqContainer = document.getElementById("acqContainer");
-        const dashboardError = document.getElementById("dashboard-error");
-        
-        // Mostrar loading
-        document.querySelectorAll('.kpi-value[data-loading="true"]').forEach(el => {
-            if (el) el.innerHTML = '<span class="loading-spinner" aria-label="Carregando">⏳</span>';
-        });
-        
-        const url = `/api/v1/dashboard/kpis${queryString ? '?' + queryString : ''}`;
-        
-        try {
-            const res = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': getCsrfTokenFallback() // ✅ Fallback robusto
-                }
-            });
-            
-            if (!res.ok) {
-                const errorText = await res.text().catch(() => res.statusText);
-                throw new Error(`HTTP ${res.status}: ${errorText}`);
-            }
-            
-            const data = await res.json();
-            if (!data.ok) throw new Error(data.error || 'Erro ao carregar dados');
-
-            // Atualizar estado global
-            if (typeof window.ultimoKpis !== 'undefined') window.ultimoKpis = data.kpis;
-            if (typeof window.graficoBandeirasRetryCount !== 'undefined') window.graficoBandeirasRetryCount = 0;
-
-            // ✅ Atualizar UI com kpiPix se existir
-            const kpiElements = { kpiVendas, kpiRecebido, kpiDiferenca, kpiAlertas };
-            if (kpiPix) kpiElements.kpiPix = kpiPix;
-            
-            window.atualizarKPIs(data.kpis, kpiElements);
-            
-            if (typeof window.atualizarAcquirers === 'function') {
-                window.atualizarAcquirers(data.kpis.adquirentes || {}, acqContainer);
-            }
-            if (ctxGrafico && window.Chart && typeof window.atualizarGraficoVendas === 'function') {
-                window.atualizarGraficoVendas(data.kpis, ctxGrafico);
-            }
-            if (ctxBandeiras && window.Chart && typeof window.atualizarGraficoBandeiras === 'function') {
-                window.atualizarGraficoBandeiras(data.kpis.bandeiras || {}, ctxBandeiras);
-            }
-            
-            if (dashboardError) {
-                dashboardError.style.display = 'none';
-                dashboardError.textContent = '';
-            }
-            
-        } catch (err) {
-            console.error("Erro ao carregar KPIs:", err);
-            if (dashboardError) {
-                // ✅ Mensagem mais informativa
-                const msg = err.message.includes('HTTP 401') ? 'Sessão expirada. Faça login novamente.' :
-                           err.message.includes('HTTP 403') ? 'Acesso negado. Verifique suas permissões.' :
-                           err.message.includes('HTTP 500') ? 'Erro interno do servidor. Tente novamente em alguns minutos.' :
-                           '⚠️ Não foi possível carregar os dados. Verifique sua conexão.';
-                
-                dashboardError.textContent = msg;
-                dashboardError.style.display = 'block';
-                dashboardError.setAttribute('role', 'alert');
-            }
-        }
-    };
-    
-    // Carregar KPIs iniciais
-    if (typeof window.carregarKPIs === 'function') {
-        window.carregarKPIs();
-    }
-});
-</script>
-
-<!-- MODAL DE DETALHAMENTO (COM FOCO TRAP COMPLETO) -->
+<!-- ===================== MODAL DE DETALHAMENTO ===================== -->
 <div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="nc-modal-backdrop" tabindex="-1"></div>
     <div class="nc-modal-content">
@@ -362,8 +445,7 @@ document.addEventListener("DOMContentLoaded", function() {
         </div>
         <div class="nc-modal-body">
             <div class="table-container">
-                <table id="modalTabela" class="nc-table" role="table" aria-label="Tabela de detalhamento">
-                </table>
+                <table id="modalTabela" class="nc-table" role="table" aria-label="Tabela de detalhamento"></table>
             </div>
             <div id="modal-empty" class="nc-empty-state" style="display:none;" role="status">Nenhum dado para exibir.</div>
         </div>
@@ -373,51 +455,89 @@ document.addEventListener("DOMContentLoaded", function() {
     </div>
 </div>
 
-<!-- ✅ NOVO: Script para foco trap no modal -->
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+
 <script>
-// Melhorar foco trap do modal existente
-document.addEventListener('DOMContentLoaded', function() {
-    const modal = document.getElementById('modalDetalhe');
-    if (!modal) return;
+function getCsrfTokenFallback() {
+    return window.getCsrfToken?.() || 
+           document.querySelector('meta[name="csrf-token"]')?.content || 
+           document.querySelector('input[name="csrf_token"]')?.value || 
+           '';
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    const filtroInicio = document.getElementById('filtroInicio');
+    const filtroFim = document.getElementById('filtroFim');
+    const filtroTipo = document.getElementById('filtroTipoPagamento');
     
-    const closeBtn = modal.querySelector('.nc-modal-close');
-    const footerBtn = modal.querySelector('.nc-modal-footer button');
+    if (filtroInicio) filtroInicio.value = '';
+    if (filtroFim) filtroFim.value = '';
+    if (filtroTipo) filtroTipo.value = 'todos';
     
-    // Focar no botão fechar ao abrir
-    modal.addEventListener('transitionend', function() {
-        if (modal.style.display !== 'none' && closeBtn) {
-            closeBtn.focus();
-        }
-    });
-    
-    // Trap de foco: não permitir sair do modal com Tab
-    modal.addEventListener('keydown', function(e) {
-        if (e.key !== 'Tab') return;
+    window.aplicarFiltros = function() {
+        const inicio = filtroInicio?.value;
+        const fim = filtroFim?.value;
+        const tipo = filtroTipo?.value || 'todos';
         
-        const focusable = modal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusable.length) return;
+        const params = new URLSearchParams();
+        if (inicio && fim) { params.append('periodo', 'personalizado'); params.append('data_inicio', inicio); params.append('data_fim', fim); }
+        else if (inicio) { params.append('periodo', 'personalizado'); params.append('data_inicio', inicio); }
+        else if (fim) { params.append('periodo', 'personalizado'); params.append('data_fim', fim); }
+        else { params.append('periodo', 'todos'); }
+        if (tipo && tipo !== 'todos') params.append('tipo_pagamento', tipo);
         
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        
-        if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
+        carregarKPIsComFiltros(params.toString());
+    };
+
+    window.limparFiltros = function() {
+        if (filtroInicio) filtroInicio.value = '';
+        if (filtroFim) filtroFim.value = '';
+        if (filtroTipo) filtroTipo.value = 'todos';
+        if (typeof window.carregarKPIs === 'function') window.carregarKPIs();
+        else setTimeout(() => window.carregarKPIs?.() || window.location.reload(), 100);
+    };
+
+    window.carregarKPIsComFiltros = async function(queryString = '') {
+        let retries = 0;
+        while ((typeof window.atualizarKPIs !== 'function') && retries < 10) {
+            await new Promise(r => setTimeout(r, 50));
+            retries++;
         }
-    });
+        
+        const url = `/api/v1/dashboard/kpis${queryString ? '?' + queryString : ''}`;
+        
+        try {
+            const res = await fetch(url, {
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfTokenFallback() }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.error || 'Erro');
+            
+            if (typeof window.atualizarKPIs === 'function') {
+                window.atualizarKPIs(data.kpis, {
+                    kpiVendas: document.querySelector(".kpi-value-vendas"),
+                    kpiRecebido: document.querySelector(".kpi-value-recebido"),
+                    kpiDiferenca: document.querySelector(".kpi-value-diferenca"),
+                    kpiAlertas: document.querySelector(".kpi-value-alertas"),
+                    kpiPix: document.querySelector(".kpi-value-pix")
+                });
+            }
+            if (typeof window.atualizarAcquirers === 'function') {
+                window.atualizarAcquirers(data.kpis.adquirentes || {}, document.getElementById("acqContainer"));
+            }
+            
+            document.getElementById("dashboard-error").style.display = 'none';
+        } catch (err) {
+            document.getElementById("dashboard-error").textContent = '⚠️ Erro ao carregar dados.';
+            document.getElementById("dashboard-error").style.display = 'block';
+        }
+    };
     
-    // Fechar com Escape
-    modal.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            fecharModal();
-        }
-    });
+    if (typeof window.carregarKPIs === 'function') window.carregarKPIs();
 });
 </script>
 
