@@ -125,6 +125,15 @@
                     </li>
                 {% endif %}
                 
+                {% if g.user and g.user.master %}
+                    <li>
+                        <a href="{{ url_for('usuarios.listar_usuarios') }}" 
+                           class="nc-topbar-item {% if request.endpoint and 'usuarios' in request.endpoint %}active{% endif %}">
+                            👥 Usuários
+                        </a>
+                    </li>
+                    {% endif %}
+                
                 <li>
                     <a href="{{ url_for('auth.logout') }}" 
                        class="nc-topbar-item logout"
