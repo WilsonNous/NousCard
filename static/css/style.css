@@ -1,6 +1,6 @@
 /* ============================================================
-   STYLE • NousCard (PRODUÇÃO - VERSÃO CORRIGIDA)
-   Styles globais para toda a aplicação
+   STYLE • NousCard (PRODUÇÃO)
+   ✅ IDENTIDADE VISUAL: PALETA OFICIAL FACEBOOK
    Compatível com acessibilidade, dark mode e performance
 ============================================================ */
 
@@ -43,25 +43,26 @@ img, canvas, svg, video, embed, object, iframe {
 }
 
 /* ============================================================
-   VARIÁVEIS GLOBAIS (CONSOLIDADO)
+   VARIÁVEIS GLOBAIS - ✅ PALETA OFICIAL FACEBOOK
 ============================================================ */
 :root {
-    /* Cores Primárias */
-    --primary: #1877f2;
-    --primary-dark: #0d5bd4;
-    --primary-light: #e7f1ff;
+    /* ✅ Cores Primárias - Paleta Facebook */
+    --primary: #1d3469;
+    --primary-dark: #142652;
+    --primary-light: #e8edf5;  /* ✅ Tom suave para não cansar */
+    --primary-accent: #5e80bf;  /* ✅ Azul claro para destaques */
     
     /* Cores de Texto */
     --text: #1a1a2e;
-    --text-muted: #5a6275;
+    --text-muted: #6b7280;  /* ✅ Cinza neutro (melhor para leitura) */
     --text-disabled: #a0aec0;
     --white: #ffffff;
     
-    /* Cores Neutras */
+    /* ✅ Cores Neutras - Tons suaves para conforto visual */
     --gray: #dee2e6;
-    --gray-light: #f8f9fa;
+    --gray-light: #fafbfc;  /* ✅ Quase branco (reduz fadiga) */
     --gray-dark: #5a6275;
-    --gray-border: #e2e8f0;
+    --gray-border: #e5e7eb;
     
     /* Cores de Status/KPI */
     --kpi-red: #dc3545;
@@ -87,10 +88,10 @@ img, canvas, svg, video, embed, object, iframe {
     --info-bg: #d1ecf1;
     --info-border: #b8daff;
     
-    /* Sombras e Bordas */
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-    --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
+    /* ✅ Sombras - Mais suaves para não pesar */
+    --shadow-sm: 0 1px 2px rgba(29, 52, 105, 0.04);
+    --shadow-md: 0 4px 12px rgba(29, 52, 105, 0.08);
+    --shadow-lg: 0 10px 40px rgba(29, 52, 105, 0.12);
     --border-radius: 8px;
     --border-radius-lg: 12px;
     --border-width: 2px;
@@ -292,12 +293,13 @@ textarea:focus-visible,
     opacity: 1;
 }
 
+/* ✅ Foco com azul Facebook */
 .nc-form-input:focus-visible,
 .nc-form-select:focus-visible,
 .nc-form-textarea:focus-visible {
     border-color: var(--primary);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
+    box-shadow: 0 0 0 3px rgba(29, 52, 105, 0.15);
 }
 
 .nc-form-input:focus,
@@ -305,7 +307,7 @@ textarea:focus-visible,
 .nc-form-textarea:focus {
     border-color: var(--primary);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.1);
+    box-shadow: 0 0 0 3px rgba(29, 52, 105, 0.15);
 }
 
 .nc-form-input[aria-invalid="true"],
@@ -368,7 +370,7 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   BOTÕES
+   BOTÕES - ✅ AZUL FACEBOOK
 ============================================================ */
 
 .nc-btn {
@@ -396,14 +398,15 @@ textarea:focus-visible,
     color: white !important;
 }
 
+/* ✅ Hover com azul mais claro (#5e80bf) */
 .nc-btn-primary:hover:not(:disabled) {
-    background: var(--primary-dark);
+    background: var(--primary-accent);
 }
 
 .nc-btn-primary:focus-visible {
     outline: 2px solid white;
     outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(24, 119, 242, 0.2);
+    box-shadow: 0 0 0 4px rgba(29, 52, 105, 0.2);
 }
 
 .nc-btn-secondary {
@@ -422,7 +425,7 @@ textarea:focus-visible,
 }
 
 .nc-btn-outline:hover:not(:disabled) {
-    background: rgba(24, 119, 242, 0.1);
+    background: rgba(29, 52, 105, 0.05);
 }
 
 .nc-btn-danger {
@@ -543,7 +546,7 @@ textarea:focus-visible,
     display: inline-block;
     width: 20px;
     height: 20px;
-    border: 2px solid rgba(24, 119, 242, 0.3);
+    border: 2px solid rgba(29, 52, 105, 0.2);
     border-radius: 50%;
     border-top-color: var(--primary);
     animation: spin 1s linear infinite;
@@ -742,13 +745,13 @@ textarea:focus-visible,
 
 .nc-dropzone {
     border: 2px dashed var(--primary);
-    background: #f0f5ff;
+    background: var(--primary-light);
     padding: 35px;
     text-align: center;
     border-radius: var(--border-radius-lg);
     cursor: pointer;
     transition: 0.3s;
-    color: #333;
+    color: var(--text);
     min-height: 200px;
     contain: layout style;
 }
@@ -762,7 +765,7 @@ textarea:focus-visible,
 
 .nc-dropzone:hover,
 .nc-dropzone.dragging {
-    background: #dce9ff;
+    background: #dce4f0;
     border-color: var(--primary-dark);
 }
 
@@ -924,7 +927,7 @@ textarea:focus-visible,
 }
 
 /* ============================================================
-   LAYOUT BASE & TOPBAR - ✅ CORREÇÃO DO MENU HORIZONTAL
+   LAYOUT BASE & TOPBAR
 ============================================================ */
 
 .nc-body {
@@ -964,19 +967,18 @@ textarea:focus-visible,
     align-items: center;
 }
 
-/* ✅ CORREÇÃO CRÍTICA: Menu horizontal */
+/* Menu horizontal */
 .nc-topbar-nav {
     display: flex;
     align-items: center;
 }
 
-/* ✅ Remove bullets e exibe lista horizontal */
 .nc-nav-list {
     display: flex;
-    flex-direction: row;  /* ← ITENS LADO A LADO */
+    flex-direction: row;
     align-items: center;
     gap: 0.25rem;
-    list-style: none;     /* ← Remove bullets */
+    list-style: none;
     margin: 0;
     padding: 0;
 }
@@ -987,7 +989,6 @@ textarea:focus-visible,
     padding: 0;
 }
 
-/* ✅ Links do menu com layout correto */
 .nc-topbar-item {
     display: inline-flex;
     align-items: center;
@@ -998,11 +999,12 @@ textarea:focus-visible,
     color: var(--text);
     font-weight: 500;
     font-size: var(--font-size-sm);
-    white-space: nowrap;    /* ← Previne quebra de linha */
+    white-space: nowrap;
     transition: background 0.2s, color 0.2s;
     min-height: var(--touch-target);
 }
 
+/* ✅ Hover com azul Facebook suave */
 .nc-topbar-item:hover,
 .nc-topbar-item.active {
     background: var(--primary-light);
@@ -1020,7 +1022,7 @@ textarea:focus-visible,
     margin: 0 auto;
     padding: 2rem;
     width: 100%;
-   overflow-x: visible;
+    overflow-x: visible;
 }
 
 .nc-section {
@@ -1261,7 +1263,6 @@ textarea:focus-visible,
         padding: 0.5rem 0;
     }
     
-    /* ✅ Mobile: permite empilhar se necessário */
     .nc-nav-list {
         flex-wrap: wrap;
         justify-content: center;
