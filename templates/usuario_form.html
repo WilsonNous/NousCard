@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if modo == 'editar' else 'Novo' }} Usuário - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .senha-requirements {
+        background: var(--gray-light);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .senha-requirements ul {
+        margin: 0.5rem 0 0 1.5rem;
+        padding: 0;
+    }
+    
+    .senha-requirements li {
+        margin: 0.25rem 0;
+        color: var(--text-muted);
+    }
+    
+    .senha-requirements li.valid {
+        color: var(--success);
+    }
+    
+    .senha-requirements li.invalid {
+        color: var(--error);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<section class="nc-section">
+    <div class="form-container">
+        <h2 class="nc-title">
+            {% if modo == 'editar' %}
+                ✏️ Editar Usuário
+            {% else %}
+                ➕ Novo Usuário
+            {% endif %}
+        </h2>
+        
+        {% if usuario %}
+        <p class="nc-muted">
+            Editando: <strong>{{ usuario.nome }}</strong> ({{ usuario.email }})
+        </p>
+        {% endif %}
+        
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="nc-flash nc-flash-{{ category }}" role="status" style="margin-bottom: 1rem;">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" id="usuarioForm" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <!-- Nome -->
+            <div class="nc-form-group">
+                <label for="nome" class="nc-form-label">
+                    Nome Completo <span style="color: var(--error);">*</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="nome" 
+                    name="nome" 
+                    value="{{ usuario.nome if usuario else '' }}"
+                    required
+                    maxlength="150"
+                    placeholder="Ex: João da Silva"
+                    class="nc-form-input"
+                >
+            </div>
+            
+            <!-- Email -->
+            <div class="nc-form-group">
+                <label for="email" class="nc-form-label">
+                    E-mail <span style="color: var(--error);">*</span>
+                </label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    value="{{ usuario.email if usuario else '' }}"
+                    required
+                    placeholder="usuario@empresa.com.br"
+                    class="nc-form-input"
+                >
+                <small class="nc-form-hint">Será usado para login</small>
+            </div>
+            
+            <!-- Senha -->
+            <div class="nc-form-group">
+                <label for="senha" class="nc-form-label">
+                    {% if modo == 'editar' %}
+                        Nova Senha <small class="nc-muted">(deixe em branco para manter)</small>
+                    {% else %}
+                        Senha <span style="color: var(--error);">*</span>
+                    {% endif %}
+                </label>
+                <input 
+                    type="password" 
+                    id="senha" 
+                    name="senha" 
+                    {% if modo != 'editar' %}required{% endif %}
+                    placeholder="Mínimo 8 caracteres"
+                    class="nc-form-input"
+                    oninput="validarSenha(this.value)"
+                >
+                
+                {% if modo != 'editar' %}
+                <div class="senha-requirements" id="senhaReqs">
+                    <strong>Requisitos da senha:</strong>
+                    <ul>
+                        <li id="req-length">❌ Mínimo 8 caracteres</li>
+                        <li id="req-upper">❌ Letra maiúscula</li>
+                        <li id="req-lower">❌ Letra minúscula</li>
+                        <li id="req-number">❌ Número</li>
+                        <li id="req-special">❌ Caractere especial (!@#$%...)</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Empresa -->
+            <div class="nc-form-group">
+                <label for="empresa_id" class="nc-form-label">
+                    Empresa <span style="color: var(--error);">*</span>
+                </label>
+                <select 
+                    id="empresa_id" 
+                    name="empresa_id" 
+                    required
+                    class="nc-form-input"
+                >
+                    <option value="">Selecione uma empresa...</option>
+                    {% for empresa in empresas %}
+                    <option value="{{ empresa.id }}" 
+                        {% if usuario and usuario.empresa_id == empresa.id %}selected{% endif %}>
+                        {{ empresa.nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Perfil -->
+            <div class="nc-form-group">
+                <label class="nc-form-label">Perfil de Acesso</label>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input 
+                            type="checkbox" 
+                            name="admin" 
+                            value="on"
+                            {% if usuario and usuario.admin %}checked{% endif %}
+                        >
+                        <span>👑 Administrador da empresa</span>
+                    </label>
+                </div>
+                <small class="nc-form-hint">
+                    Admins podem gerenciar dados da empresa, mas não criar outros usuários
+                </small>
+            </div>
+            
+            <!-- Status (apenas em edição) -->
+            {% if modo == 'editar' %}
+            <div class="nc-form-group">
+                <label class="nc-form-label">Status</label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input 
+                        type="checkbox" 
+                        name="ativo" 
+                        value="on"
+                        {% if usuario.ativo %}checked{% endif %}
+                    >
+                    <span>✅ Usuário ativo</span>
+                </label>
+                <small class="nc-form-hint">
+                    Usuários inativos não conseguem fazer login
+                </small>
+            </div>
+            {% endif %}
+            
+            <!-- Botões -->
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="nc-btn nc-btn-primary">
+                    💾 {% if modo == 'editar' %}Salvar Alterações{% else %}Criar Usuário{% endif %}
+                </button>
+                <a href="{{ url_for('usuarios.listar_usuarios') }}" class="nc-btn nc-btn-outline">
+                    ← Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</section>
+
+<script>
+function validarSenha(senha) {
+    const reqs = {
+        'req-length': senha.length >= 8,
+        'req-upper': /[A-Z]/.test(senha),
+        'req-lower': /[a-z]/.test(senha),
+        'req-number': /\d/.test(senha),
+        'req-special': /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)
+    };
+    
+    for (const [id, valid] of Object.entries(reqs)) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.className = valid ? 'valid' : 'invalid';
+            const text = el.textContent.substring(2);
+            el.textContent = (valid ? '✅ ' : '❌ ') + text;
+        }
+    }
+}
+</script>
+
+{% endblock %}
