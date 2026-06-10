@@ -3,7 +3,7 @@
 {% block title %}Arquivos Importados - NousCard{% endblock %}
 
 {% block extra_head %}
-<!-- ✅ NOVO: Estilos específicos para lista de arquivos -->
+<!-- ✅ Estilos específicos para lista de arquivos - PADRONIZADO -->
 <style>
     /* Colunas numéricas alinhadas à direita */
     .nc-table td.registros,
@@ -22,7 +22,7 @@
         white-space: nowrap;
     }
     
-    /* Badge de status */
+    /* ✅ Badge de status - PADRONIZADO com variáveis globais */
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -32,9 +32,18 @@
         font-size: 0.75rem;
         font-weight: 500;
     }
-    .status-ok { background: #dcfce7; color: #166534; }
-    .status-error { background: #fee2e2; color: #991b1b; }
-    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-ok { 
+        background: var(--success-bg); 
+        color: var(--success); 
+    }
+    .status-error { 
+        background: var(--error-bg); 
+        color: var(--error); 
+    }
+    .status-pending { 
+        background: var(--warning-bg); 
+        color: var(--warning); 
+    }
     
     /* Busca na lista */
     .list-search {
@@ -66,7 +75,6 @@
     <div class="nc-section-header">
         <h2>📂 Arquivos Importados</h2>
         
-        <!-- ✅ NOVO: Ações da lista -->
         <div class="list-actions">
             {% if arquivos and arquivos.arquivos %}
             <button type="button" class="nc-btn nc-btn-secondary nc-btn-sm" onclick="exportarListaCSV()">
@@ -80,7 +88,6 @@
     </div>
     
     {% if arquivos and arquivos.arquivos %}
-        <!-- ✅ NOVO: Busca na lista -->
         <div class="list-search">
             <label for="fileSearch" class="nc-form-label">🔍 Buscar:</label>
             <input type="search" id="fileSearch" class="nc-form-input" placeholder="Nome do arquivo, tipo..." onkeyup="filtrarLista()">
@@ -93,7 +100,7 @@
                     <tr>
                         <th scope="col">Arquivo</th>
                         <th scope="col">Tipo</th>
-                        <th scope="col">Status</th> {# ✅ NOVO: Coluna de status #}
+                        <th scope="col">Status</th>
                         <th scope="col" class="registros">Registros</th>
                         <th scope="col" class="valor">Valor Total</th>
                         <th scope="col">Data</th>
@@ -107,7 +114,6 @@
                             {{ arquivo.nome_arquivo | e }}
                         </td>
                         <td>{{ arquivo.tipo | title }}</td>
-                        {# ✅ NOVO: Badge de status baseado no status do arquivo #}
                         <td>
                             {% set status = arquivo.status | default('processado') %}
                             {% if status == 'processado' %}
@@ -119,9 +125,7 @@
                             {% endif %}
                         </td>
                         <td class="registros">{{ arquivo.total_registros }}</td>
-                        {# ✅ CORREÇÃO: Formatação de moeda #}
                         <td class="valor">R$ {{ arquivo.total_valor | currency_br }}</td>
-                        {# ✅ CORREÇÃO: Formatação de data #}
                         <td>{{ arquivo.created_at | date_br }}</td>
                         <td>
                             <a href="{{ url_for('operacoes.arquivo_detalhe_page', arquivo_id=arquivo.id) }}" 
@@ -136,7 +140,6 @@
             </table>
         </div>
         
-        <!-- ✅ CORREÇÃO: Paginação que preserva query params -->
         {% if arquivos.pages > 1 %}
         <nav class="nc-pagination" aria-label="Paginação de arquivos">
             {% if arquivos.page > 1 %}
@@ -164,13 +167,10 @@
     {% endif %}
 </section>
 
-<!-- ✅ NOVO: Scripts para funcionalidades da lista -->
 {% if arquivos and arquivos.arquivos %}
 <script>
-// Dados para busca/exportação
 const todosArquivos = {{ arquivos.arquivos | tojson }};
 
-// ✅ Filtro de busca na lista
 function filtrarLista() {
     const termo = document.getElementById('fileSearch').value.toLowerCase();
     const tbody = document.getElementById('fileTableBody');
@@ -185,17 +185,14 @@ function filtrarLista() {
         if (match) visiveis++;
     });
     
-    // Atualizar contador
     const total = rows.length;
     document.getElementById('searchCount').textContent = 
         termo ? `${visiveis}/${total} encontrados` : '';
 }
 
-// ✅ Exportar lista para CSV
 function exportarListaCSV() {
     const termo = document.getElementById('fileSearch')?.value.toLowerCase() || '';
     
-    // Filtrar arquivos visíveis
     const dados = todosArquivos.filter(a => {
         if (!termo) return true;
         return (a.nome_arquivo?.toLowerCase() || '').includes(termo) ||
@@ -207,7 +204,6 @@ function exportarListaCSV() {
         return;
     }
     
-    // Cabeçalhos
     const headers = ['Arquivo', 'Tipo', 'Status', 'Registros', 'Valor Total', 'Data'];
     const csv = [
         headers.join(';'),
@@ -221,7 +217,6 @@ function exportarListaCSV() {
         ].join(';'))
     ].join('\n');
     
-    // Download
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -231,12 +226,12 @@ function exportarListaCSV() {
     URL.revokeObjectURL(url);
 }
 
-// Helpers de formatação (se não estiverem em app.js)
 function formatCurrency(val) {
     if (!val && val !== 0) return '0,00';
     const num = parseFloat(val) || 0;
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 }
+
 function formatDate(val) {
     if (!val) return '';
     const d = new Date(val);
