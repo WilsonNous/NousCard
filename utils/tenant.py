@@ -3,7 +3,7 @@
 # HELPERS MULTI-TENANT - ISOLAMENTO POR EMPRESA
 # ============================================================
 
-from flask import g, request
+from flask import g, request, flash, redirect, url_for
 from functools import wraps
 import logging
 
@@ -14,8 +14,8 @@ def get_empresa_id() -> int:
     """
     Retorna o empresa_id do usuário logado.
     
-    ✅ SEMPRE usar este helper em queries para garantir isolamento.
-    ✅ Masters podem ver qualquer empresa (passando empresa_id como parâmetro).
+    ✅ USE SEMPRE este helper em queries para garantir isolamento.
+    ✅ Masters podem ver qualquer empresa (via query param).
     
     Returns:
         int: ID da empresa do usuário
@@ -26,45 +26,49 @@ def get_empresa_id() -> int:
     if not hasattr(g, 'user') or not g.user:
         raise ValueError("Usuário não autenticado")
     
-    # Master pode escolher empresa (via query param ou sessão)
-    if g.user.master:
-        # Se master especificou empresa na URL, usar essa
+    # Master pode escolher empresa (via query param)
+    if getattr(g.user, 'master', False):
         empresa_override = request.args.get('empresa_id', type=int)
         if empresa_override:
-            # Validar que empresa existe
             from models import Empresa
             if Empresa.query.get(empresa_override):
                 return empresa_override
     
     # Usuário normal: sempre sua própria empresa
-    if not g.user.empresa_id:
+    empresa_id = getattr(g.user, 'empresa_id', None)
+    if not empresa_id:
         raise ValueError("Usuário sem empresa vinculada")
     
-    return g.user.empresa_id
+    return empresa_id
 
 
-def query_empresa(model_class):
+def query_empresa(model_class, empresa_id: int = None):
     """
-    Retorna uma query já filtrada pela empresa do usuário logado.
+    Retorna query já filtrada pela empresa do usuário.
     
     Usage:
-        # ❌ ERRADO (vaza dados entre empresas):
-        vendas = MovAdquirente.query.filter_by(adquirente='Cielo').all()
+        # ❌ ERRADO (vaza dados):
+        vendas = MovAdquirente.query.all()
         
-        # ✅ CORRETO (isolado por empresa):
+        # ✅ CORRETO (isolado):
+        vendas = query_empresa(MovAdquirente).all()
+        
+        # ✅ COM FILTRO ADICIONAL:
         vendas = query_empresa(MovAdquirente).filter_by(adquirente='Cielo').all()
     
     Args:
-        model_class: Classe do modelo SQLAlchemy (ex: MovAdquirente)
+        model_class: Classe do modelo (ex: MovAdquirente)
+        empresa_id: Opcional (usa get_empresa_id() se None)
     
     Returns:
         Query: Query já filtrada por empresa_id
     """
-    empresa_id = get_empresa_id()
+    if empresa_id is None:
+        empresa_id = get_empresa_id()
     return model_class.query.filter_by(empresa_id=empresa_id)
 
 
-def salvar_com_empresa(objeto):
+def salvar_com_empresa(objeto, empresa_id: int = None):
     """
     Garante que o objeto tem empresa_id antes de salvar.
     
@@ -76,33 +80,67 @@ def salvar_com_empresa(objeto):
     
     Args:
         objeto: Instância do modelo SQLAlchemy
+        empresa_id: Opcional (usa get_empresa_id() se None)
     """
     if not hasattr(objeto, 'empresa_id'):
         raise ValueError(f"Objeto {type(objeto).__name__} não tem campo empresa_id")
     
-    # Se já tem empresa_id, validar que é a mesma do usuário
-    if objeto.empresa_id:
-        if objeto.empresa_id != get_empresa_id():
-            raise ValueError("Tentativa de salvar em outra empresa")
-    else:
-        # Atribuir empresa_id do usuário
-        objeto.empresa_id = get_empresa_id()
-
-
-def decorator_empresa_required(f):
-    """
-    Decorador que garante que a rota tem empresa_id disponível.
-    Já existe no auth_middleware.py, mas vamos reforçar o uso.
-    """
-    from functools import wraps
+    if empresa_id is None:
+        empresa_id = get_empresa_id()
     
+    # Se já tem empresa_id, validar que é a mesma
+    if objeto.empresa_id and objeto.empresa_id != empresa_id:
+        raise ValueError(f"Tentativa de salvar em outra empresa: objeto={objeto.empresa_id}, usuário={empresa_id}")
+    
+    # Atribuir empresa_id do usuário
+    objeto.empresa_id = empresa_id
+
+
+def validar_acesso_empresa(empresa_id: int) -> bool:
+    """
+    Valida se o usuário atual tem acesso à empresa especificada.
+    
+    ✅ Masters têm acesso a todas.
+    ✅ Usuários normais só têm acesso à sua própria empresa.
+    
+    Args:
+        empresa_id: ID da empresa a validar
+    
+    Returns:
+        bool: True se tem acesso, False caso contrário
+    """
+    if not hasattr(g, 'user') or not g.user:
+        return False
+    
+    # Master tem acesso a todas
+    if getattr(g.user, 'master', False):
+        return True
+    
+    # Usuário normal: só sua própria empresa
+    return getattr(g.user, 'empresa_id', None) == empresa_id
+
+
+# ============================================================
+# DECORADORES
+# ============================================================
+
+def tenant_context(f):
+    """
+    Decorador que injeta g.empresa_id automaticamente.
+    
+    Usage:
+        @operacoes_bp.route("/upload")
+        @tenant_context
+        def upload():
+            # g.empresa_id já está disponível
+            arquivos = query_empresa(ArquivoImportado).all()
+    """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
-            empresa_id = get_empresa_id()
-            g.empresa_id = empresa_id  # Disponibiliza para a rota
+            g.empresa_id = get_empresa_id()
         except ValueError as e:
-            from flask import flash, redirect, url_for
+            logger.warning(f"Tenant context falhou: {str(e)}")
             flash(str(e), "error")
             return redirect(url_for('dashboard.dashboard'))
         
