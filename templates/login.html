@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - NousCard{% if error %} - Erro{% endif %}</title>
     
-    <!-- ✅ NOVO: Meta CSRF para JavaScript -->
     {% if csrf_token %}
     <meta name="csrf-token" content="{{ csrf_token }}">
     {% endif %}
@@ -13,21 +12,131 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
     
+    <!-- ✅ Identidade visual NousCard (azul Facebook) -->
+    <style>
+        .nc-login-body {
+            background: linear-gradient(135deg, #1877f2 0%, #0d5bd4 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .nc-login-box {
+            background: white;
+            border-radius: 12px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 420px;
+            width: 100%;
+        }
+        
+        .nc-login-logo {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .nc-login-logo .logo-icon {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .nc-login-logo h1 {
+            color: #1877f2;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+        
+        .nc-login-logo .tagline {
+            color: #65676b;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        
+        h2[aria-hidden="true"] {
+            text-align: center;
+            color: #1c1e21;
+            font-size: 1.5rem;
+            margin: 1.5rem 0 1rem 0;
+            font-weight: 600;
+        }
+        
+        .nc-btn-primary {
+            background: #1877f2 !important;
+            color: white !important;
+            border: none;
+            padding: 0.875rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .nc-btn-primary:hover {
+            background: #0d5bd4 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
+        }
+        
+        .nc-login-footer {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e4e6eb;
+            text-align: center;
+        }
+        
+        .nc-login-footer .nc-muted {
+            color: #65676b;
+            font-size: 0.8rem;
+            margin: 0;
+        }
+        
+        .nc-login-footer .nc-link {
+            color: #1877f2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .nc-login-footer .nc-link:hover {
+            text-decoration: underline;
+        }
+        
+        .nc-security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            background: #f0f7ff;
+            color: #1877f2;
+            padding: 0.375rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 1rem;
+        }
+    </style>
+    
     {% block extra_head %}{% endblock %}
 </head>
 
 <body class="nc-login-body">
     <div class="nc-login-box" role="main">
-        <!-- ✅ NOVO: Logo da marca -->
+        <!-- ✅ Logo da marca NousCard (identidade azul Facebook) -->
         <div class="nc-login-logo" aria-hidden="true">
-            <span style="font-size: 2.5rem;">💳</span>
-            <h1 style="font-size: 1.5rem; margin: 0.5rem 0;">NousCard</h1>
+            <span class="logo-icon">💳</span>
+            <h1>NousCard</h1>
+            <div class="tagline">Conciliação inteligente de cartões</div>
         </div>
         
         <h1 class="nc-sr-only">Login - NousCard</h1>
-        <h2 aria-hidden="true">Entrar</h2>
+        <h2 aria-hidden="true">Acesse sua conta</h2>
         
-        <!-- ✅ APRIMORADO: Mensagens de erro com mais contexto -->
+        <!-- Mensagens de erro -->
         {% if error %}
         <div class="nc-error" id="login-error" role="alert" aria-live="polite">
             <span aria-hidden="true">❌</span>
@@ -40,7 +149,7 @@
         </div>
         {% endif %}
         
-        <!-- ✅ NOVO: Flash messages -->
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -56,7 +165,6 @@
               novalidate
               aria-describedby="{% if error %}login-error{% endif %}">
             
-            <!-- ✅ CRÍTICO: Token CSRF -->
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             
             <!-- Campo de Email -->
@@ -75,12 +183,12 @@
                     value="{{ request.form.get('email', '') }}"
                 >
                 <small id="email-hint" class="nc-form-hint">
-                    Digite o e-mail cadastrado na sua conta
+                    Digite o e-mail cadastrado
                 </small>
                 <div class="nc-form-error" id="email-error" style="display:none;" role="alert"></div>
             </div>
             
-            <!-- Campo de Senha com Toggle de Visibilidade -->
+            <!-- Campo de Senha -->
             <div class="nc-form-group">
                 <label for="senha" class="nc-sr-only">Senha</label>
                 <div class="nc-password-wrapper" style="position: relative;">
@@ -95,7 +203,6 @@
                         aria-describedby="senha-hint"
                         style="padding-right: 2.5rem;"
                     >
-                    <!-- ✅ NOVO: Botão para mostrar/ocultar senha -->
                     <button type="button" 
                             id="toggleSenha" 
                             class="nc-password-toggle"
@@ -111,46 +218,50 @@
                 <div class="nc-form-error" id="senha-error" style="display:none;" role="alert"></div>
             </div>
             
-            <!-- ✅ NOVO: Lembrar de mim e Link de recuperação -->
+            <!-- Lembrar de mim e recuperação -->
             <div class="nc-login-options" style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; flex-wrap: wrap; gap: 0.5rem;">
                 <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
                     <input type="checkbox" name="lembrar" value="1">
                     <span>Lembrar de mim</span>
                 </label>
-                <a href="{{ url_for('auth.recuperar_senha') }}" class="nc-link" style="font-size: 0.875rem;">
+                <a href="{{ url_for('auth.recuperar_senha') }}" class="nc-link" style="font-size: 0.875rem; color: #1877f2;">
                     Esqueci minha senha
                 </a>
             </div>
             
-            <!-- Botão de Submit com Loading State -->
-            <button type="submit" class="nc-btn-primary" id="btn-login" style="width: 100%;">
+            <!-- Botão Submit -->
+            <button type="submit" class="nc-btn-primary" id="btn-login">
                 <span class="btn-text">🔐 Entrar</span>
                 <span class="btn-loading" style="display:none;">
                     <span class="spinner" aria-hidden="true"></span> Entrando...
                 </span>
             </button>
             
-            <!-- ✅ NOVO: Aviso de segurança -->
-            <p class="nc-muted" style="font-size: 0.75rem; text-align: center; margin-top: 1rem;">
-                🔒 Ambiente seguro • Seus dados estão protegidos
-            </p>
+            <!-- Badge de segurança -->
+            <div style="text-align: center;">
+                <span class="nc-security-badge">
+                    🔒 Ambiente seguro • Dados protegidos
+                </span>
+            </div>
         </form>
         
-        <p class="nc-login-forgot" style="margin-top: 1.5rem; text-align: center;">
-            Não tem uma conta? 
-            <a href="{{ url_for('auth.registrar') }}">Criar nova conta</a>
-        </p>
-        
-        <!-- ✅ NOVO: Links úteis -->
-        <div class="nc-login-help" style="margin-top: 1rem; text-align: center; font-size: 0.875rem;">
-            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-link">← Voltar ao site</a>
+        <!-- ✅ Footer corporativo (SEM link de criar conta) -->
+        <div class="nc-login-footer">
+            <p class="nc-muted">
+                Acesso exclusivo para usuários autorizados.<br>
+                <strong>Precisa de uma conta?</strong> Entre em contato com o administrador da sua empresa.
+            </p>
+            <p style="margin-top: 1rem; font-size: 0.8rem;">
+                <a href="mailto:contato@noustecnologia.com.br" class="nc-link">
+                    📧 contato@noustecnologia.com.br
+                </a>
+            </p>
         </div>
     </div>
     
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
     
-    <!-- ✅ NOVO: Script inline para funcionalidades básicas -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('loginForm');
@@ -159,7 +270,7 @@
         const senhaInput = document.getElementById('senha');
         const toggleSenha = document.getElementById('toggleSenha');
         
-        // ✅ Toggle de visibilidade de senha
+        // Toggle de visibilidade de senha
         if (toggleSenha && senhaInput) {
             toggleSenha.addEventListener('click', function() {
                 const isPassword = senhaInput.type === 'password';
@@ -170,7 +281,7 @@
             });
         }
         
-        // ✅ Validação de email em tempo real
+        // Validação de email
         if (emailInput) {
             emailInput.addEventListener('blur', function() {
                 const email = this.value.trim();
@@ -187,10 +298,9 @@
             });
         }
         
-        // ✅ Loading state no submit
+        // Loading state no submit
         if (form && btnLogin) {
             form.addEventListener('submit', function(e) {
-                // Validação básica antes de submit
                 if (!emailInput.value.trim()) {
                     e.preventDefault();
                     const errorDiv = document.getElementById('email-error');
@@ -209,25 +319,15 @@
                     return;
                 }
                 
-                // Ativar loading state
                 btnLogin.disabled = true;
                 btnLogin.querySelector('.btn-text').style.display = 'none';
                 btnLogin.querySelector('.btn-loading').style.display = 'inline';
             });
         }
         
-        // ✅ Helper de validação de email
         function isValidEmail(email) {
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         }
-        
-        // ✅ Permitir submit com Enter em qualquer campo
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') {
-                e.preventDefault();
-                form.submit();
-            }
-        });
     });
     </script>
 </body>
