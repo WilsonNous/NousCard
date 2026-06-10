@@ -2,11 +2,11 @@
 
 {% block title %}Dashboard - NousCard{% endblock %}
 
-{# ✅ AGORA FUNCIONA - o base tem {% block extra_head %} #}
 {% block extra_head %}
 <style>
     /* ============================================================
-       DASHBOARD - Namespace próprio (evita conflitos)
+       DASHBOARD - Namespace próprio (apenas layout)
+       ✅ Botões usam classes globais do style.css
        ============================================================ */
     
     /* Container principal em faixas */
@@ -35,9 +35,13 @@
         border-bottom: 2px solid var(--gray-border);
     }
     
-    /* FAIXA 1: FILTROS */
+    /* ============================================================
+       FAIXA 1: FILTROS
+       ✅ Gradiente da paleta Facebook (azul escuro)
+       ✅ Botões usam classes globais com override sutil
+       ============================================================ */
     .dashboard-filters {
-        background: linear-gradient(135deg, var(--primary) 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
         padding: 1.25rem 1.5rem;
         border-radius: var(--border-radius);
         display: flex;
@@ -78,27 +82,39 @@
         gap: 0.5rem;
     }
     
-    .dashboard-filters .btn-filter {
-        background: white;
-        color: var(--primary);
-        border: none;
+    /* ✅ Botão FILTRAR: fundo branco sobre gradiente azul */
+    .dashboard-filters .nc-btn-primary {
+        background: white !important;
+        color: var(--primary) !important;
         padding: 0.5rem 1rem;
-        border-radius: 6px;
+        min-height: 36px;
         font-weight: 600;
-        cursor: pointer;
     }
     
-    .dashboard-filters .btn-clear {
-        background: rgba(255,255,255,0.15);
-        color: white;
-        border: 1px solid rgba(255,255,255,0.3);
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
-        font-weight: 600;
-        cursor: pointer;
+    .dashboard-filters .nc-btn-primary:hover:not(:disabled) {
+        background: var(--primary-light) !important;
+        transform: translateY(-1px);
     }
     
-    /* FAIXA 2: KPIs */
+    /* ✅ Botão LIMPAR: outline branco sobre gradiente azul */
+    .dashboard-filters .nc-btn-outline {
+        border: 1px solid rgba(255,255,255,0.5) !important;
+        color: white !important;
+        background: transparent !important;
+        padding: 0.5rem 1rem;
+        min-height: 36px;
+        font-weight: 600;
+    }
+    
+    .dashboard-filters .nc-btn-outline:hover:not(:disabled) {
+        background: rgba(255,255,255,0.15) !important;
+        border-color: white !important;
+    }
+    
+    /* ============================================================
+       FAIXA 2: KPIs
+       ✅ Gradientes da paleta Facebook (azul escuro)
+       ============================================================ */
     .dashboard-kpis {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -129,11 +145,12 @@
         box-shadow: var(--shadow-md);
     }
     
-    .dashboard-kpi-card.vendas { --gradient: linear-gradient(90deg, #3b82f6, #2563eb); }
-    .dashboard-kpi-card.recebido { --gradient: linear-gradient(90deg, #10b981, #059669); }
-    .dashboard-kpi-card.diferenca { --gradient: linear-gradient(90deg, #f59e0b, #d97706); }
-    .dashboard-kpi-card.pix { --gradient: linear-gradient(90deg, #8b5cf6, #7c3aed); }
-    .dashboard-kpi-card.alertas { --gradient: linear-gradient(90deg, #ef4444, #dc2626); }
+    /* ✅ Gradientes da paleta Facebook */
+    .dashboard-kpi-card.vendas { --gradient: linear-gradient(90deg, #3d5c95, #1d3469); }
+    .dashboard-kpi-card.recebido { --gradient: linear-gradient(90deg, #28a745, #1e7e34); }
+    .dashboard-kpi-card.diferenca { --gradient: linear-gradient(90deg, #ffc107, #d39e00); }
+    .dashboard-kpi-card.pix { --gradient: linear-gradient(90deg, #5e80bf, #3d5c95); }
+    .dashboard-kpi-card.alertas { --gradient: linear-gradient(90deg, #dc3545, #c82333); }
     
     .dashboard-kpi-icon {
         width: 40px; height: 40px;
@@ -148,7 +165,7 @@
     .dashboard-kpi-card.vendas .dashboard-kpi-icon { background: var(--primary-light); }
     .dashboard-kpi-card.recebido .dashboard-kpi-icon { background: var(--kpi-green-light); }
     .dashboard-kpi-card.diferenca .dashboard-kpi-icon { background: var(--kpi-yellow-light); }
-    .dashboard-kpi-card.pix .dashboard-kpi-icon { background: var(--kpi-blue-light); }
+    .dashboard-kpi-card.pix .dashboard-kpi-icon { background: #e8edf5; }
     .dashboard-kpi-card.alertas .dashboard-kpi-icon { background: var(--kpi-red-light); }
     
     .dashboard-kpi-label {
@@ -172,7 +189,9 @@
         color: var(--text-muted);
     }
     
-    /* FAIXA 3: GRÁFICOS */
+    /* ============================================================
+       FAIXA 3: GRÁFICOS
+       ============================================================ */
     .dashboard-charts {
         display: grid;
         grid-template-columns: 2fr 1fr;
@@ -184,7 +203,9 @@
         height: 280px;
     }
     
-    /* FAIXA 4: ADQUIRENTES */
+    /* ============================================================
+       FAIXA 4: ADQUIRENTES
+       ============================================================ */
     .dashboard-acq-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -216,7 +237,9 @@
         border-color: var(--primary);
     }
     
-    /* RESPONSIVO */
+    /* ============================================================
+       RESPONSIVO
+       ============================================================ */
     @media (max-width: 1024px) {
         .dashboard-charts { grid-template-columns: 1fr; }
     }
@@ -253,8 +276,13 @@
             </select>
         </div>
         <div class="filter-actions">
-            <button type="button" class="btn-filter" onclick="aplicarFiltros()">🔍 Filtrar</button>
-            <button type="button" class="btn-clear" onclick="limparFiltros()">🧹 Limpar</button>
+            <!-- ✅ Botões usando classes globais -->
+            <button type="button" class="nc-btn nc-btn-primary" onclick="aplicarFiltros()">
+                🔍 Filtrar
+            </button>
+            <button type="button" class="nc-btn nc-btn-outline" onclick="limparFiltros()">
+                🧹 Limpar
+            </button>
         </div>
     </div>
 
