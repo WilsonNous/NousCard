@@ -159,11 +159,11 @@ def register_blueprints(app: Flask):
         # ✅ 6️⃣ DEBUG/DIAGNÓSTICO (apenas master, para troubleshooting)
         {
             'blueprint': debug_bp,
-            'prefix': None,  # ✅ Prefix já está definido no blueprint (/debug)
+            'prefix': '/debug',  # ← Prefixo aqui
             'description': 'Rotas de debug e diagnóstico',
             'access': 'master_only',
-            'required': False,  # Opcional - pode ser removido em produção
-            'feature_flag': 'FEATURE_DEBUG_ENABLED'  # Controla via variável de ambiente
+            'required': False,
+            'feature_flag': 'FEATURE_DEBUG_ENABLED'
         },
     ]
     
