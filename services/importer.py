@@ -370,6 +370,8 @@ def process_file(file_storage, default_empresa_id=None):
 # 📦 PROCESSAR MÚLTIPLOS ARQUIVOS
 # ============================================================
 
+# services/importer.py - CORRIGIR process_uploaded_files para retornar mensagens claras
+
 def process_uploaded_files(files, empresa_id, usuario_id):
     logger.info(f"Início importação: usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
     
@@ -390,7 +392,6 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         nome = file_storage.filename.lower()
         
         try:
-            # ✅ PASSAR empresa_id para o parser (necessário para Flow CSV)
             resultado = process_file(file_storage, default_empresa_id=empresa_id)
             
             if not resultado["ok"]:
@@ -398,7 +399,6 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 resultados.append(resultado)
                 continue
             
-            # Verificar duplicata
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
                 resultados.append({
                     "ok": False,
@@ -407,7 +407,6 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 })
                 continue
             
-            # Salvar em transação
             db.session.begin_nested()
             
             arquivo_id = salvar_arquivo_importado(
@@ -419,22 +418,45 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 registros=resultado["registros"]
             )
             
+            # ✅ SALVAR E CAPTURAR ESTATÍSTICAS
+            stats = None
             if resultado["tipo"] == "venda":
-                salvar_vendas(resultado["registros"], empresa_id, arquivo_id)
+                stats = salvar_vendas(resultado["registros"], empresa_id, arquivo_id)
             elif resultado["tipo"] == "recebimento":
-                salvar_recebimentos(resultado["registros"], empresa_id, arquivo_id)
+                stats = salvar_recebimentos(resultado["registros"], empresa_id, arquivo_id)
             
             db.session.commit()
             
-            resultados.append({
+            # ✅ CONSTRUIR RESULTADO DETALHADO
+            resultado_final = {
                 "ok": True,
                 "arquivo": nome,
                 "tipo": resultado["tipo"],
                 "linhas": resultado["linhas"],
-                "hash": resultado["hash"]
-            })
+                "hash": resultado["hash"],
+                "estatisticas": stats
+            }
             
-            logger.info(f"✅ Arquivo importado: {nome}, tipo={resultado['tipo']}, linhas={resultado['linhas']}")
+            # ✅ ADICIONAR MENSAGENS IMPORTANTES
+            mensagens = []
+            if stats:
+                if stats.get("conta_criada"):
+                    mensagens.append("⚠️ Nenhuma conta bancária cadastrada. Uma conta padrão foi criada automaticamente.")
+                
+                if stats.get("falhas", 0) > 0:
+                    mensagens.append(f"⚠️ {stats['falhas']} registros não puderam ser importados.")
+                
+                if stats.get("sucesso", 0) == 0:
+                    resultado_final["ok"] = False
+                    resultado_final["erro"] = "Nenhum registro foi importado. Verifique o formato do arquivo."
+                    mensagens.append("❌ Nenhum registro foi importado.")
+                
+                if mensagens:
+                    resultado_final["mensagens"] = mensagens
+            
+            resultados.append(resultado_final)
+            
+            logger.info(f"✅ Arquivo importado: {nome}, tipo={resultado['tipo']}, linhas={resultado['linhas']}, stats={stats}")
             
         except SQLAlchemyError as e:
             db.session.rollback()
