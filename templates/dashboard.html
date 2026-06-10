@@ -2,92 +2,369 @@
 
 {% block title %}Dashboard - NousCard{% endblock %}
 
-{% block content %}
+{# ✅ AGORA FUNCIONA - o base tem {% block extra_head %} #}
+{% block extra_head %}
+<style>
+    /* ============================================================
+       DASHBOARD - Namespace próprio (evita conflitos)
+       ============================================================ */
+    
+    /* Container principal em faixas */
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    /* Cada faixa é uma seção independente */
+    .dashboard-section {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    /* Título de seção */
+    .dashboard-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0 0 1rem 0;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--gray-border);
+    }
+    
+    /* FAIXA 1: FILTROS */
+    .dashboard-filters {
+        background: linear-gradient(135deg, var(--primary) 0%, #764ba2 100%);
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--border-radius);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .dashboard-filters .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .dashboard-filters label {
+        color: white;
+        font-size: 0.875rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .dashboard-filters input,
+    .dashboard-filters select {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        background: rgba(255,255,255,0.95);
+        font-size: 0.875rem;
+        color: var(--text);
+    }
+    
+    .dashboard-filters .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .dashboard-filters .btn-filter {
+        background: white;
+        color: var(--primary);
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    
+    .dashboard-filters .btn-clear {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    
+    /* FAIXA 2: KPIs */
+    .dashboard-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    
+    .dashboard-kpi-card {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: var(--border-radius);
+        padding: 1.25rem;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.2s;
+    }
+    
+    .dashboard-kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: var(--gradient, var(--primary));
+    }
+    
+    .dashboard-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .dashboard-kpi-card.vendas { --gradient: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .dashboard-kpi-card.recebido { --gradient: linear-gradient(90deg, #10b981, #059669); }
+    .dashboard-kpi-card.diferenca { --gradient: linear-gradient(90deg, #f59e0b, #d97706); }
+    .dashboard-kpi-card.pix { --gradient: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+    .dashboard-kpi-card.alertas { --gradient: linear-gradient(90deg, #ef4444, #dc2626); }
+    
+    .dashboard-kpi-icon {
+        width: 40px; height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .dashboard-kpi-card.vendas .dashboard-kpi-icon { background: var(--primary-light); }
+    .dashboard-kpi-card.recebido .dashboard-kpi-icon { background: var(--kpi-green-light); }
+    .dashboard-kpi-card.diferenca .dashboard-kpi-icon { background: var(--kpi-yellow-light); }
+    .dashboard-kpi-card.pix .dashboard-kpi-icon { background: var(--kpi-blue-light); }
+    .dashboard-kpi-card.alertas .dashboard-kpi-icon { background: var(--kpi-red-light); }
+    
+    .dashboard-kpi-label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    
+    .dashboard-kpi-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.2;
+        margin: 0.25rem 0;
+    }
+    
+    .dashboard-kpi-subtitle {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+    
+    /* FAIXA 3: GRÁFICOS */
+    .dashboard-charts {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 1rem;
+    }
+    
+    .dashboard-chart-container {
+        position: relative;
+        height: 280px;
+    }
+    
+    /* FAIXA 4: ADQUIRENTES */
+    .dashboard-acq-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .dashboard-acq-card {
+        background: var(--gray-light);
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        padding: 1rem;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.2s;
+    }
+    
+    .dashboard-acq-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 3px; height: 100%;
+        background: var(--primary);
+        border-radius: 3px 0 0 3px;
+    }
+    
+    .dashboard-acq-card:hover {
+        transform: translateX(2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary);
+    }
+    
+    /* RESPONSIVO */
+    @media (max-width: 1024px) {
+        .dashboard-charts { grid-template-columns: 1fr; }
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-filters { flex-direction: column; align-items: stretch; }
+        .dashboard-filters .filter-group { width: 100%; }
+        .dashboard-kpis { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+        .dashboard-acq-grid { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
 
-<!-- BLOCO 1: FILTROS -->
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="color: white; font-weight: 600;">📅 Início</label>
-            <input type="date" id="filtroInicio" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3);" />
+{% block content %}
+<div class="dashboard-container">
+
+    <!-- FAIXA 1: FILTROS -->
+    <div class="dashboard-filters">
+        <div class="filter-group">
+            <label for="filtroInicio">📅 Início</label>
+            <input type="date" id="filtroInicio" />
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="color: white; font-weight: 600;">📅 Fim</label>
-            <input type="date" id="filtroFim" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3);" />
+        <div class="filter-group">
+            <label for="filtroFim">📅 Fim</label>
+            <input type="date" id="filtroFim" />
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="color: white; font-weight: 600;">💳 Tipo</label>
-            <select id="filtroTipoPagamento" style="padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3);">
+        <div class="filter-group">
+            <label for="filtroTipoPagamento">💳 Tipo</label>
+            <select id="filtroTipoPagamento">
                 <option value="todos">Todos</option>
                 <option value="cartao">Cartão</option>
                 <option value="pix">PIX</option>
+                <option value="boleto">Boleto</option>
             </select>
         </div>
-        <div style="display: flex; gap: 10px;">
-            <button onclick="aplicarFiltros()" style="background: white; color: #667eea; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer;">🔍 Filtrar</button>
-            <button onclick="limparFiltros()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer;">🧹 Limpar</button>
+        <div class="filter-actions">
+            <button type="button" class="btn-filter" onclick="aplicarFiltros()">🔍 Filtrar</button>
+            <button type="button" class="btn-clear" onclick="limparFiltros()">🧹 Limpar</button>
         </div>
     </div>
-    <div style="color: rgba(255,255,255,0.8); font-size: 12px; text-align: center; margin-top: 10px;">💡 Deixe em branco para ver todos os dados</div>
-</div>
 
-<!-- BLOCO 2: KPIs -->
-<div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; font-size: 18px; color: #1f2937;">📊 Indicadores Principais</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; border-top: 4px solid #3b82f6; cursor: pointer;" onclick="abrirModalDetalhe('vendas')">
-            <div style="font-size: 32px; margin-bottom: 10px;">🛍️</div>
-            <div style="font-size: 14px; color: #6b7280; font-weight: 500;">Total Vendas</div>
-            <div class="kpi-value-vendas" style="font-size: 28px; font-weight: 700; color: #1f2937; margin: 10px 0;">R$ 0,00</div>
-            <div style="font-size: 12px; color: #6b7280;">Acumulado no período</div>
-        </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; border-top: 4px solid #10b981; cursor: pointer;" onclick="abrirModalDetalhe('recebidos')">
-            <div style="font-size: 32px; margin-bottom: 10px;">💸</div>
-            <div style="font-size: 14px; color: #6b7280; font-weight: 500;">Total Recebido</div>
-            <div class="kpi-value-recebido" style="font-size: 28px; font-weight: 700; color: #1f2937; margin: 10px 0;">R$ 0,00</div>
-            <div style="font-size: 12px; color: #6b7280;">Conciliado no banco</div>
-        </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; border-top: 4px solid #f59e0b; cursor: pointer;" onclick="abrirModalDetalhe('diferencas')">
-            <div style="font-size: 32px; margin-bottom: 10px;">⚠️</div>
-            <div style="font-size: 14px; color: #6b7280; font-weight: 500;">Diferença</div>
-            <div class="kpi-value-diferenca" style="font-size: 28px; font-weight: 700; color: #1f2937; margin: 10px 0;">R$ 0,00</div>
-            <div style="font-size: 12px; color: #6b7280;">Pendências</div>
-        </div>
-    </div>
-</div>
-
-<!-- BLOCO 3: GRÁFICOS -->
-<div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; font-size: 18px; color: #1f2937;">📈 Gráficos</h3>
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
-        <div>
-            <h4 style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">Vendas x Recebimentos</h4>
-            <div style="height: 300px;">
-                <canvas id="graficoVendasRecebidos"></canvas>
+    <!-- FAIXA 2: KPIs -->
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">📊 Indicadores Principais</h3>
+        <div class="dashboard-kpis">
+            <div class="dashboard-kpi-card vendas" onclick="abrirModalDetalhe('vendas')">
+                <div class="dashboard-kpi-icon">🛍️</div>
+                <div class="dashboard-kpi-label">Total Vendas</div>
+                <div class="dashboard-kpi-value kpi-value-vendas">R$ 0,00</div>
+                <div class="dashboard-kpi-subtitle">Acumulado no período</div>
             </div>
-        </div>
-        <div>
-            <h4 style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">Bandeiras</h4>
-            <div style="height: 300px;">
-                <canvas id="graficoBandeiras"></canvas>
+            
+            <div class="dashboard-kpi-card recebido" onclick="abrirModalDetalhe('recebidos')">
+                <div class="dashboard-kpi-icon">💸</div>
+                <div class="dashboard-kpi-label">Total Recebido</div>
+                <div class="dashboard-kpi-value kpi-value-recebido">R$ 0,00</div>
+                <div class="dashboard-kpi-subtitle">Conciliado no banco</div>
+            </div>
+            
+            <div class="dashboard-kpi-card diferenca" onclick="abrirModalDetalhe('diferencas')">
+                <div class="dashboard-kpi-icon">⚠️</div>
+                <div class="dashboard-kpi-label">Diferença</div>
+                <div class="dashboard-kpi-value kpi-value-diferenca">R$ 0,00</div>
+                <div class="dashboard-kpi-subtitle">Pendências</div>
+            </div>
+            
+            <div class="dashboard-kpi-card pix">
+                <div class="dashboard-kpi-icon">🔷</div>
+                <div class="dashboard-kpi-label">Total PIX</div>
+                <div class="dashboard-kpi-value kpi-value-pix">R$ 0,00</div>
+                <div class="dashboard-kpi-subtitle">Pagamentos instantâneos</div>
+            </div>
+            
+            <div class="dashboard-kpi-card alertas">
+                <div class="dashboard-kpi-icon">🔔</div>
+                <div class="dashboard-kpi-label">Alertas</div>
+                <div class="dashboard-kpi-value kpi-value-alertas">0</div>
+                <div class="dashboard-kpi-subtitle">Requerem atenção</div>
             </div>
         </div>
     </div>
+
+    <!-- FAIXA 3: GRÁFICOS -->
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">📈 Análise Gráfica</h3>
+        <div class="dashboard-charts">
+            <div>
+                <h4 style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 0.75rem 0;">
+                    Vendas x Recebimentos
+                </h4>
+                <div class="dashboard-chart-container">
+                    <canvas id="graficoVendasRecebidos"></canvas>
+                </div>
+            </div>
+            <div>
+                <h4 style="font-size: 0.9rem; color: var(--text-muted); margin: 0 0 0.75rem 0;">
+                    Distribuição por Bandeira
+                </h4>
+                <div class="dashboard-chart-container">
+                    <canvas id="graficoBandeiras"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAIXA 4: ADQUIRENTES -->
+    <div class="dashboard-section">
+        <h3 class="dashboard-section-title">💳 Adquirentes</h3>
+        <div id="acqContainer" class="dashboard-acq-grid">
+            <p style="color: var(--text-muted); text-align: center; padding: 1.5rem; grid-column: 1 / -1;">
+                Nenhuma adquirente encontrada
+            </p>
+        </div>
+    </div>
+
 </div>
 
-<!-- BLOCO 4: ADQUIRENTES -->
-<div style="background: white; border: 2px solid #e5e7eb; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <h3 style="margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; font-size: 18px; color: #1f2937;">💳 Adquirentes</h3>
-    <div id="acqContainer">
-        <p style="color: #6b7280; text-align: center; padding: 30px;">Nenhuma adquirente encontrada</p>
+<!-- MODAL -->
+<div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true">
+    <div class="nc-modal-backdrop" onclick="fecharModal()"></div>
+    <div class="nc-modal-content" style="max-width: 900px;">
+        <div class="nc-modal-header">
+            <h3 id="modalTitulo" style="font-size: 1.25rem; font-weight: 700;"></h3>
+            <button type="button" class="nc-modal-close" onclick="fecharModal()">✕</button>
+        </div>
+        <div class="nc-modal-body" style="max-height: 70vh; overflow-y: auto;">
+            <div id="modal-empty" style="display:none; text-align: center; padding: 3rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+                <p>Nenhum dado para exibir</p>
+            </div>
+            <div class="table-container" id="modal-table-container" style="display:none;">
+                <table id="modalTabela" class="nc-table" style="width: 100%;"></table>
+            </div>
+        </div>
+        <div class="nc-modal-footer">
+            <button type="button" class="nc-btn nc-btn-secondary" onclick="fecharModal()">Fechar</button>
+        </div>
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}?v={{ range(100000, 999999) | random }}" defer></script>
 
 <script>
-Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 Chart.defaults.color = '#4b5563';
 
 function getCsrfTokenFallback() {
@@ -136,13 +413,16 @@ document.addEventListener("DOMContentLoaded", function() {
         if (filtroInicio) filtroInicio.value = '';
         if (filtroFim) filtroFim.value = '';
         if (filtroTipo) filtroTipo.value = 'todos';
-        
-        if (typeof window.carregarKPIs === 'function') {
-            window.carregarKPIs();
-        }
+        if (typeof window.carregarKPIs === 'function') window.carregarKPIs();
     };
 
     window.carregarKPIsComFiltros = async function(queryString = '') {
+        let retries = 0;
+        while ((typeof window.atualizarKPIs !== 'function') && retries < 10) {
+            await new Promise(r => setTimeout(r, 50));
+            retries++;
+        }
+        
         const url = `/api/v1/dashboard/kpis${queryString ? '?' + queryString : ''}`;
         
         try {
@@ -156,8 +436,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             
             const data = await res.json();
-            
-            if (!data.ok) throw new Error(data.error || 'Erro');
+            if (!data.ok) throw new Error(data.error || 'Erro ao carregar dados');
             
             if (typeof window.atualizarKPIs === 'function') {
                 window.atualizarKPIs(data.kpis, {
@@ -172,20 +451,42 @@ document.addEventListener("DOMContentLoaded", function() {
             if (typeof window.atualizarAcquirers === 'function') {
                 window.atualizarAcquirers(data.kpis.adquirentes || [], document.getElementById("acqContainer"));
             }
-            
         } catch (err) {
-            console.error('Erro:', err);
+            console.error('Erro ao carregar dashboard:', err);
         }
     };
     
-    if (typeof window.carregarKPIs === 'function') {
-        window.carregarKPIs();
-    }
+    if (typeof window.carregarKPIs === 'function') window.carregarKPIs();
 });
 
 window.abrirModalDetalhe = function(tipo) {
-    alert('Detalhamento: ' + tipo);
+    const modal = document.getElementById('modalDetalhe');
+    const titulo = document.getElementById('modalTitulo');
+    const tabela = document.getElementById('modalTabela');
+    const container = document.getElementById('modal-table-container');
+    const empty = document.getElementById('modal-empty');
+    
+    const titulos = {
+        'vendas': '🛍️ Detalhamento de Vendas',
+        'recebidos': '💸 Detalhamento de Recebimentos',
+        'diferencas': '⚠️ Diferenças Pendentes'
+    };
+    
+    titulo.textContent = titulos[tipo] || 'Detalhamento';
+    container.style.display = 'none';
+    empty.style.display = 'block';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 };
-</script>
 
+window.fecharModal = function() {
+    const modal = document.getElementById('modalDetalhe');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+};
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') fecharModal();
+});
+</script>
 {% endblock %}
