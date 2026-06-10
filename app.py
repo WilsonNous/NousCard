@@ -141,6 +141,10 @@ def create_app(config_class=Config):
         app.logger.warning(f"⚠️ Custom filters not loaded: {str(e)}")
     except Exception as e:
         app.logger.error(f"❌ Error registering filters: {str(e)}")
+   
+    # No app.py, após registrar os outros blueprints:
+    from routes.usuarios_routes import usuarios_bp
+    app.register_blueprint(usuarios_bp)
 
     # ---------------------------------------------------------
     # CONTEXT PROCESSORS (VARIÁVEIS GLOBAIS PARA TEMPLATES)
