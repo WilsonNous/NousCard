@@ -15,7 +15,7 @@ class Empresa(db.Model, TimestampMixin, SoftDeleteMixin):
     documento = db.Column(db.String(20), nullable=True)      # CNPJ (dado público)
     email = db.Column(db.String(120), nullable=True)          # Email (dado público)
     telefone = db.Column(db.String(30), nullable=True)        # Telefone
-    logo_url = db.Column(db.String(500), nullable=True)       # Logo da empresa
+    logo_base64 = db.Column(db.Text, nullable=True)           # ✅ Logo em Base64 (persiste no banco)
     
     # Soft-delete estendido
     excluido_em = db.Column(db.DateTime, nullable=True)
