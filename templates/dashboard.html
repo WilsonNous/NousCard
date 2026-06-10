@@ -5,98 +5,6 @@
 {% block extra_head %}
 <style>
     /* ============================================================
-       HEADER DO DASHBOARD - EMPRESA + USUÁRIO + LOGO
-       ============================================================ */
-    .dashboard-header {
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
-        margin-bottom: 1.5rem;
-        padding: 1.25rem 1.5rem;
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        flex-wrap: wrap;
-    }
-    .dashboard-header .empresa-logo {
-        width: 56px;
-        height: 56px;
-        border-radius: 12px;
-        background: #f0f2f5;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.75rem;
-        flex-shrink: 0;
-        overflow: hidden;
-        border: 2px solid #e4e6eb;
-    }
-    .dashboard-header .empresa-logo img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        padding: 4px;
-    }
-    .dashboard-header .info {
-        flex: 1;
-        min-width: 180px;
-    }
-    .dashboard-header .empresa-nome {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #1c1e21;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
-    .dashboard-header .empresa-nome .badge-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 0.2rem 0.6rem;
-        border-radius: 50px;
-    }
-    .badge-status.ativo {
-        background: #e6f4ea;
-        color: #137333;
-    }
-    .badge-status.inativo {
-        background: #fce8e6;
-        color: #c5221f;
-    }
-    .dashboard-header .usuario-info {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-top: 0.35rem;
-        font-size: 0.85rem;
-        color: #65676b;
-    }
-    .dashboard-header .usuario-avatar {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: #1877f2;
-        color: #fff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-    }
-    .dashboard-header .meta-info {
-        display: flex;
-        gap: 1rem;
-        font-size: 0.78rem;
-        color: #8a8d91;
-        margin-top: 0.2rem;
-    }
-    
-    /* ============================================================
        BARRA DE FILTROS
        ============================================================ */
     .filters-bar {
@@ -191,9 +99,7 @@
     .kpi-card .kpi-icon.purple { background: #f3e8ff; }
     .kpi-card .kpi-icon.red { background: #fce8e6; }
     
-    .kpi-card .kpi-info {
-        flex: 1;
-    }
+    .kpi-card .kpi-info { flex: 1; }
     .kpi-card .kpi-label {
         font-size: 0.75rem;
         font-weight: 600;
@@ -234,9 +140,6 @@
         margin-bottom: 0.75rem;
     }
     
-    /* ============================================================
-       GRÁFICOS
-       ============================================================ */
     .chart-container {
         width: 100%;
         max-height: 320px;
@@ -246,9 +149,6 @@
         max-height: 320px;
     }
     
-    /* ============================================================
-       GRID DE ADQUIRENTES
-       ============================================================ */
     .acq-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -267,80 +167,18 @@
         border-color: #1877f2;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .acq-card .acq-nome {
-        font-weight: 600;
-        font-size: 0.9rem;
-        color: #1c1e21;
-    }
-    .acq-card .acq-valor {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #1877f2;
-        margin-top: 0.25rem;
-    }
+    .acq-card .acq-nome { font-weight: 600; font-size: 0.9rem; color: #1c1e21; }
+    .acq-card .acq-valor { font-size: 1.1rem; font-weight: 700; color: #1877f2; margin-top: 0.25rem; }
     
-    /* ============================================================
-       RESPONSIVO
-       ============================================================ */
     @media (max-width: 640px) {
-        .dashboard-header {
-            flex-direction: column;
-            text-align: center;
-        }
-        .kpi-grid {
-            flex-direction: column;
-        }
-        .kpi-card {
-            min-width: 100%;
-        }
-        .filters-bar {
-            flex-direction: column;
-        }
+        .kpi-grid { flex-direction: column; }
+        .kpi-card { min-width: 100%; }
+        .filters-bar { flex-direction: column; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-
-<!-- ===================== HEADER: EMPRESA + LOGO + USUÁRIO ===================== -->
-<div class="dashboard-header">
-    <!-- Logo da empresa -->
-    <div class="empresa-logo">
-        {% if g.user and g.user.empresa_id %}
-            {% set empresa = g.user.empresa %}
-            {% if empresa and empresa.logo_url %}
-                <img src="{{ empresa.logo_url }}" alt="Logo {{ empresa.nome | e }}">
-            {% else %}
-                🏢
-            {% endif %}
-        {% else %}
-            🏢
-        {% endif %}
-    </div>
-    
-    <!-- Informações -->
-    <div class="info">
-        <div class="empresa-nome">
-            {% if g.user and g.user.empresa_id and g.user.empresa %}
-                {{ g.user.empresa.nome | e }}
-                <span class="badge-status {% if g.user.empresa.ativo %}ativo{% else %}inativo{% endif %}">
-                    {{ '✅ Ativa' if g.user.empresa.ativo else '⏸️ Inativa' }}
-                </span>
-            {% else %}
-                <span style="color:#8a8d91;">Nenhuma empresa vinculada</span>
-            {% endif %}
-        </div>
-        <div class="usuario-info">
-            <span class="usuario-avatar">{{ g.user.nome[:1] | upper if g.user and g.user.nome else '?' }}</span>
-            <span>{{ g.user.nome | e if g.user and g.user.nome else 'Usuário' }}</span>
-            <span style="color:#8a8d91;">•</span>
-            <span style="font-weight:600;color:#1877f2;">{{ g.user.perfil | e if g.user and g.user.perfil else 'ADMIN' }}</span>
-        </div>
-        <div class="meta-info">
-            <span>📅 Último acesso: {{ g.user.ultimo_acesso.strftime('%d/%m/%Y %H:%M') if g.user and g.user.ultimo_acesso else '—' }}</span>
-        </div>
-    </div>
-</div>
 
 <!-- ===================== FILTROS ===================== -->
 <div class="filters-bar">
@@ -435,7 +273,7 @@
     </div>
 </div>
 
-<!-- ===================== MODAL DE DETALHAMENTO ===================== -->
+<!-- ===================== MODAL ===================== -->
 <div id="modalDetalhe" class="nc-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="nc-modal-backdrop" tabindex="-1"></div>
     <div class="nc-modal-content">
@@ -447,7 +285,7 @@
             <div class="table-container">
                 <table id="modalTabela" class="nc-table" role="table" aria-label="Tabela de detalhamento"></table>
             </div>
-            <div id="modal-empty" class="nc-empty-state" style="display:none;" role="status">Nenhum dado para exibir.</div>
+            <div id="modal-empty" style="display:none;" role="status">Nenhum dado para exibir.</div>
         </div>
         <div class="nc-modal-footer">
             <button type="button" class="nc-btn-secondary" onclick="fecharModal()">Fechar</button>
@@ -455,7 +293,6 @@
     </div>
 </div>
 
-<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0" crossorigin="anonymous"></script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 
@@ -463,8 +300,7 @@
 function getCsrfTokenFallback() {
     return window.getCsrfToken?.() || 
            document.querySelector('meta[name="csrf-token"]')?.content || 
-           document.querySelector('input[name="csrf_token"]')?.value || 
-           '';
+           document.querySelector('input[name="csrf_token"]')?.value || '';
 }
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -480,14 +316,12 @@ document.addEventListener("DOMContentLoaded", function() {
         const inicio = filtroInicio?.value;
         const fim = filtroFim?.value;
         const tipo = filtroTipo?.value || 'todos';
-        
         const params = new URLSearchParams();
         if (inicio && fim) { params.append('periodo', 'personalizado'); params.append('data_inicio', inicio); params.append('data_fim', fim); }
         else if (inicio) { params.append('periodo', 'personalizado'); params.append('data_inicio', inicio); }
         else if (fim) { params.append('periodo', 'personalizado'); params.append('data_fim', fim); }
         else { params.append('periodo', 'todos'); }
         if (tipo && tipo !== 'todos') params.append('tipo_pagamento', tipo);
-        
         carregarKPIsComFiltros(params.toString());
     };
 
@@ -505,18 +339,12 @@ document.addEventListener("DOMContentLoaded", function() {
             await new Promise(r => setTimeout(r, 50));
             retries++;
         }
-        
         const url = `/api/v1/dashboard/kpis${queryString ? '?' + queryString : ''}`;
-        
         try {
-            const res = await fetch(url, {
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfTokenFallback() }
-            });
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfTokenFallback() } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            
             const data = await res.json();
             if (!data.ok) throw new Error(data.error || 'Erro');
-            
             if (typeof window.atualizarKPIs === 'function') {
                 window.atualizarKPIs(data.kpis, {
                     kpiVendas: document.querySelector(".kpi-value-vendas"),
@@ -529,7 +357,6 @@ document.addEventListener("DOMContentLoaded", function() {
             if (typeof window.atualizarAcquirers === 'function') {
                 window.atualizarAcquirers(data.kpis.adquirentes || {}, document.getElementById("acqContainer"));
             }
-            
             document.getElementById("dashboard-error").style.display = 'none';
         } catch (err) {
             document.getElementById("dashboard-error").textContent = '⚠️ Erro ao carregar dados.';
