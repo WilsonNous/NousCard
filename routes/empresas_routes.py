@@ -85,7 +85,7 @@ def log_acao_empresa(acao: str, empresa, detalhes_extra: str = ""):
 # SERIALIZAÇÃO TOLERANTE
 # ============================================================
 def empresa_para_dict(empresa):
-    """Converte objeto Empresa para dict serializável em JSON (tolerante a campos ausentes)"""
+    """Converte objeto Empresa para dict serializável em JSON"""
     def safe_iso(attr_name):
         val = getattr(empresa, attr_name, None)
         return val.isoformat() if val else None
@@ -110,37 +110,30 @@ def get_logo_url(empresa):
     return None
 
 # ============================================================
-# CALCULAR ESTATÍSTICAS (TOLERANTE A CAMPOS DIFERENTES)
+# CALCULAR ESTATÍSTICAS
 # ============================================================
 def calcular_stats_empresa(empresa):
-    """
-    Calcula estatísticas da empresa para exibição no template.
-    Totalmente tolerante a modelos com estruturas diferentes.
-    """
+    """Calcula estatísticas da empresa para exibição no template"""
     stats = {
         "total_usuarios": 0,
         "total_vendas": 0,
         "total_valor_vendas": 0
     }
     
-    # Contagem de usuários
     try:
         stats["total_usuarios"] = Usuario.query.filter_by(empresa_id=empresa.id).count()
     except Exception as e:
         logger.warning(f"Não foi possível contar usuários da empresa {empresa.id}: {e}")
     
-    # Estatísticas de vendas (se o modelo existir)
     try:
         from models import MovAdquirente
         
         stats["total_vendas"] = MovAdquirente.query.filter_by(empresa_id=empresa.id).count()
         
-        # Tenta descobrir o campo de valor correto
         valor_campo = None
         for campo_possivel in ['valor', 'valor_bruto', 'valor_liquido', 'valor_total', 'amount', 'valor_venda']:
             if hasattr(MovAdquirente, campo_possivel):
                 valor_campo = getattr(MovAdquirente, campo_possivel)
-                logger.debug(f"Usando campo '{campo_possivel}' para soma de vendas")
                 break
         
         if valor_campo:
@@ -149,13 +142,10 @@ def calcular_stats_empresa(empresa):
                 .filter_by(empresa_id=empresa.id)
                 .scalar() or 0
             )
-        else:
-            logger.warning(f"Modelo MovAdquirente não possui campo de valor reconhecido")
-            
     except ImportError:
-        logger.debug("Modelo MovAdquirente não disponível para estatísticas")
+        logger.debug("Modelo MovAdquirente não disponível")
     except Exception as e:
-        logger.warning(f"Erro ao calcular estatísticas de vendas da empresa {empresa.id}: {e}")
+        logger.warning(f"Erro ao calcular estatísticas: {e}")
     
     return stats
 
@@ -257,37 +247,37 @@ def nova_empresa():
             flash(erros['documento'], "error")
             return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
         if Empresa.query.filter_by(documento=documento).first():
-            erros['documento'] = "Documento já cadastrado em outra empresa"
+            erros['documento'] = "Documento já cadastrado"
             flash(erros['documento'], "error")
             return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
     
     try:
         empresa = Empresa(
             nome=nome,
-            documento=documento,
+            documento=documento or None,
             ativo=True,
             criado_em=datetime.now(timezone.utc)
         )
         db.session.add(empresa)
         log_acao_empresa("master_criou_empresa", empresa)
         db.session.commit()
-        flash("Empresa criada com sucesso", "success")
+        flash("Empresa criada com sucesso!", "success")
         logger.info(f"✅ Master criou empresa: {nome} (id={empresa.id})")
         return redirect(url_for("empresas.listar_empresas"))
     except IntegrityError as e:
         db.session.rollback()
-        logger.error(f"⚠️ Erro de integridade ao criar empresa: {str(e)}")
+        logger.error(f"⚠️ Erro de integridade: {str(e)}")
         erros['documento'] = "Erro: documento já existe"
         flash(erros['documento'], "error")
         return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
     except SQLAlchemyError as e:
         db.session.rollback()
-        logger.error(f"❌ Erro de banco ao criar empresa: {str(e)}")
+        logger.error(f"❌ Erro de banco: {str(e)}")
         flash("Erro interno. Tente novamente.", "error")
         return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
 
 # ============================================================
-# EDITAR EMPRESA
+# EDITAR EMPRESA (COM PERSISTÊNCIA GARANTIDA)
 # ============================================================
 @empresas_bp.route("/<int:empresa_id>/editar", methods=["GET", "POST"])
 @master_required
@@ -297,33 +287,44 @@ def editar_empresa(empresa_id):
         return redirect(url_for("empresas.listar_empresas"))
     
     empresa = Empresa.query.get_or_404(empresa_id)
+    stats = calcular_stats_empresa(empresa)
+    logo_url = get_logo_url(empresa)
     
+    # ============================================================
+    # MÉTODO GET
+    # ============================================================
     if request.method == "GET":
         return render_template(
             "empresas_form.html", 
             empresa=empresa,
             erros={},
-            stats=calcular_stats_empresa(empresa),
-            logo_url=get_logo_url(empresa)
+            stats=stats,
+            logo_url=logo_url
         )
     
+    # ============================================================
+    # MÉTODO POST (SALVAR)
+    # ============================================================
     if not validar_csrf_token():
         flash("Erro de segurança. Recarregue a página.", "error")
         return redirect(url_for("empresas.editar_empresa", empresa_id=empresa_id))
     
+    # Coletar dados do formulário
     nome = (request.form.get("nome") or "").strip()
     documento = (request.form.get("documento") or "").strip().replace('.', '').replace('-', '').replace('/', '')
-    ativa = request.form.get("ativa") == "on"
+    
+    # ✅ CORRIGIDO: Checkbox envia value="1" quando marcado
+    ativa = request.form.get("ativa") == "1"
     
     erros = {}
-    stats = calcular_stats_empresa(empresa)
-    logo_url = get_logo_url(empresa)
     
+    # Validar nome
     if not nome or len(nome) > 150:
         erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
         flash(erros['nome'], "error")
         return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
     
+    # Validar documento (CNPJ)
     if documento:
         if len(documento) > 14:
             erros['documento'] = "Documento muito longo"
@@ -342,21 +343,9 @@ def editar_empresa(empresa_id):
             flash(erros['documento'], "error")
             return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
     
-    if not ativa and empresa.ativo:
-        confirmar_desativacao = request.form.get("confirmar_desativacao")
-        if confirmar_desativacao != "sim":
-            usuarios_ativos = Usuario.query.filter_by(empresa_id=empresa_id, ativo=True).count()
-            flash(f"⚠️ Para desativar, marque 'Confirmar desativação'. {usuarios_ativos} usuários serão afetados.", "warning")
-            return render_template(
-                "empresas_form.html", 
-                empresa=empresa, 
-                erros=erros, 
-                stats=stats,
-                logo_url=logo_url,
-                requer_confirmacao=True
-            )
-    
+    # ✅ SALVAR SEMPRE - sem bloqueio de confirmação
     try:
+        status_anterior = empresa.ativo
         empresa.nome = nome
         empresa.documento = documento or None
         empresa.ativo = ativa
@@ -364,19 +353,35 @@ def editar_empresa(empresa_id):
         if hasattr(empresa, 'atualizado_em'):
             empresa.atualizado_em = datetime.now(timezone.utc)
         
-        log_acao_empresa("master_editou_empresa", empresa, f"Ativa: {ativa}")
+        # Log diferenciado
+        if not ativa and status_anterior:
+            log_acao_empresa("master_desativou_empresa", empresa, f"Status: ativa→inativa")
+        elif ativa and not status_anterior:
+            log_acao_empresa("master_reativou_empresa", empresa, f"Status: inativa→ativa")
+        else:
+            log_acao_empresa("master_editou_empresa", empresa, f"Status: {'ativa' if ativa else 'inativa'}")
+        
         db.session.commit()
-        flash("Empresa atualizada com sucesso", "success")
-        logger.info(f"✅ Master editou empresa: {empresa_id}")
+        
+        # Flash message adequado
+        if not ativa and status_anterior:
+            flash("Empresa desativada. Usuários vinculados perderão o acesso.", "warning")
+        elif ativa and not status_anterior:
+            flash("Empresa reativada com sucesso!", "success")
+        else:
+            flash("Empresa atualizada com sucesso!", "success")
+        
+        logger.info(f"✅ Empresa {empresa_id} editada: nome='{nome}', ativa={ativa}")
         return redirect(url_for("empresas.listar_empresas"))
+        
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"❌ Erro ao editar empresa {empresa_id}: {str(e)}")
-        flash("Erro ao atualizar empresa", "error")
+        flash("Erro ao atualizar empresa. Tente novamente.", "error")
         return render_template("empresas_form.html", empresa=empresa, erros=erros, stats=stats, logo_url=logo_url)
 
 # ============================================================
-# EXCLUIR EMPRESA
+# EXCLUIR EMPRESA (SOFT DELETE)
 # ============================================================
 @empresas_bp.route("/<int:empresa_id>/excluir", methods=["POST"])
 @master_required
@@ -392,7 +397,7 @@ def excluir_empresa(empresa_id):
     empresa = Empresa.query.get_or_404(empresa_id)
     confirmar = request.form.get("confirmar_exclusao")
     if confirmar != "sim":
-        flash("Para excluir, confirme digitando 'sim' no campo de confirmação", "warning")
+        flash("Para excluir, confirme a ação.", "warning")
         return redirect(url_for("empresas.editar_empresa", empresa_id=empresa_id))
     
     try:
@@ -405,12 +410,12 @@ def excluir_empresa(empresa_id):
         
         log_acao_empresa("master_excluiu_empresa", empresa, "Soft delete")
         db.session.commit()
-        flash("Empresa excluída com sucesso", "success")
+        flash("Empresa excluída com sucesso.", "success")
         logger.info(f"✅ Master excluiu empresa: {empresa_id}")
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"❌ Erro ao excluir empresa {empresa_id}: {str(e)}")
-        flash("Erro ao excluir empresa", "error")
+        flash("Erro ao excluir empresa.", "error")
     
     return redirect(url_for("empresas.listar_empresas"))
 
@@ -430,7 +435,6 @@ def empresa_detalhe(empresa_id):
         .order_by(LogAuditoria.criado_em.desc())\
         .limit(10).all()
     
-    # ✅ Passar logo_url com segurança do backend
     logo_url = get_logo_url(empresa)
     
     return render_template(
@@ -486,13 +490,13 @@ def api_consultar_cnpj():
             return jsonify({"ok": False, "message": "CNPJ não encontrado ou serviço indisponível"}), 404
     except requests.RequestException as e:
         logger.error(f"❌ Erro ao consultar BrasilAPI: {str(e)}")
-        return jsonify({"ok": False, "message": "Erro de conexão ao consultar CNPJ"}), 500
+        return jsonify({"ok": False, "message": "Erro de conexão"}), 500
     except Exception as e:
-        logger.error(f"❌ Erro inesperado ao consultar CNPJ: {str(e)}")
-        return jsonify({"ok": False, "message": "Erro interno ao consultar CNPJ"}), 500
+        logger.error(f"❌ Erro inesperado: {str(e)}")
+        return jsonify({"ok": False, "message": "Erro interno"}), 500
 
 # ============================================================
-# API: UPLOAD DE LOGO (TOLERANTE A CAMPO AUSENTE)
+# API: UPLOAD DE LOGO
 # ============================================================
 @empresas_bp.route("/api/upload-logo", methods=["POST"])
 @master_required
@@ -529,7 +533,7 @@ def api_upload_logo():
     if not hasattr(empresa, 'logo_url'):
         return jsonify({
             "ok": False, 
-            "message": "Funcionalidade de logo não disponível. Execute a migração do banco de dados."
+            "message": "Funcionalidade de logo não disponível."
         }), 501
     
     try:
@@ -549,7 +553,7 @@ def api_upload_logo():
         db.session.commit()
         
         logger.info(f"✅ Logo salva para empresa {empresa_id}: {filename}")
-        return jsonify({"ok": True, "logo_url": logo_url, "message": "Logo atualizada com sucesso"})
+        return jsonify({"ok": True, "logo_url": logo_url, "message": "Logo atualizada com sucesso!"})
     except Exception as e:
         db.session.rollback()
         logger.error(f"❌ Erro ao salvar logo: {str(e)}", exc_info=True)
