@@ -1,6 +1,6 @@
-# routes/dashboard_routes.py - VERSÃO APRIMORADA COM SEGURANÇA REFORÇADA
+# routes/dashboard_routes.py - VERSÃO FINAL CORRIGIDA
 
-from flask import Blueprint, render_template, g, request, make_response, redirect, url_for, current_app, abort
+from flask import Blueprint, render_template, g, request, make_response, redirect, url_for, current_app, abort, session
 from utils.auth_middleware import login_required, empresa_required
 from datetime import datetime, timezone
 from sqlalchemy import func
@@ -14,8 +14,8 @@ dashboard_bp = Blueprint("dashboard", __name__)
 # ============================================================
 # CONFIGURAÇÕES DE SEGURANÇA
 # ============================================================
-RATE_LIMIT_WINDOW = 60  # segundos
-RATE_LIMIT_MAX_REQUESTS = 60  # por minuto para dashboard (mais flexível que API)
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX_REQUESTS = 60
 _dashboard_rate_limit_cache = {}
 
 def check_dashboard_rate_limit(user_id: str) -> bool:
@@ -23,7 +23,6 @@ def check_dashboard_rate_limit(user_id: str) -> bool:
     now = time.time()
     key = f"dashboard:{user_id}"
     
-    # Limpar entradas antigas
     _dashboard_rate_limit_cache[key] = [
         t for t in _dashboard_rate_limit_cache.get(key, [])
         if now - t < RATE_LIMIT_WINDOW
@@ -51,17 +50,16 @@ def dashboard():
     usuario = g.user
     empresa_id = getattr(usuario, 'empresa_id', None)
     
-    # ✅ Rate limiting (apenas log warning, não bloquear para não prejudicar UX)
+    # Rate limiting
     if not check_dashboard_rate_limit(str(usuario.id)):
         logger.warning(f"Rate limit aproximado: usuario={usuario.id}")
-        # Não bloquear, apenas logar - dashboard é crítico para UX
     
-    # ✅ Verificação robusta de empresa_id
+    # Verificação robusta de empresa_id
     if not empresa_id:
         logger.error(f"❌ Usuário {usuario.id} não tem empresa_id vinculado")
         return redirect(url_for('operacoes.importar_page'))
     
-    # ✅ Verificar se empresa está ativa (segurança adicional)
+    # Verificar se empresa está ativa
     try:
         from models import Empresa
         empresa = Empresa.query.filter_by(id=empresa_id, ativo=True).first()
@@ -73,7 +71,7 @@ def dashboard():
         logger.error(f"❌ Erro ao verificar empresa: {str(e)}")
         return redirect(url_for('auth.logout'))
     
-    # ✅ Log de auditoria (não crítico - isolado em try/except)
+    # Log de auditoria
     try:
         from models import LogAuditoria, db
         log = LogAuditoria(
@@ -87,15 +85,12 @@ def dashboard():
         db.session.add(log)
         db.session.commit()
     except Exception as e:
-        # Não falhar o dashboard por erro de log
         logger.debug(f"⚠️ Erro ao logar acesso ao dashboard (não crítico): {str(e)}")
     
-    # ✅ ✅ ✅ CORREÇÃO: Onboarding com queries separadas (SEM cartesian product)
+    # Onboarding com queries separadas
     try:
         from models import MovAdquirente, ArquivoImportado
         
-        # ✅ DUAS QUERIES SEPARADAS - cada uma conta em sua própria tabela
-        # ✅ .limit(1) otimiza: para de buscar no primeiro registro encontrado
         tem_vendas = MovAdquirente.query.filter_by(
             empresa_id=empresa_id
         ).limit(1).count() > 0
@@ -106,13 +101,11 @@ def dashboard():
         
         logger.debug(f"🔍 Onboarding: empresa={empresa_id}, tem_vendas={tem_vendas}, tem_arquivos={tem_arquivos}")
         
-        # Só redireciona se NÃO tiver NENHUM dos dois
         if not tem_vendas and not tem_arquivos:
             logger.info(f"🔄 Onboarding: empresa {empresa_id} sem dados, redirecionando para importar")
             return redirect(url_for('operacoes.importar_page'))
             
     except Exception as e:
-        # Em caso de erro, NÃO redireciona - deixa o usuário ver o dashboard
         logger.debug(f"⚠️ Não foi possível verificar dados para onboarding: {str(e)}")
     
     # ✅ Preparar contexto completo para o template
@@ -125,13 +118,12 @@ def dashboard():
         "current_year": datetime.now().year,
         "current_month": datetime.now().month,
         "page_title": "Dashboard - NousCard",
-        # ✅ CSRF token para formulários no template
-        "csrf_token": request.cookies.get('csrf_token') or getattr(g, 'csrf_token', ''),
-        # ✅ Tipos de pagamento disponíveis para filtros no frontend
+        # ✅ SEGURO: CSRF token apenas de session/g (não de cookie)
+        "csrf_token": getattr(g, 'csrf_token', '') or session.get('csrf_token', ''),
         "tipos_pagamento_disponiveis": ["todos", "cartao", "pix", "boleto", "outros"],
     }
     
-    # ✅ Renderizar com cache control e tratamento de erro
+    # Renderizar com cache control
     try:
         html = render_template("dashboard.html", **contexto)
         response = make_response(html)
@@ -141,7 +133,7 @@ def dashboard():
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         
-        # ✅ Security headers adicionais
+        # Security headers
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
