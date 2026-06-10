@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Usuários - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .usuarios-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stat-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .stat-box .numero {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .stat-box .label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .usuario-row {
+        display: grid;
+        grid-template-columns: 2fr 2fr 1fr 1fr 150px;
+        gap: 1rem;
+        padding: 1rem;
+        border-bottom: 1px solid var(--gray-border);
+        align-items: center;
+    }
+    
+    .usuario-row:hover {
+        background: var(--gray-light);
+    }
+    
+    .usuario-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .usuario-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1877f2 0%, #0d5bd4 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+    
+    .usuario-nome {
+        font-weight: 600;
+        color: var(--text);
+    }
+    
+    .usuario-email {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+    }
+    
+    .badge-master {
+        background: #dc2626;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-admin {
+        background: #f59e0b;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-user {
+        background: #6b7280;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-ativo {
+        background: #10b981;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .badge-inativo {
+        background: #ef4444;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    
+    .acoes {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border-radius: 6px;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-edit {
+        background: #1877f2;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #0d5bd4;
+    }
+    
+    .btn-reset {
+        background: #f59e0b;
+        color: white;
+    }
+    
+    .btn-reset:hover {
+        background: #d97706;
+    }
+    
+    @media (max-width: 768px) {
+        .usuario-row {
+            grid-template-columns: 1fr;
+            gap: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<section class="nc-section">
+    <div class="usuarios-header">
+        <div>
+            <h2 class="nc-title">👥 Gerenciar Usuários</h2>
+            <p class="nc-muted">Crie e gerencie usuários do sistema NousCard</p>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <div class="stat-box">
+                <div class="numero">{{ total_usuarios }}</div>
+                <div class="label">Usuários<br>Cadastrados</div>
+            </div>
+            
+            <a href="{{ url_for('usuarios.criar_usuario') }}" class="nc-btn nc-btn-primary">
+                ➕ Novo Usuário
+            </a>
+        </div>
+    </div>
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="nc-flash nc-flash-{{ category }}" role="status" style="margin-bottom: 1rem;">
+                {{ message | safe }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Cabeçalho da tabela -->
+    <div class="usuario-row" style="background: var(--gray-light); font-weight: 600; font-size: 0.875rem; color: var(--text-muted); border-radius: 8px 8px 0 0;">
+        <div>Usuário</div>
+        <div>Empresa</div>
+        <div>Perfil</div>
+        <div>Status</div>
+        <div>Ações</div>
+    </div>
+    
+    <!-- Lista de usuários -->
+    {% if usuarios_data %}
+        {% for item in usuarios_data %}
+            {% set u = item.usuario %}
+            <div class="usuario-row">
+                <div class="usuario-info">
+                    <div class="usuario-avatar">
+                        {{ u.nome[0] | upper }}
+                    </div>
+                    <div>
+                        <div class="usuario-nome">
+                            {{ u.nome }}
+                            {% if u.master %}<span class="badge-master">MASTER</span>{% endif %}
+                        </div>
+                        <div class="usuario-email">{{ u.email }}</div>
+                    </div>
+                </div>
+                
+                <div>
+                    <strong>{{ item.empresa_nome }}</strong>
+                </div>
+                
+                <div>
+                    {% if u.master %}
+                        <span class="badge-master">Master</span>
+                    {% elif u.admin %}
+                        <span class="badge-admin">Admin</span>
+                    {% else %}
+                        <span class="badge-user">Usuário</span>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    {% if u.ativo %}
+                        <span class="badge-ativo">✅ Ativo</span>
+                    {% else %}
+                        <span class="badge-inativo">⏸️ Inativo</span>
+                    {% endif %}
+                </div>
+                
+                <div class="acoes">
+                    <a href="{{ url_for('usuarios.editar_usuario', usuario_id=u.id) }}" 
+                       class="btn-sm btn-edit" title="Editar">
+                        ✏️ Editar
+                    </a>
+                    
+                    {% if not u.master or u.id == g.user.id %}
+                    <form method="POST" action="{{ url_for('usuarios.reset_senha', usuario_id=u.id) }}" 
+                          style="display: inline;"
+                          onsubmit="return confirm('Gerar nova senha temporária para {{ u.nome }}?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn-sm btn-reset" title="Resetar senha">
+                            🔑 Reset
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
+            <p>Nenhum usuário cadastrado ainda.</p>
+            <a href="{{ url_for('usuarios.criar_usuario') }}" class="nc-btn nc-btn-primary" style="margin-top: 1rem;">
+                ➕ Criar primeiro usuário
+            </a>
+        </div>
+    {% endif %}
+</section>
+
+{% endblock %}
