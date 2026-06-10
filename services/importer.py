@@ -4,14 +4,15 @@ import os
 import hashlib
 import logging
 import re
+import time
 from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
 from utils.parsers import (
     parse_csv_generic,
     parse_excel_generic,
     parse_ofx_generic,
-    parse_flow_csv,  # ← NOVO: Importar parser específico do Flow
-    is_flow_csv      # ← NOVO: Importar detector do Flow
+    parse_flow_csv,
+    is_flow_csv
 )
 from utils.helpers import gerar_hash_arquivo
 from services.importer_db import (
@@ -26,11 +27,8 @@ from models import db
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# CONFIGURAÇÕES
-# ============================================================
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_TOTAL_SIZE = 50 * 1024 * 1024
 MAX_REGISTROS_POR_ARQUIVO = 10000
 
 # ============================================================
@@ -373,9 +371,14 @@ def process_file(file_storage, default_empresa_id=None):
 # services/importer.py - CORRIGIR process_uploaded_files para retornar mensagens claras
 
 def process_uploaded_files(files, empresa_id, usuario_id):
-    logger.info(f"Início importação: usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
+    """
+    Processa múltiplos arquivos com logs de performance detalhados.
+    """
+    inicio_total = time.time()
+    logger.info(f"🚀 INÍCIO UPLOAD: usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
     
     # Validar tamanho total
+    inicio_validacao = time.time()
     total_size = sum(f.seek(0, 2) for f in files)
     for f in files:
         f.seek(0)
@@ -386,20 +389,35 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             "erro": f"Total excede {MAX_TOTAL_SIZE/1024/1024}MB"
         }]
     
+    tempo_validacao = time.time() - inicio_validacao
+    logger.info(f"⏱️ Validação: {tempo_validacao:.2f}s")
+    
     resultados = []
     
-    for file_storage in files:
+    for i, file_storage in enumerate(files, 1):
+        inicio_arquivo = time.time()
         nome = file_storage.filename.lower()
         
+        logger.info(f"📄 [{i}/{len(files)}] Processando: {nome}")
+        
         try:
+            # Parse do arquivo
+            inicio_parse = time.time()
             resultado = process_file(file_storage, default_empresa_id=empresa_id)
+            tempo_parse = time.time() - inicio_parse
+            
+            logger.info(f"⏱️ Parse de {nome}: {tempo_parse:.2f}s")
             
             if not resultado["ok"]:
-                logger.warning(f"Arquivo rejeitado: {nome}, erro={resultado.get('erro')}")
+                logger.warning(f"❌ Arquivo rejeitado: {nome}, erro={resultado.get('erro')}")
                 resultados.append(resultado)
                 continue
             
+            # Verificar duplicata
+            inicio_duplicata = time.time()
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
+                tempo_duplicata = time.time() - inicio_duplicata
+                logger.info(f"⏱️ Verificação duplicata: {tempo_duplicata:.2f}s")
                 resultados.append({
                     "ok": False,
                     "arquivo": nome,
@@ -407,6 +425,8 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 })
                 continue
             
+            # Salvar no banco
+            inicio_save = time.time()
             db.session.begin_nested()
             
             arquivo_id = salvar_arquivo_importado(
@@ -418,7 +438,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 registros=resultado["registros"]
             )
             
-            # ✅ SALVAR E CAPTURAR ESTATÍSTICAS
+            # Salvar movimentos
             stats = None
             if resultado["tipo"] == "venda":
                 stats = salvar_vendas(resultado["registros"], empresa_id, arquivo_id)
@@ -427,7 +447,10 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             
             db.session.commit()
             
-            # ✅ CONSTRUIR RESULTADO DETALHADO
+            tempo_save = time.time() - inicio_save
+            logger.info(f"⏱️ Save no banco: {tempo_save:.2f}s")
+            
+            # Construir resultado
             resultado_final = {
                 "ok": True,
                 "arquivo": nome,
@@ -437,7 +460,6 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 "estatisticas": stats
             }
             
-            # ✅ ADICIONAR MENSAGENS IMPORTANTES
             mensagens = []
             if stats:
                 if stats.get("conta_criada"):
@@ -448,7 +470,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 
                 if stats.get("sucesso", 0) == 0:
                     resultado_final["ok"] = False
-                    resultado_final["erro"] = "Nenhum registro foi importado. Verifique o formato do arquivo."
+                    resultado_final["erro"] = "Nenhum registro foi importado."
                     mensagens.append("❌ Nenhum registro foi importado.")
                 
                 if mensagens:
@@ -456,7 +478,8 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             
             resultados.append(resultado_final)
             
-            logger.info(f"✅ Arquivo importado: {nome}, tipo={resultado['tipo']}, linhas={resultado['linhas']}, stats={stats}")
+            tempo_arquivo = time.time() - inicio_arquivo
+            logger.info(f"✅ [{i}/{len(files)}] {nome}: {resultado['linhas']} registros em {tempo_arquivo:.2f}s")
             
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -475,7 +498,9 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 "erro": f"Erro interno: {str(e)}"
             })
     
-    logger.info(f"Fim importação: usuario={usuario_id}, sucesso={sum(1 for r in resultados if r['ok'])}")
+    tempo_total = time.time() - inicio_total
+    sucesso = sum(1 for r in resultados if r['ok'])
+    logger.info(f"🏁 FIM UPLOAD: {tempo_total:.2f}s total, {sucesso}/{len(files)} arquivos com sucesso")
     
     return resultados
 
