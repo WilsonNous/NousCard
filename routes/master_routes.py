@@ -1,6 +1,6 @@
 # routes/master_routes.py - VERSÃO CORRIGIDA E COMPLETA
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify, session
 from utils.auth_middleware import master_required
 from models import db, Empresa, Usuario, LogAuditoria, MovAdquirente, MovBanco
 from datetime import datetime, timezone
@@ -9,6 +9,7 @@ from sqlalchemy import or_, func
 import logging
 import re
 import time
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -498,3 +499,172 @@ def dashboard_master():
         total_recebimentos=total_recebimentos,
         logs_recentes=logs_recentes
     )
+
+
+# ============================================================
+# 🧪 TESTE OFX - DIAGNÓSTICO INTEGRADO
+# ============================================================
+
+@master_bp.route("/teste-ofx", methods=["GET"])
+@master_required
+def teste_ofx_page():
+    """Página de teste de upload OFX para diagnóstico"""
+    # Garantir CSRF token
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_urlsafe(32)
+    
+    return render_template("master/teste_ofx.html")
+
+
+@master_bp.route("/teste-ofx/processar", methods=["POST"])
+@master_required
+def teste_ofx_processar():
+    """Processa arquivo OFX em etapas com logs detalhados"""
+    inicio_total = time.time()
+    resultados = {"etapas": [], "total_tempo": 0}
+    
+    try:
+        # ETAPA 1: Receber arquivo
+        inicio = time.time()
+        if 'file' not in request.files:
+            return jsonify({"erro": "Nenhum arquivo enviado"}), 400
+        
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({"erro": "Arquivo sem nome"}), 400
+        
+        content = file.read()
+        file_size = len(content)
+        tempo_receber = time.time() - inicio
+        
+        resultados["etapas"].append({
+            "nome": "1. Receber arquivo",
+            "tempo": f"{tempo_receber:.3f}s",
+            "tempo_num": tempo_receber,
+            "detalhes": f"Tamanho: {file_size/1024:.1f} KB",
+            "ok": True
+        })
+        
+        # ETAPA 2: Decodificar
+        inicio = time.time()
+        try:
+            text = content.decode('utf-8', errors='replace')
+        except:
+            text = content.decode('latin-1', errors='replace')
+        tempo_decode = time.time() - inicio
+        
+        resultados["etapas"].append({
+            "nome": "2. Decodificar",
+            "tempo": f"{tempo_decode:.3f}s",
+            "tempo_num": tempo_decode,
+            "detalhes": f"Chars: {len(text)}",
+            "ok": True
+        })
+        
+        # ETAPA 3: Contar transações
+        inicio = time.time()
+        total_transacoes = text.upper().count('<STMTTRN>')
+        tempo_contar = time.time() - inicio
+        
+        resultados["etapas"].append({
+            "nome": "3. Contar transações",
+            "tempo": f"{tempo_contar:.3f}s",
+            "tempo_num": tempo_contar,
+            "detalhes": f"Total: {total_transacoes} transações",
+            "ok": True
+        })
+        
+        # ETAPA 4: Parser OFX
+        inicio = time.time()
+        try:
+            from utils.parsers import parse_ofx_generic
+            from io import BytesIO
+            
+            stream = BytesIO(content)
+            registros = parse_ofx_generic(stream, file.filename)
+            tempo_parser = time.time() - inicio
+            
+            resultados["etapas"].append({
+                "nome": "4. Parser OFX",
+                "tempo": f"{tempo_parser:.2f}s",
+                "tempo_num": tempo_parser,
+                "detalhes": f"Registros parseados: {len(registros)}",
+                "ok": True
+            })
+            
+            # Amostra dos primeiros 3 registros
+            if registros:
+                resultados["amostra"] = [
+                    {
+                        "data": str(r.get('data')),
+                        "valor": str(r.get('valor')),
+                        "descricao": (r.get('descricao') or '')[:50]
+                    }
+                    for r in registros[:3]
+                ]
+            
+        except Exception as e:
+            tempo_parser = time.time() - inicio
+            resultados["etapas"].append({
+                "nome": "4. Parser OFX",
+                "tempo": f"{tempo_parser:.2f}s",
+                "tempo_num": tempo_parser,
+                "detalhes": f"ERRO: {str(e)}",
+                "ok": False
+            })
+            import traceback
+            resultados["traceback"] = traceback.format_exc()
+            registros = []
+        
+        # ETAPA 5: Salvamento no banco (SOMENTE SE TIVER REGISTROS)
+        if registros:
+            inicio = time.time()
+            try:
+                from services.importer_db_movimento import salvar_recebimentos
+                from models import db, Empresa
+                
+                # Pegar a primeira empresa ativa para teste
+                empresa_teste = Empresa.query.filter_by(ativo=True).first()
+                if not empresa_teste:
+                    raise Exception("Nenhuma empresa ativa encontrada para teste")
+                
+                stats = salvar_recebimentos(registros, empresa_teste.id, None)
+                tempo_save = time.time() - inicio
+                
+                resultados["etapas"].append({
+                    "nome": "5. Salvamento no banco",
+                    "tempo": f"{tempo_save:.2f}s",
+                    "tempo_num": tempo_save,
+                    "detalhes": stats,
+                    "ok": True
+                })
+                
+                # ROLLBACK - não salvar dados de teste
+                db.session.rollback()
+                
+            except Exception as e:
+                from models import db
+                db.session.rollback()
+                tempo_save = time.time() - inicio
+                resultados["etapas"].append({
+                    "nome": "5. Salvamento no banco",
+                    "tempo": f"{tempo_save:.2f}s",
+                    "tempo_num": tempo_save,
+                    "detalhes": f"ERRO: {str(e)}",
+                    "ok": False
+                })
+                import traceback
+                resultados["traceback_save"] = traceback.format_exc()
+        
+        resultados["total_tempo"] = f"{time.time() - inicio_total:.2f}s"
+        resultados["total_tempo_num"] = time.time() - inicio_total
+        resultados["arquivo"] = file.filename
+        resultados["total_transacoes"] = total_transacoes
+        resultados["total_registros"] = len(registros) if registros else 0
+        
+    except Exception as e:
+        resultados["erro_geral"] = str(e)
+        import traceback
+        resultados["traceback_geral"] = traceback.format_exc()
+    
+    return jsonify(resultados), 200
