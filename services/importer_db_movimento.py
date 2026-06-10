@@ -267,10 +267,19 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
 # ✅ CORRIGIDO: SALVAR RECEBIMENTOS COM AUTO-CRIAÇÃO
 # ============================================================
 
-def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
+def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dados_conta=None):
     """
-    Salva recebimentos em batches com auto-criação de conta padrão.
-    ✅ CORREÇÃO: Aceita valores negativos (padrão OFX) e cria conta automaticamente.
+    Salva recebimentos em batches com conta bancária extraída do OFX.
+    
+    ✅ Melhoria: Usa dados da conta do OFX em vez de criar "conta padrão"
+    ✅ Otimização: Batches de 1000 registros (mais rápido)
+    
+    Args:
+        registros: Lista de registros parseados
+        empresa_id: ID da empresa
+        arquivo_id: ID do arquivo importado
+        usuario_id: ID do usuário (opcional)
+        dados_conta: Dict com dados da conta extraídos do OFX (opcional)
     """
     inicio_total = time.time()
     logger.info(f"🔍 Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
@@ -282,14 +291,56 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
         "duplicatas": 0,
         "invalidos": 0,
         "conta_criada": False,
-        "conta_padrao_id": None
+        "conta_id": None
     }
     
-    # ✅ GARANTIR que existe uma conta bancária antes de processar
-    conta_padrao_id = obter_ou_criar_conta_padrao(empresa_id, "Extrato OFX")
-    estatisticas["conta_padrao_id"] = conta_padrao_id
-    if conta_padrao_id:
-        estatisticas["conta_criada"] = True
+    # ✅ Criar/atualizar conta bancária com dados do OFX
+    conta_id = None
+    if dados_conta and (dados_conta.get("banco") or dados_conta.get("conta")):
+        try:
+            # Tentar encontrar conta existente
+            conta = ContaBancaria.query.filter_by(
+                empresa_id=empresa_id,
+                banco=dados_conta.get("banco"),
+                agencia=dados_conta.get("agencia"),
+                conta=dados_conta.get("conta"),
+                ativo=True
+            ).first()
+            
+            if not conta:
+                # Criar nova conta
+                conta = ContaBancaria(
+                    empresa_id=empresa_id,
+                    nome=dados_conta.get("nome", "Conta OFX"),
+                    banco=dados_conta.get("banco"),
+                    agencia=dados_conta.get("agencia"),
+                    conta=dados_conta.get("conta"),
+                    tipo=dados_conta.get("tipo", "corrente"),
+                    ativo=True
+                )
+                db.session.add(conta)
+                db.session.flush()
+                estatisticas["conta_criada"] = True
+                logger.info(f"✅ Conta criada: {conta.nome} (ID: {conta.id})")
+            
+            conta_id = conta.id
+            estatisticas["conta_id"] = conta_id
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao criar conta: {str(e)}")
+    
+    # Fallback: usar primeira conta da empresa
+    if not conta_id:
+        conta = ContaBancaria.query.filter_by(empresa_id=empresa_id, ativo=True).first()
+        if conta:
+            conta_id = conta.id
+            estatisticas["conta_id"] = conta_id
+        else:
+            logger.error(f"❌ Nenhuma conta bancária encontrada para empresa {empresa_id}")
+            return estatisticas
+    
+    # ✅ Processar em batches de 1000 (mais rápido)
+    BATCH_SIZE = 1000
     
     for i in range(0, len(registros), BATCH_SIZE):
         batch = registros[i:i+BATCH_SIZE]
@@ -301,26 +352,21 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                 try:
                     valor = to_decimal(r.get("valor"))
                     
-                    # ✅ CORREÇÃO: OFX usa valores negativos para créditos. Usar valor absoluto.
+                    # OFX usa valores negativos para créditos
                     if valor == 0:
                         estatisticas["invalidos"] += 1
                         continue
                     
                     valor_absoluto = abs(valor)
                     
-                    if not conta_padrao_id:
-                        logger.error(f"❌ Conta bancária não encontrada para empresa {empresa_id}")
-                        estatisticas["falhas"] += 1
-                        continue
-                    
                     mov = MovBanco(
                         empresa_id=empresa_id,
-                        conta_bancaria_id=conta_padrao_id,
+                        conta_bancaria_id=conta_id,
                         data_movimento=to_date(r.get("data") or r.get("data_movimento")),
                         historico=str(r.get("descricao") or "").strip()[:255],
                         documento=str(r.get("id") or "").strip()[:100],
                         origem="OFX",
-                        valor=valor_absoluto,  # ✅ Salva valor positivo
+                        valor=valor_absoluto,
                         valor_conciliado=Decimal("0"),
                         conciliado=False,
                         arquivo_origem=str(arquivo_id)[:255] if arquivo_id else None
@@ -335,10 +381,11 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                     continue
             
             db.session.commit()
+            logger.info(f"✅ Batch {i//BATCH_SIZE + 1} salvo: {len(batch)} registros")
             
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(f"❌ Erro no batch: {str(e)}")
+            logger.error(f"❌ Erro no batch {i//BATCH_SIZE + 1}: {str(e)}")
             estatisticas["falhas"] += len(batch)
     
     tempo_total = time.time() - inicio_total
