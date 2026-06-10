@@ -48,7 +48,8 @@ from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
 from .dashboard_api import dashboard_api
 from .conciliacao_api import bp_conc
-from .auditor_routes import auditor_bp  # ← Nome do arquivo criado acima
+from .auditor_routes import auditor_bp  
+from routes.debug_routes import debug_bp
 
 def register_blueprints(app: Flask):
     """
@@ -154,6 +155,15 @@ def register_blueprints(app: Flask):
             'access': 'authenticated',
             'required': False,
             'feature_flag': 'FEATURE_ASSISTANT_ENABLED'
+        },
+        # ✅ 6️⃣ DEBUG/DIAGNÓSTICO (apenas master, para troubleshooting)
+        {
+            'blueprint': debug_bp,
+            'prefix': None,  # ✅ Prefix já está definido no blueprint (/debug)
+            'description': 'Rotas de debug e diagnóstico',
+            'access': 'master_only',
+            'required': False,  # Opcional - pode ser removido em produção
+            'feature_flag': 'FEATURE_DEBUG_ENABLED'  # Controla via variável de ambiente
         },
     ]
     
