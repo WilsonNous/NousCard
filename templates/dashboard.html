@@ -306,10 +306,10 @@
 <div class="dashboard-header">
     <!-- Logo da empresa -->
     <div class="empresa-logo">
-        {% if g.user and g.user.empresa %}
-            {% set logo = getattr(g.user.empresa, 'logo_url', None) %}
-            {% if logo %}
-                <img src="{{ logo }}" alt="Logo {{ g.user.empresa.nome | e }}">
+        {% if g.user and g.user.empresa_id %}
+            {% set empresa = g.user.empresa %}
+            {% if empresa and empresa.logo_url %}
+                <img src="{{ empresa.logo_url }}" alt="Logo {{ empresa.nome | e }}">
             {% else %}
                 🏢
             {% endif %}
@@ -321,13 +321,13 @@
     <!-- Informações -->
     <div class="info">
         <div class="empresa-nome">
-            {% if g.user and g.user.empresa %}
+            {% if g.user and g.user.empresa_id and g.user.empresa %}
                 {{ g.user.empresa.nome | e }}
                 <span class="badge-status {% if g.user.empresa.ativo %}ativo{% else %}inativo{% endif %}">
                     {{ '✅ Ativa' if g.user.empresa.ativo else '⏸️ Inativa' }}
                 </span>
             {% else %}
-                Empresa não vinculada
+                <span style="color:#8a8d91;">Nenhuma empresa vinculada</span>
             {% endif %}
         </div>
         <div class="usuario-info">
@@ -337,7 +337,7 @@
             <span style="font-weight:600;color:#1877f2;">{{ g.user.perfil | e if g.user and g.user.perfil else 'ADMIN' }}</span>
         </div>
         <div class="meta-info">
-            <span>📅 {{ g.user.ultimo_acesso.strftime('%d/%m/%Y %H:%M') if g.user and g.user.ultimo_acesso else now().strftime('%d/%m/%Y') }}</span>
+            <span>📅 Último acesso: {{ g.user.ultimo_acesso.strftime('%d/%m/%Y %H:%M') if g.user and g.user.ultimo_acesso else '—' }}</span>
         </div>
     </div>
 </div>
@@ -352,7 +352,7 @@
         <label for="filtroFim">Data Fim</label>
         <input type="date" id="filtroFim" />
     </div>
-    {% if features.pix_enabled %}
+    {% if features and features.pix_enabled %}
     <div class="filter-group">
         <label for="filtroTipoPagamento">Tipo</label>
         <select id="filtroTipoPagamento">
@@ -391,7 +391,7 @@
             <div class="kpi-value kpi-value-diferenca">R$ 0,00</div>
         </div>
     </div>
-    {% if features.pix_enabled %}
+    {% if features and features.pix_enabled %}
     <div class="kpi-card">
         <div class="kpi-icon purple">🔷</div>
         <div class="kpi-info">
