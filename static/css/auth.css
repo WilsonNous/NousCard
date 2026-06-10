@@ -1,10 +1,11 @@
 /* ============================================================
    AUTH PAGES • NousCard (Login, Registro, Recuperação)
+   ✅ VERSÃO ESCOPADA - Não interfere em outras páginas
    Compatível com base.html, acessível e com tema escuro
 ============================================================ */
 
 /* ============================================================
-   VARIÁVEIS CSS PARA CONSISTÊNCIA (integrar com base.css)
+   VARIÁVEIS CSS (globais - não causam conflito)
 ============================================================ */
 :root {
     /* Cores primárias */
@@ -59,18 +60,18 @@
         background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
     }
     
-    .nc-toggle-password:hover {
+    .nc-login-box .nc-toggle-password:hover {
         background: #4a5568;
     }
     
-    .nc-password-requirements {
+    .nc-login-box .nc-password-requirements {
         background: #2d3748;
         border-color: #4a5568;
     }
 }
 
 /* ============================================================
-   CORPO DAS PÁGINAS DE AUTH
+   CORPO DAS PÁGINAS DE AUTH (escopo: body.nc-login-body)
 ============================================================ */
 body.nc-login-body {
     margin: 0;
@@ -84,7 +85,7 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   CAIXA DE LOGIN/REGISTRO
+   CAIXA DE LOGIN/REGISTRO (escopo: .nc-login-box)
 ============================================================ */
 .nc-login-box {
     width: 100%;
@@ -101,7 +102,7 @@ body.nc-login-body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Títulos */
+/* Títulos - escopados */
 .nc-login-box h2 {
     margin: 0 0 1.5rem 0;
     color: var(--auth-text-primary);
@@ -111,14 +112,14 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   GRUPOS DE FORMULÁRIO
+   GRUPOS DE FORMULÁRIO (✅ ESCOPADOS para .nc-login-box)
 ============================================================ */
-.nc-form-group {
+.nc-login-box .nc-form-group {
     margin-bottom: 1.25rem;
     position: relative;
 }
 
-.nc-form-label {
+.nc-login-box .nc-form-label {
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 500;
@@ -126,15 +127,15 @@ body.nc-login-body {
     font-size: 0.95rem;
 }
 
-.nc-form-label .nc-required {
+.nc-login-box .nc-form-label .nc-required {
     color: var(--auth-error);
     margin-left: 2px;
 }
 
 /* ============================================================
-   INPUTS
+   INPUTS (✅ ESCOPADOS para .nc-login-box)
 ============================================================ */
-.nc-form-input,
+.nc-login-box .nc-form-input,
 .nc-login-box input[type="email"],
 .nc-login-box input[type="password"],
 .nc-login-box input[type="text"] {
@@ -150,62 +151,59 @@ body.nc-login-body {
     box-sizing: border-box;
 }
 
-/* ✅ Placeholder com contraste adequado */
-.nc-form-input::placeholder,
+/* Placeholder */
+.nc-login-box .nc-form-input::placeholder,
 .nc-login-box input::placeholder {
     color: var(--auth-text-muted);
-    opacity: 1; /* Firefox */
+    opacity: 1;
 }
 
-/* ✅ Foco com :focus-visible para acessibilidade por teclado */
-.nc-form-input:focus-visible,
+/* Foco */
+.nc-login-box .nc-form-input:focus-visible,
 .nc-login-box input:focus-visible {
     border-color: var(--auth-primary);
     outline: none;
     box-shadow: 0 0 0 3px var(--auth-border-focus);
 }
 
-/* Fallback para navegadores sem :focus-visible */
-.nc-form-input:focus,
+.nc-login-box .nc-form-input:focus,
 .nc-login-box input:focus {
     border-color: var(--auth-primary);
     outline: none;
     box-shadow: 0 0 0 3px var(--auth-border-focus);
 }
 
-/* Estado inválido (erro de validação) */
-.nc-form-input[aria-invalid="true"],
+/* Estado inválido */
+.nc-login-box .nc-form-input[aria-invalid="true"],
 .nc-login-box input[aria-invalid="true"] {
     border-color: var(--auth-error);
 }
 
-.nc-form-input[aria-invalid="true"]:focus-visible,
+.nc-login-box .nc-form-input[aria-invalid="true"]:focus-visible,
 .nc-login-box input[aria-invalid="true"]:focus-visible {
     box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.15);
 }
 
 /* ============================================================
-   MENSAGENS DE ERRO E HINT
+   MENSAGENS DE ERRO E HINT (✅ ESCOPADOS)
 ============================================================ */
-.nc-field-error {
-    display: block;
+.nc-login-box .nc-field-error {
+    display: flex;
     margin-top: 0.375rem;
     font-size: 0.875rem;
     color: var(--auth-error);
     font-weight: 500;
-    /* ✅ Ícone acessível para daltônicos */
-    display: flex;
     align-items: center;
     gap: 0.375rem;
 }
 
-.nc-field-error::before {
+.nc-login-box .nc-field-error::before {
     content: "⚠️";
     font-size: 0.9rem;
     flex-shrink: 0;
 }
 
-.nc-error {
+.nc-login-box .nc-error {
     background: var(--auth-error-bg);
     border: 1px solid var(--auth-error-border);
     color: var(--auth-error);
@@ -218,13 +216,13 @@ body.nc-login-body {
     gap: 0.5rem;
 }
 
-.nc-error [aria-hidden="true"] {
+.nc-login-box .nc-error [aria-hidden="true"] {
     font-size: 1.1rem;
     flex-shrink: 0;
 }
 
 /* Hint text */
-.nc-form-hint {
+.nc-login-box .nc-form-hint {
     display: block;
     margin-top: 0.375rem;
     font-size: 0.875rem;
@@ -232,50 +230,49 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   CHECKBOX
+   CHECKBOX (✅ ESCOPADOS)
 ============================================================ */
-.nc-form-group-checkbox {
+.nc-login-box .nc-form-group-checkbox {
     margin: 1rem 0;
 }
 
-.nc-checkbox-wrapper {
+.nc-login-box .nc-checkbox-wrapper {
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
 }
 
-.nc-checkbox-wrapper input[type="checkbox"] {
+.nc-login-box .nc-checkbox-wrapper input[type="checkbox"] {
     margin-top: 0.25rem;
     width: 1.125rem;
     height: 1.125rem;
     accent-color: var(--auth-primary);
     cursor: pointer;
-    /* ✅ Borda visível em alto contraste */
     border: 2px solid var(--auth-border);
     border-radius: 4px;
 }
 
-.nc-checkbox-label {
+.nc-login-box .nc-checkbox-label {
     font-size: 0.95rem;
     color: var(--auth-text-primary);
     cursor: pointer;
     line-height: 1.4;
 }
 
-.nc-checkbox-label a {
+.nc-login-box .nc-checkbox-label a {
     color: var(--auth-primary);
     text-decoration: none;
     font-weight: 500;
 }
 
-.nc-checkbox-label a:hover {
+.nc-login-box .nc-checkbox-label a:hover {
     text-decoration: underline;
 }
 
 /* ============================================================
-   BOTÕES
+   BOTÕES (✅ ESCOPADOS - CRÍTICO!)
 ============================================================ */
-.nc-btn-primary {
+.nc-login-box .nc-btn-primary {
     width: 100%;
     padding: 0.875rem 1.5rem;
     background: linear-gradient(135deg, var(--auth-gradient-start) 0%, var(--auth-gradient-end) 100%);
@@ -290,49 +287,47 @@ body.nc-login-body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    /* ✅ Garantir contraste mínimo */
-    min-height: 44px; /* Touch target mínimo */
+    min-height: 44px;
 }
 
-.nc-btn-primary:hover:not(:disabled) {
+.nc-login-box .nc-btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.nc-btn-primary:active:not(:disabled) {
+.nc-login-box .nc-btn-primary:active:not(:disabled) {
     transform: translateY(0);
 }
 
-.nc-btn-primary:disabled {
+.nc-login-box .nc-btn-primary:disabled {
     opacity: 0.7;
     cursor: not-allowed;
     transform: none;
 }
 
-/* ✅ Foco visível apenas em navegação por teclado */
-.nc-btn-primary:focus-visible {
+.nc-login-box .nc-btn-primary:focus-visible {
     outline: 2px solid #fff;
     outline-offset: 2px;
     box-shadow: 0 0 0 4px var(--auth-border-focus);
 }
 
-/* Loading state no botão */
-.nc-btn-primary .btn-loading {
+/* Loading state */
+.nc-login-box .nc-btn-primary .btn-loading {
     display: none;
     align-items: center;
     gap: 0.5rem;
 }
 
-.nc-btn-primary:disabled .btn-text {
+.nc-login-box .nc-btn-primary:disabled .btn-text {
     display: none;
 }
 
-.nc-btn-primary:disabled .btn-loading {
+.nc-login-box .nc-btn-primary:disabled .btn-loading {
     display: inline-flex;
 }
 
-/* Spinner */
-.spinner {
+/* Spinner - escopado */
+.nc-login-box .spinner {
     width: 18px;
     height: 18px;
     border: 2px solid rgba(255, 255, 255, 0.3);
@@ -345,9 +340,8 @@ body.nc-login-body {
     to { transform: rotate(360deg); }
 }
 
-/* ✅ Parar animação se usuário preferir reduced motion */
 @media (prefers-reduced-motion: reduce) {
-    .spinner {
+    .nc-login-box .spinner {
         animation: none;
         border-top-color: transparent;
         border-right-color: #fff;
@@ -355,36 +349,36 @@ body.nc-login-body {
 }
 
 /* ============================================================
-   LINKS DE AJUDA
+   LINKS DE AJUDA (escopo específico do auth)
 ============================================================ */
-.nc-login-forgot,
-.nc-login-register {
+.nc-login-box .nc-login-forgot,
+.nc-login-box .nc-login-register {
     text-align: center;
     margin-top: 1.5rem;
     font-size: 0.95rem;
     color: var(--auth-text-secondary);
 }
 
-.nc-login-forgot a,
-.nc-login-register a {
+.nc-login-box .nc-login-forgot a,
+.nc-login-box .nc-login-register a {
     color: var(--auth-primary);
     text-decoration: none;
     font-weight: 600;
 }
 
-.nc-login-forgot a:hover,
-.nc-login-register a:hover {
+.nc-login-box .nc-login-forgot a:hover,
+.nc-login-box .nc-login-register a:hover {
     text-decoration: underline;
 }
 
 /* ============================================================
-   PASSWORD TOGGLE
+   PASSWORD TOGGLE (escopado)
 ============================================================ */
-.nc-password-wrapper {
+.nc-login-box .nc-password-wrapper {
     position: relative;
 }
 
-.nc-toggle-password {
+.nc-login-box .nc-toggle-password {
     position: absolute;
     right: 12px;
     top: 50%;
@@ -397,7 +391,6 @@ body.nc-login-body {
     color: var(--auth-text-muted);
     transition: color 0.2s, background-color 0.2s;
     border-radius: 4px;
-    /* ✅ Touch target mínimo */
     min-width: 44px;
     min-height: 44px;
     display: flex;
@@ -405,20 +398,20 @@ body.nc-login-body {
     justify-content: center;
 }
 
-.nc-toggle-password:hover {
+.nc-login-box .nc-toggle-password:hover {
     color: var(--auth-text-secondary);
     background: rgba(0, 0, 0, 0.05);
 }
 
-.nc-toggle-password:focus-visible {
+.nc-login-box .nc-toggle-password:focus-visible {
     outline: 2px solid var(--auth-primary);
     outline-offset: 2px;
 }
 
 /* ============================================================
-   REQUISITOS DE SENHA
+   REQUISITOS DE SENHA (escopado)
 ============================================================ */
-.nc-password-requirements {
+.nc-login-box .nc-password-requirements {
     margin-top: 0.5rem;
     padding: 0.75rem 1rem;
     background: #f7fafc;
@@ -427,20 +420,20 @@ body.nc-login-body {
 }
 
 @media (prefers-color-scheme: dark) {
-    .nc-password-requirements {
+    .nc-login-box .nc-password-requirements {
         background: #2d3748;
         border-color: #4a5568;
     }
 }
 
-.nc-password-requirements small {
+.nc-login-box .nc-password-requirements small {
     display: block;
     margin-bottom: 0.375rem;
     color: var(--auth-text-secondary);
     font-weight: 500;
 }
 
-.nc-password-requirements ul {
+.nc-login-box .nc-password-requirements ul {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -448,57 +441,57 @@ body.nc-login-body {
     color: var(--auth-text-muted);
 }
 
-.nc-password-requirements li {
+.nc-login-box .nc-password-requirements li {
     padding: 0.125rem 0;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
-.nc-password-requirements li.valid {
+.nc-login-box .nc-password-requirements li.valid {
     color: var(--auth-success);
 }
 
-.nc-password-requirements li.valid::before {
+.nc-login-box .nc-password-requirements li.valid::before {
     content: "✓";
     font-weight: bold;
     flex-shrink: 0;
 }
 
 /* ============================================================
-   FORCED COLORS (WINDOWS HIGH CONTRAST)
+   FORCED COLORS (Windows High Contrast) - ESCOPADO
 ============================================================ */
 @media (forced-colors: active) {
-    .nc-form-input,
+    .nc-login-box .nc-form-input,
     .nc-login-box input {
         border: 2px solid CanvasText;
         background: Canvas;
         color: CanvasText;
     }
     
-    .nc-btn-primary {
+    .nc-login-box .nc-btn-primary {
         border: 2px solid ButtonText;
         background: ButtonFace;
         color: ButtonText;
     }
     
-    .nc-btn-primary:focus-visible {
+    .nc-login-box .nc-btn-primary:focus-visible {
         outline: 2px solid Highlight;
     }
     
-    .nc-field-error {
+    .nc-login-box .nc-field-error {
         color: LinkText;
         border: 1px solid LinkText;
     }
     
-    .nc-checkbox-wrapper input[type="checkbox"] {
+    .nc-login-box .nc-checkbox-wrapper input[type="checkbox"] {
         border: 2px solid CanvasText;
         accent-color: Highlight;
     }
 }
 
 /* ============================================================
-   RESPONSIVIDADE
+   RESPONSIVIDADE - ESCOPADO
 ============================================================ */
 @media (max-width: 480px) {
     .nc-login-box {
@@ -510,42 +503,42 @@ body.nc-login-body {
         font-size: 1.5rem;
     }
     
-    .nc-btn-primary {
+    .nc-login-box .nc-btn-primary {
         padding: 1rem;
         font-size: 1.05rem;
     }
 }
 
 /* ============================================================
-   REDUZIR MOTION
+   REDUZIR MOTION - ESCOPADO
 ============================================================ */
 @media (prefers-reduced-motion: reduce) {
     .nc-login-box,
-    .nc-btn-primary {
+    .nc-login-box .nc-btn-primary {
         animation: none !important;
         transition: none !important;
     }
     
-    .nc-btn-primary:hover:not(:disabled) {
+    .nc-login-box .nc-btn-primary:hover:not(:disabled) {
         transform: none;
         box-shadow: none;
     }
 }
 
 /* ============================================================
-   ALTO CONTRASTE (LEGACY)
+   ALTO CONTRASTE (Legacy) - ESCOPADO
 ============================================================ */
 @media (prefers-contrast: high) {
-    .nc-form-input,
+    .nc-login-box .nc-form-input,
     .nc-login-box input {
         border-width: 3px;
     }
     
-    .nc-btn-primary {
+    .nc-login-box .nc-btn-primary {
         border: 2px solid currentColor;
     }
     
-    .nc-field-error {
+    .nc-login-box .nc-field-error {
         border-width: 2px;
     }
 }
