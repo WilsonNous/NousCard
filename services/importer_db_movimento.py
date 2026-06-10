@@ -269,13 +269,9 @@ def salvar_vendas(registros, empresa_id, arquivo_id, usuario_id=None):
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
     """
     Salva recebimentos em batches com auto-criação de conta padrão.
-    
-    ✅ CORREÇÃO CRÍTICA:
-    - Se não houver conta bancária, cria uma automaticamente
-    - Usa nome do banco do OFX se disponível
-    - Retorna estatísticas detalhadas
+    ✅ CORREÇÃO: Aceita valores negativos (padrão OFX) e cria conta automaticamente.
     """
-    
+    inicio_total = time.time()
     logger.info(f"🔍 Início importação recebimentos: empresa={empresa_id}, registros={len(registros)}")
     
     estatisticas = {
@@ -288,8 +284,11 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
         "conta_padrao_id": None
     }
     
-    # Cache da conta padrão para não criar múltiplas vezes
-    conta_padrao_id = None
+    # ✅ GARANTIR que existe uma conta bancária antes de processar
+    conta_padrao_id = obter_ou_criar_conta_padrao(empresa_id, "Extrato OFX")
+    estatisticas["conta_padrao_id"] = conta_padrao_id
+    if conta_padrao_id:
+        estatisticas["conta_criada"] = True
     
     for i in range(0, len(registros), BATCH_SIZE):
         batch = registros[i:i+BATCH_SIZE]
@@ -300,37 +299,27 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
             for r in batch:
                 try:
                     valor = to_decimal(r.get("valor"))
-                    if valor <= 0:
+                    
+                    # ✅ CORREÇÃO: OFX usa valores negativos para créditos. Usar valor absoluto.
+                    if valor == 0:
                         estatisticas["invalidos"] += 1
                         continue
                     
-                    # ✅ CORREÇÃO CRÍTICA: Obter conta_id com fallback
-                    conta_id = validar_conta_bancaria(r.get("conta_id"), empresa_id)
+                    valor_absoluto = abs(valor)
                     
-                    if not conta_id:
-                        # ✅ NÃO TEM CONTA: Usar/criar conta padrão
-                        if conta_padrao_id is None:
-                            nome_banco = str(r.get("banco") or r.get("instituicao") or "").strip()
-                            conta_padrao_id = obter_ou_criar_conta_padrao(empresa_id, nome_banco)
-                            estatisticas["conta_padrao_id"] = conta_padrao_id
-                            if conta_padrao_id:
-                                estatisticas["conta_criada"] = True
-                        
-                        conta_id = conta_padrao_id
-                    
-                    if not conta_id:
-                        logger.error(f"❌ Não foi possível obter conta bancária para empresa {empresa_id}")
+                    if not conta_padrao_id:
+                        logger.error(f"❌ Conta bancária não encontrada para empresa {empresa_id}")
                         estatisticas["falhas"] += 1
                         continue
                     
                     mov = MovBanco(
                         empresa_id=empresa_id,
-                        conta_bancaria_id=conta_id,
-                        data_movimento=to_date(r.get("data") or r.get("data_movimento") or r.get("dt_movimento")),
-                        historico=str(r.get("descricao") or r.get("historico") or "").strip()[:255],
-                        documento=str(r.get("documento") or "").strip()[:100],
-                        origem=str(r.get("origem") or "").strip()[:50],
-                        valor=valor,
+                        conta_bancaria_id=conta_padrao_id,
+                        data_movimento=to_date(r.get("data") or r.get("data_movimento")),
+                        historico=str(r.get("descricao") or "").strip()[:255],
+                        documento=str(r.get("id") or "").strip()[:100],
+                        origem="OFX",
+                        valor=valor_absoluto,  # ✅ Salva valor positivo
                         valor_conciliado=Decimal("0"),
                         conciliado=False,
                         arquivo_origem=str(arquivo_id)[:255] if arquivo_id else None
@@ -340,7 +329,7 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
                     estatisticas["sucesso"] += 1
                     
                 except Exception as e:
-                    logger.error(f"❌ Erro ao processar recebimento: {str(e)}")
+                    logger.debug(f"⚠️ Erro ao processar recebimento: {str(e)}")
                     estatisticas["falhas"] += 1
                     continue
             
@@ -348,9 +337,9 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None):
             
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(f"❌ Erro no batch {i}: {str(e)}")
+            logger.error(f"❌ Erro no batch: {str(e)}")
             estatisticas["falhas"] += len(batch)
     
-    logger.info(f"✅ Fim importação recebimentos: {estatisticas}")
-    
+    tempo_total = time.time() - inicio_total
+    logger.info(f"✅ Fim importação recebimentos: {estatisticas} em {tempo_total:.2f}s")
     return estatisticas
