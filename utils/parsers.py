@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COM PARSER OFX ULTRA-RÁPIDO
+# utils/parsers.py - VERSÃO FINAL COM EXTRAÇÃO DE CONTA OFX
 
 import csv
 import io
@@ -344,19 +344,16 @@ def parse_excel_generic(file_stream, filename=None):
         raise ValueError(f"Erro ao processar arquivo Excel: {str(e)}")
 
 # ============================================================
-# ✅ PARSER OFX ULTRA-RÁPIDO (SPLIT DE STRING - SEM REGEX COMPLEXO)
+# ✅ PARSER OFX ULTRA-RÁPIDO (SPLIT DE STRING)
 # ============================================================
 def _extrair_tag_ofx(bloco: str, tag: str) -> str:
     """
     Extrai valor de uma tag OFX de forma ultra-rápida.
     Usa split de string em vez de regex (100x mais rápido).
-    
-    Ex: _extrair_tag_ofx("<TRNAMT>-123.45</TRNAMT>", "TRNAMT") → "-123.45"
     """
     tag_upper = tag.upper()
     bloco_upper = bloco.upper()
     
-    # Buscar tag de abertura
     start_tag = f"<{tag_upper}>"
     end_tag = f"</{tag_upper}>"
     
@@ -366,10 +363,8 @@ def _extrair_tag_ofx(bloco: str, tag: str) -> str:
     
     start_idx += len(start_tag)
     
-    # OFX SGML não tem tag de fechamento obrigatória - procurar até próxima tag OU fim
     end_idx = bloco_upper.find(end_tag, start_idx)
     if end_idx == -1:
-        # Sem tag de fechamento - procurar próxima tag <
         next_tag = bloco.find('<', start_idx)
         if next_tag == -1:
             return bloco[start_idx:].strip()
@@ -390,7 +385,6 @@ def parse_ofx_generic(file_stream, filename=None):
     inicio_total = time.time()
     logger.info(f"🏦 Início parse OFX (split rápido): {filename}")
     
-    # Validar tamanho
     file_stream.seek(0, 2)
     size = file_stream.tell()
     file_stream.seek(0)
@@ -398,7 +392,6 @@ def parse_ofx_generic(file_stream, filename=None):
     if size > MAX_FILE_SIZE:
         raise ValueError(f"Arquivo OFX excede {MAX_FILE_SIZE/1024/1024}MB")
     
-    # Ler e decodificar conteúdo
     file_stream.seek(0)
     raw_content = file_stream.read()
     
@@ -408,15 +401,12 @@ def parse_ofx_generic(file_stream, filename=None):
     except Exception:
         content = raw_content.decode('utf-8', errors='replace')
     
-    # Normalizar para maiúsculas (OFX é case-insensitive)
     content_upper = content.upper()
     
     logger.info(f"🔍 Arquivo lido: {len(content)} chars, encoding={encoding}")
     
-    # ✅ ESTRATÉGIA: Split por <STMTTRN> (MUITO mais rápido que regex)
     inicio_split = time.time()
     
-    # Encontrar todas as posições de <STMTTRN>
     stmttrn_positions = []
     search_start = 0
     while True:
@@ -436,26 +426,21 @@ def parse_ofx_generic(file_stream, filename=None):
     tempo_split = time.time() - inicio_split
     logger.info(f"⏱️ Split inicial: {tempo_split:.3f}s")
     
-    # ✅ Processar cada transação
     registros = []
     timeout_seconds = 10
     inicio_parse = time.time()
     
-    # Limitar a 5000 transações
     max_transacoes = min(total_transacoes, 5000)
     
     for i in range(max_transacoes):
-        # Verificar timeout a cada 100 transações
         if i % 100 == 0 and i > 0:
             if time.time() - inicio_parse > timeout_seconds:
                 logger.warning(f"⚠️ Timeout atingido após {i} transações")
                 break
         
         try:
-            # Extrair bloco da transação
             start_pos = stmttrn_positions[i]
             
-            # Encontrar fim do bloco (próxima <STMTTRN> ou fim do arquivo)
             if i + 1 < total_transacoes:
                 end_pos = stmttrn_positions[i + 1]
             else:
@@ -463,18 +448,15 @@ def parse_ofx_generic(file_stream, filename=None):
             
             bloco = content[start_pos:end_pos]
             
-            # ✅ Extrair campos com função ultra-rápida (split, não regex)
             dtposted = _extrair_tag_ofx(bloco, "DTPOSTED")
             trnamt = _extrair_tag_ofx(bloco, "TRNAMT")
             memo = _extrair_tag_ofx(bloco, "MEMO")
             name = _extrair_tag_ofx(bloco, "NAME")
             fitid = _extrair_tag_ofx(bloco, "FITID")
             
-            # Pular se não tem valor (obrigatório)
             if not trnamt:
                 continue
             
-            # Parse de data (YYYYMMDD)
             data = None
             if dtposted and len(dtposted) >= 8:
                 try:
@@ -482,10 +464,8 @@ def parse_ofx_generic(file_stream, filename=None):
                 except ValueError:
                     pass
             
-            # Parse de valor
             try:
                 valor_str = trnamt
-                # Suportar formato BR (1.234,56)
                 if ',' in valor_str and '.' in valor_str:
                     valor_str = valor_str.replace('.', '').replace(',', '.')
                 elif ',' in valor_str:
@@ -494,7 +474,6 @@ def parse_ofx_generic(file_stream, filename=None):
             except (InvalidOperation, ValueError):
                 continue
             
-            # Descrição (preferir MEMO, fallback NAME)
             descricao = memo or name or ""
             
             registros.append({
@@ -514,8 +493,86 @@ def parse_ofx_generic(file_stream, filename=None):
     
     logger.info(f"✅ OFX parseado: {len(registros)}/{total_transacoes} registros em {tempo_total:.2f}s (split={tempo_split:.3f}s, parse={tempo_parse:.2f}s)")
     
-    # Normalizar registros
     return [normalize_row(r) for r in registros]
+
+
+# ============================================================
+# 🏦 EXTRAIR DADOS DA CONTA DO OFX (✅ NOVA FUNÇÃO)
+# ============================================================
+def extrair_dados_conta_ofx(content: str) -> dict:
+    """
+    Extrai dados da conta bancária do arquivo OFX.
+    
+    OFX contém tags como:
+    - <BANKID>001</BANKID> (código do banco)
+    - <BRANCHID>1234</BRANCHID> (agência)
+    - <ACCTID>12345-6</ACCTID> (número da conta)
+    - <ACCTTYPE>CHECKING</ACCTTYPE> (tipo: CHECKING, SAVINGS, etc.)
+    
+    Args:
+        content: Conteúdo do arquivo OFX como string
+    
+    Returns:
+        dict: {
+            "banco": "001",
+            "agencia": "1234",
+            "conta": "12345-6",
+            "tipo": "corrente",
+            "nome": "Banco 001 - Ag 1234 - CC 12345-6"
+        }
+    """
+    dados = {
+        "banco": None,
+        "agencia": None,
+        "conta": None,
+        "tipo": "corrente",
+        "nome": None
+    }
+    
+    content_upper = content.upper()
+    
+    # Extrair BANKID (código do banco)
+    bankid_match = re.search(r'<BANKID>([^<]+)</BANKID>', content_upper)
+    if bankid_match:
+        dados["banco"] = bankid_match.group(1).strip()
+    
+    # Extrair BRANCHID (agência)
+    branchid_match = re.search(r'<BRANCHID>([^<]+)</BRANCHID>', content_upper)
+    if branchid_match:
+        dados["agencia"] = branchid_match.group(1).strip()
+    
+    # Extrair ACCTID (número da conta)
+    acctid_match = re.search(r'<ACCTID>([^<]+)</ACCTID>', content_upper)
+    if acctid_match:
+        dados["conta"] = acctid_match.group(1).strip()
+    
+    # Extrair ACCTTYPE (tipo de conta)
+    accttype_match = re.search(r'<ACCTTYPE>([^<]+)</ACCTTYPE>', content_upper)
+    if accttype_match:
+        tipo_raw = accttype_match.group(1).strip().upper()
+        tipo_map = {
+            "CHECKING": "corrente",
+            "SAVINGS": "poupanca",
+            "MONEYMRKT": "investimento",
+            "CREDITLINE": "credito"
+        }
+        dados["tipo"] = tipo_map.get(tipo_raw, "corrente")
+    
+    # Gerar nome descritivo da conta
+    if dados["banco"] or dados["agencia"] or dados["conta"]:
+        partes = []
+        if dados["banco"]:
+            partes.append(f"Banco {dados['banco']}")
+        if dados["agencia"]:
+            partes.append(f"Ag {dados['agencia']}")
+        if dados["conta"]:
+            partes.append(f"CC {dados['conta']}")
+        dados["nome"] = " - ".join(partes)
+    else:
+        dados["nome"] = "Conta Extraída do OFX"
+    
+    return dados
+
 
 # ============================================================
 # DETECTOR E PARSER FLOW
@@ -745,95 +802,3 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
                     reg['tipo_pagamento'] = 'cartao'
         
         return registros
-
-    # ✅ TIMEOUT DE SEGURANÇA (evita loop infinito em arquivos corrompidos)
-    import signal
-    
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Parser OFX excedeu tempo limite de 10s")
-    
-    try:
-        # Configurar timeout apenas para Unix/Linux (Render usa Linux)
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(10)  # 10 segundos
-        
-        # ... [código de processamento das transações] ...
-        
-    except TimeoutError:
-        logger.error("⚠️ Parser OFX travou. Timeout acionado.")
-        return []
-    finally:
-        signal.alarm(0)  # Desligar timeout
-
-    # utils/parsers.py - ADICIONE ESTA FUNÇÃO
-    
-    def extrair_dados_conta_ofx(content: str) -> dict:
-        """
-        Extrai dados da conta bancária do arquivo OFX.
-        
-        OFX contém tags como:
-        - <BANKID>001</BANKID> (código do banco)
-        - <BRANCHID>1234</BRANCHID> (agência)
-        - <ACCTID>12345-6</ACCTID> (número da conta)
-        - <ACCTTYPE>CHECKING</ACCTTYPE> (tipo: CHECKING, SAVINGS, etc.)
-        
-        Returns:
-            dict: {
-                "banco": "001",
-                "agencia": "1234",
-                "conta": "12345-6",
-                "tipo": "corrente",
-                "nome": "Conta Corrente - Banco do Brasil"
-            }
-        """
-        dados = {
-            "banco": None,
-            "agencia": None,
-            "conta": None,
-            "tipo": "corrente",
-            "nome": None
-        }
-        
-        content_upper = content.upper()
-        
-        # Extrair BANKID
-        bankid_match = re.search(r'<BANKID>([^<]+)</BANKID>', content_upper)
-        if bankid_match:
-            dados["banco"] = bankid_match.group(1).strip()
-        
-        # Extrair BRANCHID
-        branchid_match = re.search(r'<BRANCHID>([^<]+)</BRANCHID>', content_upper)
-        if branchid_match:
-            dados["agencia"] = branchid_match.group(1).strip()
-        
-        # Extrair ACCTID
-        acctid_match = re.search(r'<ACCTID>([^<]+)</ACCTID>', content_upper)
-        if acctid_match:
-            dados["conta"] = acctid_match.group(1).strip()
-        
-        # Extrair ACCTTYPE
-        accttype_match = re.search(r'<ACCTTYPE>([^<]+)</ACCTTYPE>', content_upper)
-        if accttype_match:
-            tipo_raw = accttype_match.group(1).strip().upper()
-            tipo_map = {
-                "CHECKING": "corrente",
-                "SAVINGS": "poupanca",
-                "MONEYMRKT": "investimento",
-                "CREDITLINE": "credito"
-            }
-            dados["tipo"] = tipo_map.get(tipo_raw, "corrente")
-        
-        # Gerar nome da conta
-        if dados["banco"] or dados["agencia"] or dados["conta"]:
-            partes = []
-            if dados["banco"]:
-                partes.append(f"Banco {dados['banco']}")
-            if dados["agencia"]:
-                partes.append(f"Ag {dados['agencia']}")
-            if dados["conta"]:
-                partes.append(f"CC {dados['conta']}")
-            dados["nome"] = " - ".join(partes)
-        else:
-            dados["nome"] = "Conta Extraída do OFX"
-        
-        return dados
