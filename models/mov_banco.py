@@ -13,8 +13,8 @@ class MovBanco(db.Model, BaseMixin):
     
     Fluxo típico:
     1. Importado de CSV/OFX do banco
-    2. Conciliado com MovAdquirente (vendas)
-    3. Status: conciliado = True/False
+    2. Categorizado automaticamente (tipo_pagamento, categoria)
+    3. Conciliado com MovAdquirente (vendas)
     """
     __tablename__ = "mov_banco"
 
@@ -28,7 +28,7 @@ class MovBanco(db.Model, BaseMixin):
     conta_bancaria_id = db.Column(
         db.Integer,
         db.ForeignKey("contas_bancarias.id", ondelete="SET NULL"),
-        nullable=True,  # Pode ser null se conta for deletada
+        nullable=True,
         index=True
     )
     
@@ -36,19 +36,10 @@ class MovBanco(db.Model, BaseMixin):
     # DADOS DO MOVIMENTO BANCÁRIO
     # ============================================================
     
-    # Data do lançamento no extrato
     data_movimento = db.Column(db.Date, nullable=False, index=True)
-    
-    # Identificação do banco (redundante com conta_bancaria, mas útil para histórico)
     banco = db.Column(db.String(50), nullable=True)
-    
-    # Descrição/histórico do lançamento (ex: "TED CIELO NSU 123456")
     historico = db.Column(db.String(255), nullable=True, index=True)
-    
-    # Documento/comprovante (ex: número do DOC, TED, PIX)
     documento = db.Column(db.String(100), nullable=True)
-    
-    # Origem do crédito (ex: "CIELO", "REDE", "PIX", "BOLETO")
     origem = db.Column(db.String(50), nullable=True, index=True)
     
     # Valores (Numeric para precisão monetária)
@@ -58,33 +49,33 @@ class MovBanco(db.Model, BaseMixin):
     valor_conciliado = db.Column(db.Numeric(15, 2), default=Decimal("0"))
     conciliado = db.Column(db.Boolean, default=False, index=True)
     
+    # ✅ NOVOS CAMPOS: Inteligência Financeira Automática
+    tipo_pagamento = db.Column(db.String(50), nullable=True, default='outros', index=True)
+    categoria = db.Column(db.String(100), nullable=True, default='outros', index=True)
+    
     # Metadados
-    arquivo_origem = db.Column(db.String(255), nullable=True)  # Hash/nome do arquivo importado
+    arquivo_origem = db.Column(db.String(255), nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
 
     # ============================================================
-    # RELACIONAMENTOS (com back_populates CONSISTENTE)
+    # RELACIONAMENTOS
     # ============================================================
     
-    # ✅ Empresa: back_populates deve bater com Empresa.movimentos_banco
-    # NOTA: empresa_id vem do BaseMixin, mas o relationship precisa ser declarado
     empresa = db.relationship(
         "Empresa",
-        back_populates="movimentos_banco",  # ✅ Deve existir em Empresa
+        back_populates="movimentos_banco",
         lazy=True
     )
     
-    # ✅ Conta bancária: back_populates deve bater com ContaBancaria.movimentos
     conta_bancaria = db.relationship(
         "ContaBancaria",
-        back_populates="movimentos",  # ✅ Deve existir em ContaBancaria
+        back_populates="movimentos",
         lazy=True
     )
     
-    # ✅ Conciliações: um recebimento pode conciliar múltiplas vendas
     conciliacoes = db.relationship(
         "Conciliacao",
-        back_populates="mov_banco",  # ✅ Deve existir em Conciliacao
+        back_populates="mov_banco",
         lazy=True,
         cascade="all, delete-orphan"
     )
@@ -98,6 +89,8 @@ class MovBanco(db.Model, BaseMixin):
         db.Index('idx_mov_banco_conciliado', 'conciliado'),
         db.Index('idx_mov_banco_conta', 'conta_bancaria_id'),
         db.Index('idx_mov_banco_origem', 'origem'),
+        db.Index('idx_mov_banco_tipo', 'tipo_pagamento'),       # ✅ Novo índice
+        db.Index('idx_mov_banco_categoria', 'categoria'),       # ✅ Novo índice
     )
 
     # ============================================================
@@ -107,7 +100,7 @@ class MovBanco(db.Model, BaseMixin):
     @property
     def valor_pendente(self) -> Decimal:
         """Calcula valor ainda não conciliado"""
-        return max(Decimal("0"), self.valor - self.valor_conciliado)
+        return max(Decimal("0"), abs(self.valor) - abs(self.valor_conciliado))
     
     @property
     def esta_conciliado(self) -> bool:
@@ -116,19 +109,10 @@ class MovBanco(db.Model, BaseMixin):
     
     def atualizar_status_conciliacao(self):
         """Atualiza flag conciliado baseado em valor_conciliado"""
-        self.conciliado = self.valor_conciliado >= self.valor
+        self.conciliado = abs(self.valor_conciliado) >= abs(self.valor)
     
     def matches_adquirente(self, nome_adquirente: str) -> bool:
-        """
-        Verifica se este movimento pode ser de uma adquirente específica.
-        Útil para matching automático na conciliação.
-        
-        Args:
-            nome_adquirente: Nome da adquirente (ex: "CIELO", "REDE")
-            
-        Returns:
-            bool: True se houver match no histórico ou origem
-        """
+        """Verifica se este movimento pode ser de uma adquirente específica."""
         if not nome_adquirente or not self.historico:
             return False
         
@@ -140,10 +124,10 @@ class MovBanco(db.Model, BaseMixin):
     # ============================================================
     
     def __repr__(self):
-        return f"<MovBanco id={self.id} Valor={self.valor} Conciliado={self.conciliado}>"
+        return f"<MovBanco id={self.id} Valor={self.valor} Categoria={self.categoria}>"
     
     def to_dict(self):
-        """Serializa para dict (útil para APIs)"""
+        """Serializa para dict (útil para APIs e Dashboards)"""
         return {
             "id": self.id,
             "empresa_id": self.empresa_id,
@@ -158,6 +142,8 @@ class MovBanco(db.Model, BaseMixin):
             "valor_conciliado": str(self.valor_conciliado),
             "valor_pendente": str(self.valor_pendente),
             "conciliado": self.conciliado,
+            "tipo_pagamento": self.tipo_pagamento,      # ✅ Novo
+            "categoria": self.categoria,                # ✅ Novo
             "arquivo_origem": self.arquivo_origem,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None
         }
