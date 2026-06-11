@@ -1,5 +1,4 @@
-# models/contrato.py
-# Modelo para contratos gerados automaticamente
+# models/contrato.py - Contrato COMERCIAL do NousCard (diferente de ContratoTaxa)
 
 from .base import db, BaseMixin
 from datetime import datetime, timezone, date
@@ -7,8 +6,11 @@ from decimal import Decimal
 
 
 class Contrato(db.Model, BaseMixin):
-    """Contrato gerado automaticamente ao cadastrar empresa"""
-    __tablename__ = "contratos"
+    """
+    Contrato COMERCIAL de prestação de serviço NousCard.
+    Diferente de ContratoTaxa (que é contrato de taxas da maquininha).
+    """
+    __tablename__ = "contratos_comerciais"  # ✅ Nome diferente da tabela
     
     id = db.Column(db.Integer, primary_key=True)
     
@@ -16,19 +18,18 @@ class Contrato(db.Model, BaseMixin):
     empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id'), nullable=False, index=True)
     
     # Dados do contrato
-    numero = db.Column(db.String(20), unique=True, nullable=False, index=True)  # Ex: "NC-2026-001"
+    numero = db.Column(db.String(20), unique=True, nullable=False, index=True)
     data_emissao = db.Column(db.Date, default=lambda: date.today())
     data_inicio_vigencia = db.Column(db.Date, nullable=False)
-    data_fim_vigencia = db.Column(db.Date, nullable=True)  # None = indeterminado
+    data_fim_vigencia = db.Column(db.Date, nullable=True)
     
     # Valores
     valor_setup = db.Column(db.Numeric(10, 2), default=Decimal('297.00'))
     valor_mensal = db.Column(db.Numeric(10, 2), default=Decimal('97.00'))
-    plano = db.Column(db.String(50), default='inicial')  # inicial, profissional, business
+    plano = db.Column(db.String(50), default='inicial')
     
     # Status
     status = db.Column(db.String(30), default='gerado', index=True)
-    # Possíveis: gerado, enviado, assinado, ativo, suspenso, cancelado
     
     # Pagamento setup
     setup_pago = db.Column(db.Boolean, default=False)
@@ -39,23 +40,18 @@ class Contrato(db.Model, BaseMixin):
     data_assinatura = db.Column(db.DateTime, nullable=True)
     ip_assinatura = db.Column(db.String(50), nullable=True)
     
-    # PDF do contrato (armazenado como BLOB ou path)
-    pdf_base64 = db.Column(db.Text, nullable=True)  # PDF em base64
-    pdf_url = db.Column(db.String(500), nullable=True)  # URL do PDF no storage
+    # PDF do contrato
+    pdf_base64 = db.Column(db.Text, nullable=True)
+    pdf_url = db.Column(db.String(500), nullable=True)
     
     # Observações
     observacoes = db.Column(db.Text, nullable=True)
     
-    # Timestamps
-    criado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    atualizado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), 
-                              onupdate=lambda: datetime.now(timezone.utc))
-    
-    # ✅ Relacionamento SEM backref (usamos back_populates no Empresa)
+    # ✅ Relacionamento com Empresa (usa contratos_comerciais)
     empresa = db.relationship('Empresa', back_populates='contratos_comerciais')
     
     def __repr__(self):
-        return f"<Contrato {self.numero} - {self.empresa.nome if self.empresa else 'N/A'}>"
+        return f"<ContratoComercial {self.numero} - Empresa {self.empresa_id}>"
     
     def to_dict(self):
         return {
