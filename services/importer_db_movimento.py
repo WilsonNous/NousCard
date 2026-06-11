@@ -103,12 +103,30 @@ def resolver_adquirente_id(valor, empresa_id=None):
     return None
 
 # ============================================================
-# SALVAR VENDAS (MovAdquirente) - VERSÃO COM LOGS DETALHADOS
+# SALVAR VENDAS (MovAdquirente) - VERSÃO FINAL CORRIGIDA
 # ============================================================
 def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> dict:
     """
     Salva registros de vendas (MovAdquirente) no banco.
     Aceita tanto formato OFX quanto Flow CSV.
+    
+    Campos reais da tabela mov_adquirente:
+    - empresa_id (NOT NULL)
+    - adquirente_id (NOT NULL)
+    - data_venda (date)
+    - data_prevista_pagamento (date)
+    - bandeira (varchar 50)
+    - tipo_pagamento (enum: cartao, pix, boleto, outros)
+    - produto (varchar 50)
+    - parcela, total_parcelas
+    - nsu (varchar 50)
+    - autorizacao (varchar 50)
+    - valor_bruto (decimal 12,2 NOT NULL)
+    - taxa_cobrada (decimal 10,4)
+    - valor_liquido (decimal 12,2)
+    - valor_conciliado (decimal 12,2, default 0)
+    - status_conciliacao (varchar 30, default 'pendente')
+    - arquivo_origem (varchar 255)
     """
     from models import MovAdquirente, Adquirente
     
@@ -116,7 +134,8 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         "sucesso": 0,
         "falhas": 0,
         "duplicados": 0,
-        "total_valor": Decimal("0"),
+        "total_valor_bruto": Decimal("0"),
+        "total_valor_liquido": Decimal("0"),
         "adquirente_criada": False,
         "adquirentes_processadas": set()
     }
@@ -134,7 +153,11 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
     try:
         for idx, reg in enumerate(registros):
             try:
-                # ✅ Extrair dados com múltiplos fallbacks
+                # ============================================================
+                # EXTRAÇÃO DE DADOS COM FALLBACKS
+                # ============================================================
+                
+                # Adquirente (nome)
                 adquirente_nome = (
                     reg.get('adquirente') or 
                     reg.get('nome_adquirente') or 
@@ -142,6 +165,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     'Flow'
                 )
                 
+                # NSU
                 nsu = (
                     reg.get('nsu') or 
                     reg.get('id') or 
@@ -150,47 +174,84 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     f"AUTO-{idx}-{empresa_id}"
                 )
                 
-                data_transacao_raw = (
-                    reg.get('data_transacao') or 
+                # ✅ CORREÇÃO: data_venda (não data_transacao)
+                data_venda_raw = (
                     reg.get('data_venda') or 
+                    reg.get('data_transacao') or 
                     reg.get('data') or 
                     reg.get('date')
                 )
                 
-                valor_raw = (
-                    reg.get('valor') or 
-                    reg.get('valor_liquido') or 
+                # ✅ CORREÇÃO: valor_bruto (NOT NULL) e valor_liquido
+                valor_bruto_raw = (
                     reg.get('valor_bruto') or 
+                    reg.get('valor') or 
                     reg.get('amount') or 
                     0
                 )
+                valor_liquido_raw = (
+                    reg.get('valor_liquido') or 
+                    valor_bruto_raw
+                )
+                desconto_raw = reg.get('desconto') or reg.get('taxa_cobrada') or 0
                 
-                valor_bruto_raw = reg.get('valor_bruto') or valor_raw
+                # Outros campos
                 bandeira = reg.get('bandeira')
                 produto = reg.get('produto')
-                quantidade = reg.get('quantidade') or 1
-                descricao = (
+                tipo_pagamento = reg.get('tipo_pagamento', 'cartao')
+                
+                # Validar tipo_pagamento (enum)
+                if tipo_pagamento not in ['cartao', 'pix', 'boleto', 'outros']:
+                    tipo_pagamento = 'cartao'
+                
+                observacoes = (
+                    reg.get('observacoes') or 
                     reg.get('descricao') or 
                     reg.get('memo') or 
                     reg.get('description') or 
                     ''
                 )
                 
-                # ✅ Converter valor para Decimal
-                if not isinstance(valor_raw, Decimal):
-                    try:
-                        valor = Decimal(str(valor_raw))
-                    except:
-                        valor = Decimal("0")
-                else:
-                    valor = valor_raw
+                # ============================================================
+                # CONVERSÃO DE VALORES
+                # ============================================================
                 
-                if valor <= 0:
-                    logger.debug(f"⚠️ Valor inválido ({valor_raw}), pulando registro {idx}")
+                # Valor bruto (NOT NULL)
+                if not isinstance(valor_bruto_raw, Decimal):
+                    try:
+                        valor_bruto = Decimal(str(valor_bruto_raw))
+                    except:
+                        valor_bruto = Decimal("0")
+                else:
+                    valor_bruto = valor_bruto_raw
+                
+                # Valor líquido
+                if not isinstance(valor_liquido_raw, Decimal):
+                    try:
+                        valor_liquido = Decimal(str(valor_liquido_raw))
+                    except:
+                        valor_liquido = valor_bruto
+                else:
+                    valor_liquido = valor_liquido_raw
+                
+                # Desconto/taxa
+                if not isinstance(desconto_raw, Decimal):
+                    try:
+                        taxa_cobrada = Decimal(str(desconto_raw))
+                    except:
+                        taxa_cobrada = Decimal("0")
+                else:
+                    taxa_cobrada = desconto_raw
+                
+                # Validar valor_bruto > 0
+                if valor_bruto <= 0:
+                    logger.debug(f"⚠️ Valor bruto inválido ({valor_bruto_raw}), pulando registro {idx}")
                     stats["falhas"] += 1
                     continue
                 
-                # ✅ Resolver adquirente com logs detalhados
+                # ============================================================
+                # RESOLVER ADQUIRENTE
+                # ============================================================
                 adquirente = None
                 try:
                     adquirente = Adquirente.query.filter(
@@ -205,13 +266,11 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                 if not adquirente:
                     # Criar adquirente automaticamente
                     try:
-                        # ✅ Verificar campos obrigatórios do modelo Adquirente
-                        # Se o modelo tem campo 'codigo', precisamos fornecer um
+                        # ✅ CORREÇÃO: codigo é opcional, empresa_id é opcional
                         nova_adquirente = Adquirente(
                             nome=adquirente_nome[:100],
-                            codigo=adquirente_nome[:20].upper().replace(' ', '_'),  # ✅ Gera código baseado no nome
-                            ativo=True,
-                            criado_em=datetime.now(timezone.utc)
+                            codigo=adquirente_nome[:20].upper().replace(' ', '_'),
+                            ativo=True
                         )
                         db.session.add(nova_adquirente)
                         db.session.flush()
@@ -225,7 +284,9 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                 
                 stats["adquirentes_processadas"].add(adquirente_nome)
                 
-                # ✅ Verificar duplicata pelo NSU
+                # ============================================================
+                # VERIFICAR DUPLICATA PELO NSU
+                # ============================================================
                 if nsu:
                     try:
                         duplicata = MovAdquirente.query.filter_by(
@@ -240,15 +301,17 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     except Exception as e:
                         logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
                 
-                # ✅ Parse data com múltiplos formatos
+                # ============================================================
+                # PARSE DATA_VENDA
+                # ============================================================
                 data_venda = None
-                if data_transacao_raw:
-                    if isinstance(data_transacao_raw, (date, datetime)):
-                        data_venda = data_transacao_raw if isinstance(data_transacao_raw, date) else data_transacao_raw.date()
-                    elif isinstance(data_transacao_raw, str):
+                if data_venda_raw:
+                    if isinstance(data_venda_raw, (date, datetime)):
+                        data_venda = data_venda_raw if isinstance(data_venda_raw, date) else data_venda_raw.date()
+                    elif isinstance(data_venda_raw, str):
                         for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y']:
                             try:
-                                data_venda = datetime.strptime(data_transacao_raw, fmt).date()
+                                data_venda = datetime.strptime(data_venda_raw, fmt).date()
                                 break
                             except:
                                 continue
@@ -259,33 +322,51 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                 else:
                     data_venda = date.today()
                 
-                # ✅ Criar registro MovAdquirente
+                # ============================================================
+                # ✅ CORRIGIDO: Criar registro MovAdquirente com campos REAIS
+                # ============================================================
                 try:
                     mov = MovAdquirente(
                         empresa_id=empresa_id,
                         adquirente_id=adquirente.id,
-                        arquivo_id=arquivo_id,
-                        nsu=nsu,
-                        data_transacao=data_venda,
-                        valor=valor,
-                        valor_bruto=Decimal(str(valor_bruto_raw)) if valor_bruto_raw else valor,
-                        bandeira=bandeira,
-                        produto=produto,
-                        quantidade=int(quantidade) if quantidade else 1,
-                        descricao=descricao[:500] if descricao else '',
-                        tipo_pagamento=reg.get('tipo_pagamento', 'cartao'),
-                        status='pendente',
+                        
+                        # ✅ CORREÇÃO: data_venda (não data_transacao)
+                        data_venda=data_venda,
+                        
+                        # ✅ CORREÇÃO: valor_bruto (NOT NULL) e valor_liquido
+                        valor_bruto=valor_bruto,
+                        valor_liquido=valor_liquido,
+                        taxa_cobrada=taxa_cobrada,
+                        
+                        # ✅ CORREÇÃO: arquivo_origem (varchar, não arquivo_id)
+                        arquivo_origem=str(arquivo_id) if arquivo_id else None,
+                        
+                        # Demais campos
+                        bandeira=bandeira[:50] if bandeira else None,
+                        tipo_pagamento=tipo_pagamento,
+                        produto=produto[:50] if produto else None,
+                        nsu=nsu[:50] if nsu else None,
+                        
+                        # ✅ CORREÇÃO: status_conciliacao (não status)
+                        status_conciliacao='pendente',
+                        valor_conciliado=Decimal("0"),
+                        
+                        # ✅ CORREÇÃO: observacoes (não descricao)
+                        observacoes=observacoes[:2000] if observacoes else None,
+                        
+                        # BaseMixin
                         ativo=True,
                         criado_em=datetime.now(timezone.utc)
                     )
                     
                     db.session.add(mov)
                     stats["sucesso"] += 1
-                    stats["total_valor"] += valor
+                    stats["total_valor_bruto"] += valor_bruto
+                    stats["total_valor_liquido"] += valor_liquido
                     
                     # ✅ Log do primeiro sucesso
                     if stats["sucesso"] == 1:
-                        logger.info(f"✅ Primeira venda salva com sucesso: NSU={nsu}, Valor=R$ {valor}")
+                        logger.info(f"✅ Primeira venda salva: NSU={nsu}, Bruto=R$ {valor_bruto}, Líquido=R$ {valor_liquido}")
                     
                 except Exception as e:
                     logger.error(f"❌ Erro ao criar MovAdquirente (registro {idx}): {str(e)}", exc_info=True)
@@ -297,20 +378,24 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                 stats["falhas"] += 1
                 continue
         
-        # ✅ Commit final
+        # ============================================================
+        # COMMIT FINAL
+        # ============================================================
         try:
             db.session.commit()
             logger.info(
                 f"✅ Vendas salvas: {stats['sucesso']} sucesso, "
                 f"{stats['falhas']} falhas, {stats['duplicados']} duplicados, "
-                f"total: R$ {stats['total_valor']:.2f}"
+                f"bruto: R$ {stats['total_valor_bruto']:.2f}, "
+                f"líquido: R$ {stats['total_valor_liquido']:.2f}"
             )
         except Exception as e:
             logger.error(f"❌ Erro no commit: {str(e)}", exc_info=True)
             db.session.rollback()
             stats["falhas"] += stats["sucesso"]
             stats["sucesso"] = 0
-            stats["total_valor"] = Decimal("0")
+            stats["total_valor_bruto"] = Decimal("0")
+            stats["total_valor_liquido"] = Decimal("0")
         
         return stats
         
@@ -321,7 +406,6 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         except:
             pass
         return stats
-
 
 # ============================================================
 # SALVAR RECEBIMENTOS (MovBanco)
