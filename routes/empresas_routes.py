@@ -1,7 +1,7 @@
-# routes/empresas_routes.py - VERSÃO COMPLETA COM LOGO EM BASE64
+# routes/empresas_routes.py - VERSÃO COMPLETA COM LOGO EM BASE64 + CONTRATOS AUTOMÁTICOS
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify
-from models import db, Empresa, Usuario, LogAuditoria
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify, send_file
+from models import db, Empresa, Usuario, LogAuditoria, Contrato
 from utils.auth_middleware import master_required
 from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -12,7 +12,8 @@ import time
 import os
 import secrets
 import requests
-import base64  # ✅ Para converter imagem em Base64
+import base64
+from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,8 @@ def calcular_stats_empresa(empresa):
     stats = {
         "total_usuarios": 0,
         "total_vendas": 0,
-        "total_valor_vendas": 0
+        "total_valor_vendas": 0,
+        "contrato_ativo": None
     }
     
     try:
@@ -147,6 +149,18 @@ def calcular_stats_empresa(empresa):
         logger.debug("Modelo MovAdquirente não disponível")
     except Exception as e:
         logger.warning(f"Erro ao calcular estatísticas: {e}")
+    
+    # ✅ NOVO: Buscar contrato ativo
+    try:
+        contrato_ativo = Contrato.query.filter_by(
+            empresa_id=empresa.id,
+            ativo=True
+        ).filter(Contrato.status.in_(['gerado', 'enviado', 'assinado', 'ativo'])).first()
+        
+        if contrato_ativo:
+            stats["contrato_ativo"] = contrato_ativo
+    except Exception as e:
+        logger.warning(f"Erro ao buscar contrato: {e}")
     
     return stats
 
@@ -206,7 +220,7 @@ def listar_empresas():
     )
 
 # ============================================================
-# NOVA EMPRESA
+# NOVA EMPRESA (COM GERAÇÃO AUTOMÁTICA DE CONTRATO)
 # ============================================================
 @empresas_bp.route("/nova", methods=["GET", "POST"])
 @master_required
@@ -215,13 +229,17 @@ def nova_empresa():
         flash("Muitas tentativas. Aguarde.", "warning")
         return redirect(url_for("empresas.nova_empresa"))
     
+    # ✅ NOVO: Dados dos planos para o template
+    from services.contrato_service import PLANOS
+    
     if request.method == "GET":
         return render_template(
             "empresas_form.html", 
             empresa=None,
             erros={},
             stats=None,
-            logo_url=None
+            logo_url=None,
+            planos=PLANOS  # ✅ NOVO: Passar planos para o template
         )
     
     if not validar_csrf_token():
@@ -230,29 +248,35 @@ def nova_empresa():
     
     nome = (request.form.get("nome") or "").strip()
     documento = (request.form.get("documento") or "").strip().replace('.', '').replace('-', '').replace('/', '')
+    plano_escolhido = request.form.get("plano", "inicial")  # ✅ NOVO: Plano escolhido
+    
+    # Validar plano
+    if plano_escolhido not in PLANOS:
+        plano_escolhido = "inicial"
     
     erros = {}
     
     if not nome or len(nome) > 150:
         erros['nome'] = "Nome deve ter entre 1 e 150 caracteres"
         flash(erros['nome'], "error")
-        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None, planos=PLANOS)
     
     if documento:
         if len(documento) > 14:
             erros['documento'] = "Documento muito longo"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None, planos=PLANOS)
         if not validar_cnpj(documento):
             erros['documento'] = "CNPJ inválido"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None, planos=PLANOS)
         if Empresa.query.filter_by(documento=documento).first():
             erros['documento'] = "Documento já cadastrado"
             flash(erros['documento'], "error")
-            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
+            return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None, planos=PLANOS)
     
     try:
+        # Criar empresa
         empresa = Empresa(
             nome=nome,
             documento=documento or None,
@@ -260,22 +284,57 @@ def nova_empresa():
             criado_em=datetime.now(timezone.utc)
         )
         db.session.add(empresa)
+        db.session.flush()  # Para obter o ID da empresa
+        
         log_acao_empresa("master_criou_empresa", empresa)
+        
+        # ✅ NOVO: Gerar contrato automaticamente
+        try:
+            from services.contrato_service import gerar_contrato_para_empresa
+            
+            resultado_contrato = gerar_contrato_para_empresa(
+                empresa_id=empresa.id,
+                plano=plano_escolhido,
+                observacoes=f"Contrato gerado automaticamente no cadastro da empresa {nome}"
+            )
+            
+            if resultado_contrato['ok']:
+                contrato = resultado_contrato['contrato']
+                logger.info(f"✅ Contrato {contrato.numero} gerado automaticamente para empresa {nome}")
+                
+                # Mensagem flash com informações do contrato
+                plano_info = PLANOS[plano_escolhido]
+                if plano_escolhido == 'parceiro':
+                    flash(f"Empresa criada com sucesso! Contrato {contrato.numero} gerado (Plano Parceiro - Gratuito).", "success")
+                else:
+                    flash(
+                        f"Empresa criada com sucesso! Contrato {contrato.numero} gerado. "
+                        f"Setup: R$ {float(contrato.valor_setup):.2f} | Mensal: R$ {float(contrato.valor_mensal):.2f}",
+                        "success"
+                    )
+            else:
+                logger.warning(f"⚠️ Empresa criada, mas contrato não gerado: {resultado_contrato['mensagem']}")
+                flash(f"Empresa criada, mas houve um problema ao gerar o contrato: {resultado_contrato['mensagem']}", "warning")
+                
+        except Exception as e:
+            logger.error(f"❌ Erro ao gerar contrato automático: {str(e)}", exc_info=True)
+            flash("Empresa criada com sucesso, mas houve erro ao gerar o contrato automaticamente.", "warning")
+        
         db.session.commit()
-        flash("Empresa criada com sucesso!", "success")
         logger.info(f"✅ Master criou empresa: {nome} (id={empresa.id})")
         return redirect(url_for("empresas.listar_empresas"))
+        
     except IntegrityError as e:
         db.session.rollback()
         logger.error(f"⚠️ Erro de integridade: {str(e)}")
         erros['documento'] = "Erro: documento já existe"
         flash(erros['documento'], "error")
-        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None, planos=PLANOS)
     except SQLAlchemyError as e:
         db.session.rollback()
         logger.error(f"❌ Erro de banco: {str(e)}")
         flash("Erro interno. Tente novamente.", "error")
-        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None)
+        return render_template("empresas_form.html", empresa=None, erros=erros, stats=None, logo_url=None, planos=PLANOS)
 
 # ============================================================
 # EDITAR EMPRESA
@@ -424,13 +483,19 @@ def empresa_detalhe(empresa_id):
     
     logo_url = get_logo_url(empresa)
     
+    # ✅ NOVO: Buscar contratos da empresa
+    contratos = Contrato.query.filter_by(empresa_id=empresa_id)\
+        .order_by(Contrato.criado_em.desc())\
+        .all()
+    
     return render_template(
         "empresas_detalhes.html",
         empresa=empresa,
         total_usuarios=total_usuarios,
         usuarios_ativos=usuarios_ativos,
         logs_recentes=logs_recentes,
-        logo_url=logo_url
+        logo_url=logo_url,
+        contratos=contratos  # ✅ NOVO
     )
 
 # ============================================================
@@ -483,7 +548,7 @@ def api_consultar_cnpj():
         return jsonify({"ok": False, "message": "Erro interno"}), 500
 
 # ============================================================
-# API: UPLOAD DE LOGO EM BASE64 (SALVO NO BANCO)
+# API: UPLOAD DE LOGO EM BASE64
 # ============================================================
 @empresas_bp.route("/api/upload-logo", methods=["POST"])
 @master_required
@@ -506,20 +571,17 @@ def api_upload_logo():
     if file.filename == '':
         return jsonify({"ok": False, "message": "Nome de arquivo vazio"}), 400
     
-    # Validar extensão
     allowed_extensions = {'.png', '.jpg', '.jpeg', '.svg', '.webp'}
     ext = os.path.splitext(file.filename.lower())[1]
     if ext not in allowed_extensions:
         return jsonify({"ok": False, "message": f"Formato não permitido. Use: {', '.join(allowed_extensions)}"}), 400
     
-    # Validar tamanho (2MB)
     file.seek(0, 2)
     size = file.tell()
     file.seek(0)
     if size > 2 * 1024 * 1024:
         return jsonify({"ok": False, "message": "Arquivo muito grande. Máximo: 2MB"}), 400
     
-    # ✅ Verificar se o modelo tem o campo logo_base64
     if not hasattr(empresa, 'logo_base64'):
         return jsonify({
             "ok": False, 
@@ -527,12 +589,10 @@ def api_upload_logo():
         }), 501
     
     try:
-        # Ler arquivo e converter para Base64
         file_data = file.read()
         mime_type = file.content_type or f"image/{ext.replace('.', '')}"
         logo_base64 = f"data:{mime_type};base64,{base64.b64encode(file_data).decode('utf-8')}"
         
-        # Salvar no banco
         empresa.logo_base64 = logo_base64
         
         if hasattr(empresa, 'atualizado_em'):
@@ -552,3 +612,157 @@ def api_upload_logo():
         db.session.rollback()
         logger.error(f"❌ Erro ao salvar logo: {str(e)}", exc_info=True)
         return jsonify({"ok": False, "message": "Erro ao salvar arquivo"}), 500
+
+
+# ============================================================
+# 📄 ROTAS DE CONTRATOS (NOVAS!)
+# ============================================================
+
+@empresas_bp.route("/<int:empresa_id>/contratos")
+@master_required
+def listar_contratos(empresa_id):
+    """Lista todos os contratos de uma empresa"""
+    empresa = Empresa.query.get_or_404(empresa_id)
+    
+    contratos = Contrato.query.filter_by(empresa_id=empresa_id)\
+        .order_by(Contrato.criado_em.desc())\
+        .all()
+    
+    return render_template(
+        "empresas_contratos.html",
+        empresa=empresa,
+        contratos=contratos
+    )
+
+
+@empresas_bp.route("/<int:empresa_id>/contrato/<int:contrato_id>/pdf")
+@master_required
+def baixar_contrato_pdf(empresa_id, contrato_id):
+    """Baixa o PDF do contrato"""
+    contrato = Contrato.query.get_or_404(contrato_id)
+    
+    if contrato.empresa_id != empresa_id:
+        abort(404)
+    
+    if not contrato.pdf_base64:
+        flash("PDF do contrato não disponível", "warning")
+        return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+    
+    try:
+        # Decodificar base64
+        pdf_bytes = base64.b64decode(contrato.pdf_base64)
+        
+        # Retornar como arquivo para download
+        return send_file(
+            BytesIO(pdf_bytes),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"Contrato_{contrato.numero}.pdf"
+        )
+    except Exception as e:
+        logger.error(f"❌ Erro ao baixar PDF: {str(e)}", exc_info=True)
+        flash("Erro ao baixar PDF do contrato", "error")
+        return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+
+
+@empresas_bp.route("/<int:empresa_id>/contrato/<int:contrato_id>/assinar", methods=["POST"])
+@master_required
+def marcar_contrato_assinado(empresa_id, contrato_id):
+    """Marca contrato como assinado"""
+    if not validar_csrf_token():
+        flash("Erro de segurança", "error")
+        return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+    
+    contrato = Contrato.query.get_or_404(contrato_id)
+    
+    if contrato.empresa_id != empresa_id:
+        abort(404)
+    
+    try:
+        contrato.status = 'assinado'
+        contrato.assinado_digitalmente = True
+        contrato.data_assinatura = datetime.now(timezone.utc)
+        contrato.ip_assinatura = request.remote_addr
+        
+        log_acao_empresa("contrato_assinado", contrato.empresa, f"Contrato {contrato.numero}")
+        db.session.commit()
+        
+        flash(f"Contrato {contrato.numero} marcado como assinado!", "success")
+        logger.info(f"✅ Contrato {contrato.numero} marcado como assinado")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Erro ao marcar contrato: {str(e)}", exc_info=True)
+        flash("Erro ao atualizar contrato", "error")
+    
+    return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+
+
+@empresas_bp.route("/<int:empresa_id>/contrato/<int:contrato_id>/ativar", methods=["POST"])
+@master_required
+def ativar_contrato(empresa_id, contrato_id):
+    """Ativa contrato (após setup pago)"""
+    if not validar_csrf_token():
+        flash("Erro de segurança", "error")
+        return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+    
+    contrato = Contrato.query.get_or_404(contrato_id)
+    
+    if contrato.empresa_id != empresa_id:
+        abort(404)
+    
+    try:
+        contrato.status = 'ativo'
+        contrato.setup_pago = True
+        contrato.data_pagamento_setup = datetime.now(timezone.utc)
+        
+        log_acao_empresa("contrato_ativado", contrato.empresa, f"Contrato {contrato.numero}")
+        db.session.commit()
+        
+        flash(f"Contrato {contrato.numero} ativado! Setup registrado como pago.", "success")
+        logger.info(f"✅ Contrato {contrato.numero} ativado")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Erro ao ativar contrato: {str(e)}", exc_info=True)
+        flash("Erro ao ativar contrato", "error")
+    
+    return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+
+
+@empresas_bp.route("/<int:empresa_id>/contrato/gerar", methods=["POST"])
+@master_required
+def gerar_novo_contrato(empresa_id):
+    """Gera um novo contrato para a empresa"""
+    if not validar_csrf_token():
+        flash("Erro de segurança", "error")
+        return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+    
+    empresa = Empresa.query.get_or_404(empresa_id)
+    plano = request.form.get("plano", "inicial")
+    
+    try:
+        from services.contrato_service import gerar_contrato_para_empresa, PLANOS
+        
+        if plano not in PLANOS:
+            flash(f"Plano inválido: {plano}", "error")
+            return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
+        
+        resultado = gerar_contrato_para_empresa(
+            empresa_id=empresa_id,
+            plano=plano,
+            observacoes=f"Contrato gerado manualmente pelo Master {g.user.nome}"
+        )
+        
+        if resultado['ok']:
+            contrato = resultado['contrato']
+            flash(f"Contrato {contrato.numero} gerado com sucesso!", "success")
+            logger.info(f"✅ Contrato {contrato.numero} gerado manualmente para empresa {empresa.nome}")
+        else:
+            flash(f"Erro ao gerar contrato: {resultado['mensagem']}", "error")
+            
+    except Exception as e:
+        logger.error(f"❌ Erro ao gerar contrato: {str(e)}", exc_info=True)
+        flash("Erro ao gerar contrato", "error")
+    
+    return redirect(url_for("empresas.listar_contratos", empresa_id=empresa_id))
