@@ -32,8 +32,15 @@ class Empresa(db.Model, TimestampMixin, SoftDeleteMixin):
         "ContaBancaria", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
-    contratos = db.relationship(
+    # ✅ RENOMEADO: contratos_taxa (contratos de taxas de maquininha)
+    contratos_taxa = db.relationship(
         "ContratoTaxa", back_populates="empresa", lazy=True,
+        cascade="all, delete-orphan"
+    )
+    
+    # ✅ NOVO: contratos_comerciais (contratos de prestação de serviço NousCard)
+    contratos_comerciais = db.relationship(
+        "Contrato", back_populates="empresa", lazy=True,
         cascade="all, delete-orphan"
     )
     movimentos_adquirente = db.relationship(
