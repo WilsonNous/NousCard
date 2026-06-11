@@ -695,7 +695,10 @@ def is_flow_csv(filename: str, sample_content: str) -> bool:
 # ✅ FLOW CSV - PARSER
 # ============================================================
 def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
-    """Parser específico para CSV do Flow (relatório sumarizado de vendas)."""
+    """
+    Parser específico para CSV do Flow (relatório sumarizado de vendas).
+    Gera registros compatíveis com MovAdquirente para salvar_vendas.
+    """
     inicio = time.time()
     logger.info(f"📄 Início parse Flow CSV: {filename}")
     
@@ -714,12 +717,12 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         lines = raw.strip().split('\n')
         
         if len(lines) < 4:
-            raise ValueError("Arquivo Flow CSV muito curto")
+            raise ValueError("Arquivo Flow CSV muito curto (mínimo 4 linhas)")
         
         # Linha 1: Título (ignorar)
         # Linha 2: Estabelecimento
         estabelecimento = None
-        linha_estabelecimento = lines[1].strip() if len(lines) > 1 else ""
+        linha_estabelecimento = lines[1].strip()
         if 'Estabelecimento' in linha_estabelecimento:
             partes = linha_estabelecimento.split(';')
             if len(partes) >= 2:
@@ -728,14 +731,17 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento, default_empresa_id)
         if not empresa_id:
             if not default_empresa_id:
+                logger.error(f"❌ Estabelecimento não encontrado: {estabelecimento}")
                 return []
             empresa_id = default_empresa_id
+        
+        logger.info(f"🏢 Estabelecimento: {estabelecimento}, empresa_id: {empresa_id}")
         
         # Linha 3: Header
         header_line = lines[2].strip()
         headers = [h.strip() for h in header_line.split(';')]
         
-        # Filtrar linhas de dados (pular título, estabelecimento, header e total)
+        # Filtrar linhas de dados
         data_lines = []
         for i, line in enumerate(lines[3:], start=3):
             line_stripped = line.strip()
@@ -743,14 +749,15 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 continue
             if line_stripped.lower().startswith('total'):
                 continue
-            if ';' in line_stripped and not line_stripped.startswith('Nº'):
+            if ';' in line_stripped:
                 data_lines.append(line_stripped)
         
         if not data_lines:
             logger.warning("⚠️ Nenhuma linha de dados encontrada")
             return []
         
-        # Usar csv.DictReader com header real
+        logger.info(f"📊 {len(data_lines)} linhas de dados encontradas")
+        
         reader = csv.DictReader(
             data_lines,
             delimiter=';',
@@ -758,10 +765,16 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         )
         
         registros = []
-        for row_num, row in enumerate(reader, start=3):
+        nsu_counter = 0
+        
+        for row_num, row in enumerate(reader, start=4):
             try:
                 # Normalizar chaves
-                row_normalized = {k.strip().lower(): v.strip() if v else '' for k, v in row.items() if k}
+                row_normalized = {}
+                for k, v in row.items():
+                    if k:
+                        key_normalized = k.strip().lower()
+                        row_normalized[key_normalized] = v.strip() if v else ''
                 
                 # Mapear campos
                 data_pagamento = row_normalized.get('data do pagamento', '')
@@ -781,39 +794,37 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 if not data_venda:
                     continue
                 
-                # Determinar tipo_pagamento
-                bandeira_lower = bandeira.lower()
-                produto_lower = produto.lower()
+                desconto = parse_valor(desconto_str.replace('R$', '').replace('.', '').replace(',', '.'))
+                valor_liquido = parse_valor(valor_liquido_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 
-                if 'pix' in produto_lower or bandeira_lower == 'pix':
-                    tipo_pagamento = 'pix'
-                    bandeira_final = None
-                elif 'boleto' in produto_lower:
-                    tipo_pagamento = 'boleto'
-                    bandeira_final = None
-                else:
-                    tipo_pagamento = 'cartao'
-                    bandeira_final = bandeira
+                # Gerar NSU único para cada linha (Flow não fornece NSU real)
+                nsu_counter += 1
+                nsu = f"FLOW-{estabelecimento}-{data_venda.strftime('%Y%m%d')}-{nsu_counter:04d}"
                 
-                registro = normalize_row({
-                    'valor_bruto': str(valor_bruto),
-                    'data_venda': data_venda.strftime('%Y-%m-%d') if data_venda else None,
-                    'bandeira': bandeira_final,
-                    'produto': produto,
-                    'quantidade': quantidade,
-                    'desconto': str(parse_valor(desconto_str.replace('R$', '').replace('.', '').replace(',', '.'))),
-                    'valor_liquido': str(parse_valor(valor_liquido_str.replace('R$', '').replace('.', '').replace(',', '.'))),
-                    'tipo_pagamento': tipo_pagamento,
+                # ✅ Gerar registro compatível com MovAdquirente
+                registro = {
+                    # Campos essenciais para salvar_vendas
+                    'adquirente': 'Flow',  # Nome da adquirente (Flow)
+                    'nsu': nsu,  # Identificador único
+                    'data_transacao': data_venda.strftime('%Y-%m-%d'),
+                    'data_venda': data_venda.strftime('%Y-%m-%d'),
+                    'valor': float(valor_liquido),  # Valor líquido (o que cai na conta)
+                    'valor_bruto': float(valor_bruto),
+                    'valor_liquido': float(valor_liquido),
+                    'desconto': float(desconto),
+                    'quantidade': int(quantidade) if quantidade else 1,
+                    'bandeira': bandeira,
+                    'produto': produto,  # Crédito, Débito, PIX
+                    'tipo_pagamento': 'cartao',
+                    'descricao': f"Flow {bandeira} {produto} - {data_venda.strftime('%d/%m/%Y')}",
                     'empresa_id': empresa_id,
-                })
-                
-                registro['empresa_id'] = empresa_id
-                registro['tipo_pagamento'] = tipo_pagamento
+                    'estabelecimento': estabelecimento,
+                }
                 
                 registros.append(registro)
                 
             except Exception as e:
-                logger.error(f"❌ Erro linha {row_num}: {str(e)}")
+                logger.error(f"❌ Erro linha {row_num}: {str(e)}", exc_info=True)
                 continue
         
         tempo = time.time() - inicio
@@ -821,9 +832,8 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         return registros
         
     except Exception as e:
-        logger.error(f"❌ Erro Flow CSV: {str(e)}")
+        logger.error(f"❌ Erro Flow CSV: {str(e)}", exc_info=True)
         raise ValueError(f"Erro Flow CSV: {str(e)}")
-
 
 def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: int = None) -> int:
     try:
