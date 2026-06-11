@@ -179,19 +179,44 @@ def arquivos_importados_page():
 @login_required
 @empresa_required
 def arquivo_detalhe_page(arquivo_id):
-    empresa_id = g.user.empresa_id
-    arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
-    if not arquivo:
-        abort(404)
+    """Página de detalhes de um arquivo importado"""
     try:
-        from services.importer_db import descriptografar_conteudo
-        registros = descriptografar_conteudo(arquivo.get("conteudo_json"))
-    except Exception as e:
-        logger.error(f"Erro ao descriptografar: {str(e)}")
+        empresa_id = g.user.empresa_id
+        logger.info(f"🔍 Acessando arquivo {arquivo_id} para empresa {empresa_id}")
+        
+        # Buscar arquivo
+        arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
+        if not arquivo:
+            logger.warning(f"❌ Arquivo {arquivo_id} não encontrado para empresa {empresa_id}")
+            abort(404)
+        
+        logger.info(f"✅ Arquivo encontrado: {arquivo.get('nome_arquivo')}")
+        
+        # Descriptografar conteúdo
         registros = []
-    return render_template("arquivo_detalhe.html", arquivo=arquivo, registros=registros)
-
-# routes/operacoes_routes.py - CORRIGIR função ultimos_uploads_api
+        conteudo_json = arquivo.get("conteudo_json")
+        
+        if conteudo_json:
+            try:
+                from services.importer_db import descriptografar_conteudo
+                registros = descriptografar_conteudo(conteudo_json)
+                logger.info(f"✅ Conteúdo descriptografado: {len(registros)} registros")
+            except Exception as e:
+                logger.error(f"❌ Erro ao descriptografar: {str(e)}", exc_info=True)
+                registros = []
+        else:
+            logger.warning(f"⚠️ Arquivo {arquivo_id} não tem conteudo_json")
+        
+        # Renderizar template
+        return render_template(
+            "arquivo_detalhe.html", 
+            arquivo=arquivo, 
+            registros=registros
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao acessar arquivo {arquivo_id}: {str(e)}", exc_info=True)
+        return f"Erro ao carregar arquivo: {str(e)}", 500
 
 @operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
 @login_required
