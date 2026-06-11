@@ -38,8 +38,8 @@ def _import_blueprint(module_path: str, blueprint_name: str):
         raise
 
 
-# Importações diretas (padrão para produção)
-from .dashboard_routes import dashboard_api_bp
+# ✅ IMPORTAÇÕES DIRETAS (CORRIGIDO - importar AMBOS os blueprints do dashboard)
+from .dashboard_routes import dashboard_bp, dashboard_api_bp  # ← CORRIGIDO: importar ambos
 from .contrato_routes import contrato_bp
 from .assistant_routes import assistant_bp
 from .auth_routes import auth_bp
@@ -50,6 +50,7 @@ from .dashboard_api import dashboard_api
 from .conciliacao_api import bp_conc
 from .auditor_routes import auditor_bp  
 from routes.debug_routes import debug_bp
+
 
 def register_blueprints(app: Flask):
     """
@@ -86,7 +87,7 @@ def register_blueprints(app: Flask):
         
         # 2️⃣ INTERFACE PRINCIPAL (SEM url_prefix para rotas raiz)
         {
-            'blueprint': dashboard_bp,
+            'blueprint': dashboard_bp,  # ✅ Blueprint HTML do dashboard
             'prefix': None,  # Rotas raiz: /, /dashboard
             'description': 'Interface principal (dashboard, landing)',
             'access': 'authenticated',
@@ -118,15 +119,22 @@ def register_blueprints(app: Flask):
         
         # 4️⃣ APIs (versionadas para frontend/mobile)
         {
-            'blueprint': dashboard_api,
-            'prefix': '/api/v1/dashboard',
-            'description': 'API de dashboard (KPIs, gráficos)',
+            'blueprint': dashboard_api_bp,  # ✅ NOVO: Blueprint API do dashboard (JSON)
+            'prefix': None,  # Sem prefixo, rotas já têm /api/v1/dashboard/*
+            'description': 'API de dashboard financeiro (KPIs, insights)',
             'access': 'authenticated',
             'required': True
         },
         {
+            'blueprint': dashboard_api,
+            'prefix': '/api/v1/dashboard',
+            'description': 'API de dashboard (KPIs, gráficos - legado)',
+            'access': 'authenticated',
+            'required': False  # ← Opcional, pode ser removido depois
+        },
+        {
             'blueprint': bp_conc,
-            'prefix': '/api/v1/conciliacao',  # ✅ Explícito, não depender do interno
+            'prefix': '/api/v1/conciliacao',
             'description': 'API de conciliação',
             'access': 'authenticated',
             'required': True
@@ -136,7 +144,7 @@ def register_blueprints(app: Flask):
             'prefix': '/api/v1/auditoria',
             'description': 'API de auditoria de taxas',
             'access': 'authenticated',
-            'required': False,  # ✅ Feature flag: pode ser desabilitado
+            'required': False,
             'feature_flag': 'FEATURE_AUDITORIA_ENABLED'
         },
         
@@ -156,10 +164,11 @@ def register_blueprints(app: Flask):
             'required': False,
             'feature_flag': 'FEATURE_ASSISTANT_ENABLED'
         },
-        # ✅ 6️⃣ DEBUG/DIAGNÓSTICO (apenas master, para troubleshooting)
+        
+        # 6️⃣ DEBUG/DIAGNÓSTICO (apenas master, para troubleshooting)
         {
             'blueprint': debug_bp,
-            'prefix': '/debug',  # ← Prefixo aqui
+            'prefix': '/debug',
             'description': 'Rotas de debug e diagnóstico',
             'access': 'master_only',
             'required': False,
@@ -185,6 +194,17 @@ def register_blueprints(app: Flask):
                 logger.info(f"⏭️ Blueprint '{description}' pulado (feature flag: {feature_flag}=False)")
             skipped += 1
             continue
+        
+        # ✅ Verificar se blueprint é None
+        if blueprint is None:
+            if required:
+                logger.error(f"❌ Blueprint obrigatório '{description}' não está disponível")
+                raise ValueError(f"Blueprint obrigatório '{description}' não está disponível")
+            else:
+                if is_debug:
+                    logger.warning(f"⏭️ Blueprint opcional '{description}' não está disponível")
+                skipped += 1
+                continue
               
         try:
             # ✅ Timing do registro
