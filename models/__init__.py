@@ -10,6 +10,7 @@ from .usuarios import Usuario
 from .arquivo_importado import ArquivoImportado
 from .log_auditoria import LogAuditoria
 from .lead import Lead
+from .contrato import Contrato
 
 __all__ = [
     'db',
