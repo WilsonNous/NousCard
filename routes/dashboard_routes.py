@@ -43,7 +43,6 @@ def check_dashboard_rate_limit(user_id: str) -> bool:
 # ============================================================
 # ROTA HTML DO DASHBOARD
 # ============================================================
-@dashboard_bp.route("/")
 @dashboard_bp.route("/dashboard")
 @login_required
 @empresa_required
