@@ -176,23 +176,60 @@ dashboard_api_bp = Blueprint("dashboard_api", __name__)
 
 
 def get_periodo_datas(periodo):
-    """Retorna data_inicio e data_fim baseado no período selecionado"""
+    """
+    Retorna data_inicio e data_fim baseado no período selecionado.
+    
+    Períodos suportados:
+    - geral: todos os dados (sem filtro de data)
+    - atual: este mês
+    - anterior: mês anterior
+    - 3meses: últimos 3 meses
+    - 6meses: últimos 6 meses
+    - 12meses: últimos 12 meses
+    - ano: este ano
+    - anoanterior: ano anterior
+    """
     hoje = datetime.now().date()
     
-    if periodo == 'atual':  # Este mês
+    if periodo == 'geral':
+        # Sem filtro de data - retorna None para indicar "todos"
+        return None, hoje
+    
+    elif periodo == 'atual':  # Este mês
         data_inicio = hoje.replace(day=1)
         data_fim = hoje
+    
     elif periodo == 'anterior':  # Mês anterior
         if hoje.month == 1:
             data_inicio = hoje.replace(year=hoje.year-1, month=12, day=1)
             data_fim = hoje.replace(year=hoje.year-1, month=12, day=31)
         else:
             data_inicio = hoje.replace(month=hoje.month-1, day=1)
-            data_fim = hoje.replace(month=hoje.month-1, day=31)
-    elif periodo == 'todos':  # Últimos 3 meses
+            # Último dia do mês anterior
+            data_fim = hoje.replace(day=1) - timedelta(days=1)
+    
+    elif periodo == '3meses':  # Últimos 3 meses
         data_fim = hoje
         data_inicio = hoje - timedelta(days=90)
+    
+    elif periodo == '6meses':  # Últimos 6 meses
+        data_fim = hoje
+        data_inicio = hoje - timedelta(days=180)
+    
+    elif periodo == '12meses':  # Últimos 12 meses
+        data_fim = hoje
+        data_inicio = hoje - timedelta(days=365)
+    
+    elif periodo == 'ano':  # Este ano
+        data_inicio = hoje.replace(month=1, day=1)
+        data_fim = hoje
+    
+    elif periodo == 'anoanterior':  # Ano anterior
+        data_inicio = hoje.replace(year=hoje.year-1, month=1, day=1)
+        data_fim = hoje.replace(year=hoje.year-1, month=12, day=31)
+    
     else:
+        # Padrão: este mês
         data_inicio = hoje.replace(day=1)
         data_fim = hoje
     
@@ -202,15 +239,20 @@ def get_periodo_datas(periodo):
 def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     """
     Calcula todos os KPIs financeiros baseados em MovBanco.
-    Retorna dicionário com todos os valores.
+    Suporta data_inicio=None para período "geral".
     """
-    # Filtrar movimentos do período
+    # Construir query base
     query_base = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
-        MovBanco.data_movimento >= data_inicio,
-        MovBanco.data_movimento <= data_fim,
         MovBanco.ativo == True
     )
+    
+    # Aplicar filtro de data apenas se data_inicio não for None
+    if data_inicio is not None:
+        query_base = query_base.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
     
     # Total de entradas (valores positivos)
     total_entradas = query_base.filter(MovBanco.valor > 0).with_entities(
@@ -410,7 +452,10 @@ def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
 @dashboard_api_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
 @login_required
 def get_resumo_mensal():
-    """API para gráfico de evolução mensal (últimos 6 meses)."""
+    """
+    API para gráfico de evolução mensal.
+    Suporta período "geral" (últimos 12 meses).
+    """
     try:
         if not hasattr(g, 'user') or not g.user:
             return jsonify({'error': 'Usuário não autenticado'}), 401
@@ -418,21 +463,27 @@ def get_resumo_mensal():
         empresa_id = g.user.empresa_id
         hoje = datetime.now().date()
         
+        # Para período "geral", mostrar últimos 12 meses
+        num_meses = 12
+        
         meses = []
-        for i in range(5, -1, -1):
-            if hoje.month - i <= 0:
-                mes = hoje.month - i + 12
-                ano = hoje.year - 1
-            else:
-                mes = hoje.month - i
-                ano = hoje.year
+        for i in range(num_meses - 1, -1, -1):
+            # Calcular mês e ano
+            mes_atual = hoje.month - i
+            ano_atual = hoje.year
             
-            data_inicio = hoje.replace(year=ano, month=mes, day=1)
-            if mes == 12:
-                data_fim = hoje.replace(year=ano, month=12, day=31)
-            else:
-                data_fim = hoje.replace(year=ano, month=mes+1, day=1) - timedelta(days=1)
+            while mes_atual <= 0:
+                mes_atual += 12
+                ano_atual -= 1
             
+            # Primeiro e último dia do mês
+            data_inicio = datetime(ano_atual, mes_atual, 1).date()
+            if mes_atual == 12:
+                data_fim = datetime(ano_atual, 12, 31).date()
+            else:
+                data_fim = datetime(ano_atual, mes_atual + 1, 1).date() - timedelta(days=1)
+            
+            # Calcular saldo do mês
             saldo = MovBanco.query.filter(
                 MovBanco.empresa_id == empresa_id,
                 MovBanco.data_movimento >= data_inicio,
@@ -442,9 +493,9 @@ def get_resumo_mensal():
             ).scalar() or Decimal('0')
             
             meses.append({
-                'mes': f'{mes:02d}/{ano}',
+                'mes': f'{mes_atual:02d}/{ano_atual}',
                 'saldo': float(saldo),
-                'label': f'{mes:02d}/{str(ano)[-2:]}'
+                'label': f'{mes_atual:02d}/{str(ano_atual)[-2:]}'
             })
         
         return jsonify({'ok': True, 'meses': meses}), 200
