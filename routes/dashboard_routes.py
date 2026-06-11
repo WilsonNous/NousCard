@@ -1,14 +1,152 @@
 # routes/dashboard_routes.py
-# API de Dashboard Financeiro Inteligente
+# Dashboard HTML + API de Dashboard Financeiro Inteligente
 
-from flask import Blueprint, jsonify, request, g
-from models import db, MovBanco, MovAdquirente
+from flask import Blueprint, jsonify, request, g, render_template, make_response, redirect, url_for, session, abort
+from models import db, MovBanco, MovAdquirente, Empresa, ArquivoImportado, LogAuditoria, Usuario
 from sqlalchemy import func, extract, and_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from utils.auth_middleware import login_required, empresa_required
+import logging
+import time
 
-# ✅ CORRETO (nome diferente)
-dashboard_api_bp = Blueprint('dashboard_api', __name__)
+logger = logging.getLogger(__name__)
+
+# ============================================================
+# ✅ BLUEPRINT 1: Dashboard HTML (página visual)
+# ============================================================
+dashboard_bp = Blueprint("dashboard", __name__)
+
+# ============================================================
+# CONFIGURAÇÕES DE SEGURANÇA
+# ============================================================
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX_REQUESTS = 60
+_dashboard_rate_limit_cache = {}
+
+def check_dashboard_rate_limit(user_id: str) -> bool:
+    """Verifica rate limiting para acesso ao dashboard"""
+    now = time.time()
+    key = f"dashboard:{user_id}"
+    
+    _dashboard_rate_limit_cache[key] = [
+        t for t in _dashboard_rate_limit_cache.get(key, [])
+        if now - t < RATE_LIMIT_WINDOW
+    ]
+    
+    if len(_dashboard_rate_limit_cache.get(key, [])) >= RATE_LIMIT_MAX_REQUESTS:
+        return False
+    
+    _dashboard_rate_limit_cache.setdefault(key, []).append(now)
+    return True
+
+# ============================================================
+# ROTA HTML DO DASHBOARD
+# ============================================================
+@dashboard_bp.route("/")
+@dashboard_bp.route("/dashboard")
+@login_required
+@empresa_required
+def dashboard():
+    """Página principal do dashboard (HTML)"""
+    
+    usuario = g.user
+    empresa_id = getattr(usuario, 'empresa_id', None)
+    
+    # Rate limiting
+    if not check_dashboard_rate_limit(str(usuario.id)):
+        logger.warning(f"Rate limit aproximado: usuario={usuario.id}")
+    
+    # Verificação robusta de empresa_id
+    if not empresa_id:
+        logger.error(f"❌ Usuário {usuario.id} não tem empresa_id vinculado")
+        return redirect(url_for('operacoes.importar_page'))
+    
+    # Verificar se empresa está ativa
+    try:
+        empresa = Empresa.query.filter_by(id=empresa_id, ativo=True).first()
+        if not empresa:
+            logger.warning(f"⚠️ Empresa {empresa_id} não encontrada ou inativa")
+            return redirect(url_for('auth.logout'))
+        empresa_nome = empresa.nome
+    except Exception as e:
+        logger.error(f"❌ Erro ao verificar empresa: {str(e)}")
+        return redirect(url_for('auth.logout'))
+    
+    # Log de auditoria
+    try:
+        log = LogAuditoria(
+            usuario_id=usuario.id,
+            empresa_id=empresa_id,
+            acao="dashboard_acesso",
+            detalhes=f"User-Agent: {request.user_agent.string[:100]}",
+            ip=request.remote_addr,
+            criado_em=datetime.now(timezone.utc)
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        logger.debug(f"⚠️ Erro ao logar acesso ao dashboard (não crítico): {str(e)}")
+    
+    # Onboarding com queries separadas
+    try:
+        tem_vendas = MovAdquirente.query.filter_by(
+            empresa_id=empresa_id
+        ).limit(1).count() > 0
+        
+        tem_arquivos = ArquivoImportado.query.filter_by(
+            empresa_id=empresa_id
+        ).limit(1).count() > 0
+        
+        logger.debug(f"🔍 Onboarding: empresa={empresa_id}, tem_vendas={tem_vendas}, tem_arquivos={tem_arquivos}")
+        
+        if not tem_vendas and not tem_arquivos:
+            logger.info(f"🔄 Onboarding: empresa {empresa_id} sem dados, redirecionando para importar")
+            return redirect(url_for('operacoes.importar_page'))
+            
+    except Exception as e:
+        logger.debug(f"⚠️ Não foi possível verificar dados para onboarding: {str(e)}")
+    
+    # Preparar contexto completo para o template
+    contexto = {
+        "usuario": usuario,
+        "empresa_id": empresa_id,
+        "empresa_nome": empresa_nome,
+        "is_admin": getattr(usuario, 'admin', False),
+        "is_master": getattr(usuario, 'master', False),
+        "current_year": datetime.now().year,
+        "current_month": datetime.now().month,
+        "page_title": "Dashboard - NousCard",
+        "csrf_token": getattr(g, 'csrf_token', '') or session.get('csrf_token', ''),
+        "tipos_pagamento_disponiveis": ["todos", "cartao", "pix", "boleto", "outros"],
+    }
+    
+    # Renderizar com cache control
+    try:
+        html = render_template("dashboard.html", **contexto)
+        response = make_response(html)
+        
+        # Prevenir cache de página sensível
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        # Security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao renderizar dashboard: {str(e)}", exc_info=True)
+        abort(500)
+
+
+# ============================================================
+# ✅ BLUEPRINT 2: Dashboard API (JSON)
+# ============================================================
+dashboard_api_bp = Blueprint("dashboard_api", __name__)
 
 
 def get_periodo_datas(periodo):
@@ -139,17 +277,20 @@ def gerar_insight_inteligente(kpis, periodo):
     
     # Insight sobre PIX
     if kpis['receitas']['pix'] > 0:
-        insights.append(f"PIX representa {kpis['receitas']['pix']/kpis['entradas']*100:.1f}% das suas receitas - ótima alternativa às taxas de cartão!")
+        percentual_pix = (kpis['receitas']['pix'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
+        insights.append(f"PIX representa {percentual_pix:.1f}% das suas receitas - ótima alternativa às taxas de cartão!")
     
     # Insight sobre fornecedores recorrentes
     if kpis['despesas']['fornecedores'] > kpis['entradas'] * 0.5:
-        insights.append(f"Atenção: {kpis['despesas']['fornecedores']/kpis['entradas']*100:.1f}% da receita vai para fornecedores. Revise contratos!")
+        percentual_forn = (kpis['despesas']['fornecedores'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
+        insights.append(f"Atenção: {percentual_forn:.1f}% da receita vai para fornecedores. Revise contratos!")
     
     # Insight sobre saldo
     if kpis['saldo'] < 0:
         insights.append("⚠️ Fluxo de caixa negativo neste período. Considere revisar despesas ou acelerar recebimentos.")
-    elif kpis['saldo'] > kpis['entradas'] * 0.2:
-        insights.append(f"✅ Excelente gestão! Você manteve {kpis['saldo']/kpis['entradas']*100:.1f}% de margem positiva.")
+    elif kpis['entradas'] > 0 and kpis['saldo'] > kpis['entradas'] * 0.2:
+        percentual_margem = (kpis['saldo'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
+        insights.append(f"✅ Excelente gestão! Você manteve {percentual_margem:.1f}% de margem positiva.")
     
     # Insight sobre impostos
     if kpis['despesas']['impostos'] > 0:
@@ -159,6 +300,7 @@ def gerar_insight_inteligente(kpis, periodo):
 
 
 @dashboard_api_bp.route('/api/v1/dashboard/kpis', methods=['GET'])
+@login_required
 def get_dashboard_kpis():
     """
     API principal do dashboard.
@@ -215,8 +357,7 @@ def get_dashboard_kpis():
         return jsonify(response), 200
         
     except Exception as e:
-        import logging
-        logging.error(f"Erro ao calcular KPIs: {str(e)}", exc_info=True)
+        logger.error(f"Erro ao calcular KPIs: {str(e)}", exc_info=True)
         return jsonify({
             'ok': False,
             'error': 'Erro ao processar dados do dashboard',
@@ -225,6 +366,7 @@ def get_dashboard_kpis():
 
 
 @dashboard_api_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
+@login_required
 def get_resumo_mensal():
     """
     API para gráfico de evolução mensal (últimos 6 meses).
@@ -270,4 +412,5 @@ def get_resumo_mensal():
         return jsonify({'ok': True, 'meses': meses}), 200
         
     except Exception as e:
+        logger.error(f"Erro ao calcular resumo mensal: {str(e)}", exc_info=True)
         return jsonify({'ok': False, 'error': str(e)}), 500
