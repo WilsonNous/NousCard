@@ -1,6 +1,6 @@
 # routes/operacoes_routes.py - VERSÃO FINAL CORRIGIDA
 
-from flask import Blueprint, render_template, request, jsonify, session, g, current_app, abort
+from flask import Blueprint, render_template, request, jsonify, session, g, current_app, abort, url_for
 from utils.auth_middleware import login_required, empresa_required
 from services.importer import process_uploaded_files
 from services.importer_db import listar_arquivos_importados, buscar_arquivo_por_id
@@ -40,10 +40,8 @@ def validar_csrf_token():
     token_form = request.form.get('csrf_token')
     token_header = request.headers.get('X-CSRF-Token')
     
-    # ✅ SEGURO: Usar apenas session (não cookie)
     session_token = g.get('csrf_token') or session.get('csrf_token')
     
-    # Normalizar
     token_form = token_form.strip() if token_form else None
     token_header = token_header.strip() if token_header else None
     session_token = session_token.strip() if session_token else None
@@ -52,10 +50,8 @@ def validar_csrf_token():
                 f"header={'✅' if token_header else '❌'}, "
                 f"session={'✅' if session_token else '❌'}")
     
-    # Token enviado: priorizar header (AJAX) sobre form
     token = token_header or token_form
     
-    # Validações
     if not token:
         logger.warning("❌ CSRF token ausente (nem form nem header)")
         return False
@@ -178,7 +174,6 @@ def arquivos_importados_page():
         """Constrói URL de paginação mantendo parâmetros atuais"""
         params = request.args.to_dict()
         params['page'] = page_num
-        # Remover parâmetros vazios
         params = {k: v for k, v in params.items() if v}
         return url_for('operacoes.arquivos_importados_page', **params)
     
@@ -187,7 +182,7 @@ def arquivos_importados_page():
         arquivos=arquivos, 
         page=page, 
         per_page=per_page,
-        build_pagination_url=build_pagination_url  # ✅ Passar função para o template
+        build_pagination_url=build_pagination_url
     )
 
 @operacoes_bp.route("/arquivo/<int:arquivo_id>")
@@ -199,7 +194,6 @@ def arquivo_detalhe_page(arquivo_id):
         empresa_id = g.user.empresa_id
         logger.info(f"🔍 Acessando arquivo {arquivo_id} para empresa {empresa_id}")
         
-        # Buscar arquivo
         arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
         if not arquivo:
             logger.warning(f"❌ Arquivo {arquivo_id} não encontrado para empresa {empresa_id}")
@@ -222,11 +216,54 @@ def arquivo_detalhe_page(arquivo_id):
         else:
             logger.warning(f"⚠️ Arquivo {arquivo_id} não tem conteudo_json")
         
-        # Renderizar template
+        # ✅ Calcular totais para o template
+        total_entradas = Decimal("0")
+        total_saidas = Decimal("0")
+        total_registros = len(registros)
+        
+        for reg in registros:
+            try:
+                valor = Decimal(str(reg.get('valor', 0)))
+                if valor > 0:
+                    total_entradas += valor
+                else:
+                    total_saidas += abs(valor)
+            except:
+                pass
+        
+        # ✅ Calcular totais por categoria
+        categorias = {}
+        for reg in registros:
+            try:
+                cat = reg.get('categoria', 'outros')
+                valor = Decimal(str(reg.get('valor', 0)))
+                if cat not in categorias:
+                    categorias[cat] = Decimal("0")
+                categorias[cat] += valor
+            except:
+                pass
+        
+        # ✅ Calcular totais por tipo_pagamento
+        tipos_pagamento = {}
+        for reg in registros:
+            try:
+                tipo = reg.get('tipo_pagamento', 'outros')
+                valor = Decimal(str(reg.get('valor', 0)))
+                if tipo not in tipos_pagamento:
+                    tipos_pagamento[tipo] = Decimal("0")
+                tipos_pagamento[tipo] += valor
+            except:
+                pass
+        
         return render_template(
             "arquivo_detalhe.html", 
             arquivo=arquivo, 
-            registros=registros
+            registros=registros,
+            total_entradas=total_entradas,
+            total_saidas=total_saidas,
+            total_registros=total_registros,
+            categorias=categorias,
+            tipos_pagamento=tipos_pagamento
         )
         
     except Exception as e:
@@ -242,12 +279,10 @@ def ultimos_uploads_api():
         empresa_id = g.user.empresa_id
         resultado = listar_arquivos_importados(empresa_id, page=1, per_page=5)
         
-        # ✅ CORREÇÃO: resultado é um dict com chave "arquivos"
         arquivos_lista = resultado.get("arquivos", [])
         
         uploads = []
         for a in arquivos_lista:
-            # ✅ CORREÇÃO: usar as chaves corretas do dict retornado
             data_iso = None
             created_at = a.get("created_at") or a.get("data_importacao")
             if created_at:
