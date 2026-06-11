@@ -18,6 +18,32 @@ logger = logging.getLogger(__name__)
 dashboard_bp = Blueprint("dashboard", __name__)
 
 # ============================================================
+# ✅ ROTA RAIZ INTELIGENTE (MOVIDA PARA CÁ!)
+# ============================================================
+@dashboard_bp.route("/")
+def raiz_inteligente():
+    """
+    Rota raiz inteligente do NousCard.
+    
+    Comportamento:
+    - Usuário logado → redireciona para /dashboard
+    - Usuário NÃO logado → redireciona para /auth/login
+    
+    Isso garante que nouscard.com.br sempre mostre a página
+    correta baseada no estado de autenticação.
+    """
+    # Verificar se tem usuário logado
+    usuario = getattr(g, 'user', None)
+    
+    if usuario and getattr(usuario, 'id', None):
+        # Usuário logado → vai para o dashboard
+        return redirect(url_for('dashboard.dashboard'))
+    else:
+        # Usuário não logado → vai para o login
+        return redirect(url_for('auth.login_page'))
+
+
+# ============================================================
 # CONFIGURAÇÕES DE SEGURANÇA
 # ============================================================
 RATE_LIMIT_WINDOW = 60
@@ -39,6 +65,7 @@ def check_dashboard_rate_limit(user_id: str) -> bool:
     
     _dashboard_rate_limit_cache.setdefault(key, []).append(now)
     return True
+
 
 # ============================================================
 # ROTA HTML DO DASHBOARD
@@ -263,9 +290,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
 
 
 def gerar_insight_inteligente(kpis, periodo):
-    """
-    Gera insights automáticos baseados nos dados financeiros.
-    """
+    """Gera insights automáticos baseados nos dados financeiros."""
     insights = []
     
     # Insight sobre vendas no cartão
@@ -301,15 +326,10 @@ def gerar_insight_inteligente(kpis, periodo):
 @dashboard_api_bp.route('/api/v1/dashboard/kpis', methods=['GET'])
 @login_required
 def get_dashboard_kpis():
-    """
-    API principal do dashboard.
-    Query params: periodo (atual, anterior, todos)
-    """
+    """API principal do dashboard. Query params: periodo (atual, anterior, todos)"""
     try:
-        # Obter período
         periodo = request.args.get('periodo', 'atual')
         
-        # Obter empresa do usuário logado
         if not hasattr(g, 'user') or not g.user:
             return jsonify({'error': 'Usuário não autenticado'}), 401
         
@@ -318,16 +338,10 @@ def get_dashboard_kpis():
         if not empresa_id:
             return jsonify({'error': 'Usuário sem empresa vinculada'}), 403
         
-        # Calcular datas do período
         data_inicio, data_fim = get_periodo_datas(periodo)
-        
-        # Calcular KPIs
         kpis = calcular_kpis_financeiros(empresa_id, data_inicio, data_fim)
-        
-        # Gerar insight inteligente
         insight = gerar_insight_inteligente(kpis, periodo)
         
-        # Formatar resposta
         response = {
             'ok': True,
             'periodo': {
@@ -367,9 +381,7 @@ def get_dashboard_kpis():
 @dashboard_api_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
 @login_required
 def get_resumo_mensal():
-    """
-    API para gráfico de evolução mensal (últimos 6 meses).
-    """
+    """API para gráfico de evolução mensal (últimos 6 meses)."""
     try:
         if not hasattr(g, 'user') or not g.user:
             return jsonify({'error': 'Usuário não autenticado'}), 401
@@ -377,7 +389,6 @@ def get_resumo_mensal():
         empresa_id = g.user.empresa_id
         hoje = datetime.now().date()
         
-        # Últimos 6 meses
         meses = []
         for i in range(5, -1, -1):
             if hoje.month - i <= 0:
@@ -393,7 +404,6 @@ def get_resumo_mensal():
             else:
                 data_fim = hoje.replace(year=ano, month=mes+1, day=1) - timedelta(days=1)
             
-            # Calcular saldo do mês
             saldo = MovBanco.query.filter(
                 MovBanco.empresa_id == empresa_id,
                 MovBanco.data_movimento >= data_inicio,
