@@ -1,4 +1,4 @@
-# routes/auth_routes.py - VERSÃO COM EMAIL-VALIDATOR INTEGRADO
+# routes/auth_routes.py - VERSÃO COM EMAIL-VALIDATOR + ROTA RAIZ INTELIGENTE
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, g  
 from flask_login import login_user, logout_user, login_required, current_user
@@ -6,7 +6,7 @@ from models import Usuario, Empresa, db
 from utils.auth_middleware import iniciar_sessao_segura
 from datetime import datetime, timezone, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
-from email_validator import validate_email, EmailNotValidError  # ✅ NOVO: Import da biblioteca robusta
+from email_validator import validate_email, EmailNotValidError
 import logging
 import re
 import time
@@ -20,10 +20,9 @@ auth_bp = Blueprint("auth", __name__)
 # ============================================================
 MAX_LOGIN_ATTEMPTS = 5
 BLOCK_DURATION_MINUTES = 15
-RATE_LIMIT_WINDOW = 60  # segundos
-RATE_LIMIT_MAX_REQUESTS = 10  # por janela para auth endpoints
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX_REQUESTS = 10
 
-# Cache simples para rate limiting (em produção usar Redis)
 _auth_rate_limit_cache = {}
 
 def check_auth_rate_limit(identifier: str) -> bool:
@@ -31,7 +30,6 @@ def check_auth_rate_limit(identifier: str) -> bool:
     now = time.time()
     key = f"auth:{identifier}"
     
-    # Limpar entradas antigas
     _auth_rate_limit_cache[key] = [
         t for t in _auth_rate_limit_cache.get(key, [])
         if now - t < RATE_LIMIT_WINDOW
@@ -50,27 +48,15 @@ def check_auth_rate_limit(identifier: str) -> bool:
 def validar_email(email: str) -> tuple[bool, str]:
     """
     Valida email usando biblioteca robusta email-validator.
-    
-    Args:
-        email: Email a validar
-        
-    Returns:
-        tuple: (is_valid: bool, normalized_email_or_error: str)
-            - Se válido: (True, email_normalizado)
-            - Se inválido: (False, mensagem_de_erro)
     """
     if not email:
         return False, "Email é obrigatório"
     
     try:
-        # validate_email normaliza e valida o email
-        # Retorna objeto com .email (normalizado) e .ascii_email
-        valid = validate_email(email, check_deliverability=False)  # check_deliverability=True para verificar se domínio existe
-        return True, valid.email.lower()  # Retorna email normalizado em lowercase
+        valid = validate_email(email, check_deliverability=False)
+        return True, valid.email.lower()
     except EmailNotValidError as e:
-        # Mensagem amigável para o usuário
         error_msg = str(e)
-        # Traduzir mensagens técnicas para português se necessário
         if "ascii" in error_msg.lower():
             return False, "Email não pode conter caracteres especiais"
         elif "local part" in error_msg.lower():
@@ -81,10 +67,7 @@ def validar_email(email: str) -> tuple[bool, str]:
 
 
 def validar_senha_forte(senha: str):
-    """
-    Valida força da senha.
-    Returns: (bool, mensagem)
-    """
+    """Valida força da senha."""
     if len(senha) < 8:
         return False, "Mínimo 8 caracteres"
     if not re.search(r"[A-Z]", senha):
@@ -99,7 +82,7 @@ def validar_senha_forte(senha: str):
 
 
 def validar_csrf_token():
-    """Valida token CSRF manualmente (para APIs ou forms sem Flask-WTF)"""
+    """Valida token CSRF manualmente"""
     token_form = request.form.get('csrf_token')
     token_header = request.headers.get('X-CSRF-Token')
     session_token = session.get('csrf_token')
@@ -109,6 +92,32 @@ def validar_csrf_token():
         logger.warning("CSRF token inválido ou ausente")
         return False
     return True
+
+# ============================================================
+# ✅ ROTA RAIZ INTELIGENTE (NOVA!)
+# ============================================================
+@auth_bp.route("/")
+def raiz_inteligente():
+    """
+    Rota raiz inteligente do NousCard.
+    
+    Comportamento:
+    - Usuário logado → redireciona para /dashboard
+    - Usuário NÃO logado → redireciona para /auth/login
+    
+    Isso garante que nouscard.com.br sempre mostre a página
+    correta baseada no estado de autenticação.
+    """
+    # Verificar se tem usuário logado
+    usuario = getattr(g, 'user', None)
+    
+    if usuario and getattr(usuario, 'id', None):
+        # Usuário logado → vai para o dashboard
+        return redirect(url_for('dashboard.dashboard'))
+    else:
+        # Usuário não logado → vai para o login
+        return redirect(url_for('auth.login_page'))
+
 
 # ============================================================
 # LOGIN
@@ -141,11 +150,9 @@ def login_post():
     email_valido, email_result = validar_email(email_raw)
     
     if not email_valido:
-        # Log detalhado para debug (sem expor dados sensíveis em produção)
         logger.warning(f"Email inválido: raw={repr(email_raw)[:50]}, erro={email_result}")
         return render_template("login.html", error=f"Email inválido: {email_result}")
     
-    # Usar email normalizado para a query (consistência)
     email = email_result
     
     usuario = Usuario.query.filter_by(email=email).first()
@@ -164,7 +171,6 @@ def login_post():
                 usuario.bloqueado_ate = datetime.now(timezone.utc) + timedelta(minutes=BLOCK_DURATION_MINUTES)
                 logger.warning(f"Conta bloqueada após {MAX_LOGIN_ATTEMPTS} tentativas: {email}")
             db.session.commit()
-        # Mensagem genérica para não revelar existência do email
         logger.warning(f"Tentativa de login falha: email={email}, ip={ip}")
         return render_template("login.html", error="Email ou senha inválidos.")
     
@@ -174,7 +180,7 @@ def login_post():
     usuario.ultimo_login = datetime.now(timezone.utc)
     db.session.commit()
     
-    # Iniciar sessão segura (deve regenerar session ID internamente)
+    # Iniciar sessão segura
     iniciar_sessao_segura(usuario)
     
     logger.info(f"✅ Login bem-sucedido: {email}, ip={ip}")
@@ -192,28 +198,22 @@ def logout():
     return redirect(url_for("auth.login_page"))
 
 # ============================================================
-# RECUPERAÇÃO DE SENHA (PLACEHOLDER - IMPLEMENTAR QUANDO NECESSÁRIO)
+# RECUPERAÇÃO DE SENHA
 # ============================================================
 @auth_bp.route("/recuperar-senha", methods=["GET", "POST"])
 def recuperar_senha():
-    """
-    Fluxo de recuperação de senha.
-    TODO: Implementar envio de email com token seguro.
-    """
+    """Fluxo de recuperação de senha."""
     if request.method == "GET":
         return render_template("recuperar_senha.html")
     
     email_raw = (request.form.get("email") or "").strip()
     
-    # ✅ Validar com email-validator
     email_valido, email_result = validar_email(email_raw)
     if not email_valido:
         return render_template("recuperar_senha.html", error=f"Email inválido: {email_result}")
     
     email = email_result
     
-    # ✅ Mensagem genérica para não revelar se email existe
-    # (implementar envio real de email quando tiver SMTP configurado)
     logger.info(f"Solicitação de recuperação: {email}")
     
     return render_template("recuperar_senha.html", 
