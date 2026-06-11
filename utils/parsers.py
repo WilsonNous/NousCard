@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COM EXTRAÇÃO DE CONTA OFX
+# utils/parsers.py - VERSÃO FINAL COM EXTRAÇÃO DE CONTA + DIVISÃO AUTOMÁTICA
 
 import csv
 import io
@@ -347,10 +347,7 @@ def parse_excel_generic(file_stream, filename=None):
 # ✅ PARSER OFX ULTRA-RÁPIDO (SPLIT DE STRING)
 # ============================================================
 def _extrair_tag_ofx(bloco: str, tag: str) -> str:
-    """
-    Extrai valor de uma tag OFX de forma ultra-rápida.
-    Usa split de string em vez de regex (100x mais rápido).
-    """
+    """Extrai valor de uma tag OFX de forma ultra-rápida."""
     tag_upper = tag.upper()
     bloco_upper = bloco.upper()
     
@@ -374,14 +371,7 @@ def _extrair_tag_ofx(bloco: str, tag: str) -> str:
 
 
 def parse_ofx_generic(file_stream, filename=None):
-    """
-    Parser OFX ULTRA-RÁPIDO usando split de string.
-    
-    ✅ Performance: ~0.5-1 segundos para 500 transações
-    ✅ Pula ofxparse completamente (economiza 2s)
-    ✅ Sem regex complexo (evita catastrophic backtracking)
-    ✅ Timeout de segurança de 10s
-    """
+    """Parser OFX ULTRA-RÁPIDO usando split de string."""
     inicio_total = time.time()
     logger.info(f"🏦 Início parse OFX (split rápido): {filename}")
     
@@ -497,20 +487,11 @@ def parse_ofx_generic(file_stream, filename=None):
 
 
 # ============================================================
-# 🏦 EXTRAIR DADOS DA CONTA DO OFX (✅ NOVA FUNÇÃO)
+# 🏦 EXTRAIR DADOS DA CONTA DO OFX
 # ============================================================
 def extrair_dados_conta_ofx(content: str) -> dict:
     """
     Extrai dados da conta bancária do arquivo OFX.
-    
-    OFX contém tags como:
-    - <BANKID>001</BANKID> (código do banco)
-    - <BRANCHID>1234</BRANCHID> (agência)
-    - <ACCTID>12345-6</ACCTID> (número da conta)
-    - <ACCTTYPE>CHECKING</ACCTTYPE> (tipo: CHECKING, SAVINGS, etc.)
-    
-    Args:
-        content: Conteúdo do arquivo OFX como string
     
     Returns:
         dict: {
@@ -531,22 +512,18 @@ def extrair_dados_conta_ofx(content: str) -> dict:
     
     content_upper = content.upper()
     
-    # Extrair BANKID (código do banco)
     bankid_match = re.search(r'<BANKID>([^<]+)</BANKID>', content_upper)
     if bankid_match:
         dados["banco"] = bankid_match.group(1).strip()
     
-    # Extrair BRANCHID (agência)
     branchid_match = re.search(r'<BRANCHID>([^<]+)</BRANCHID>', content_upper)
     if branchid_match:
         dados["agencia"] = branchid_match.group(1).strip()
     
-    # Extrair ACCTID (número da conta)
     acctid_match = re.search(r'<ACCTID>([^<]+)</ACCTID>', content_upper)
     if acctid_match:
         dados["conta"] = acctid_match.group(1).strip()
     
-    # Extrair ACCTTYPE (tipo de conta)
     accttype_match = re.search(r'<ACCTTYPE>([^<]+)</ACCTTYPE>', content_upper)
     if accttype_match:
         tipo_raw = accttype_match.group(1).strip().upper()
@@ -558,7 +535,6 @@ def extrair_dados_conta_ofx(content: str) -> dict:
         }
         dados["tipo"] = tipo_map.get(tipo_raw, "corrente")
     
-    # Gerar nome descritivo da conta
     if dados["banco"] or dados["agencia"] or dados["conta"]:
         partes = []
         if dados["banco"]:
@@ -572,6 +548,69 @@ def extrair_dados_conta_ofx(content: str) -> dict:
         dados["nome"] = "Conta Extraída do OFX"
     
     return dados
+
+
+# ============================================================
+# 🔧 DIVIDIR OFX EM PARTES (✅ NOVA FUNÇÃO)
+# ============================================================
+def dividir_ofx_em_partes(content: str, max_transacoes: int = 1000) -> list:
+    """
+    Divide arquivo OFX grande em partes menores.
+    
+    Preserva a estrutura original do OFX (header e footer),
+    dividindo apenas as transações <STMTTRN>.
+    
+    Args:
+        content: Conteúdo completo do OFX como string
+        max_transacoes: Número máximo de transações por parte
+    
+    Returns:
+        list: Lista de strings, cada uma sendo um OFX completo e válido
+    """
+    # Extrair header (tudo até <BANKTRANLIST> inclusive)
+    header_match = re.search(r'^(.*?<BANKTRANLIST>)', content, re.DOTALL | re.IGNORECASE)
+    
+    # Extrair footer (tudo de </BANKTRANLIST> em diante)
+    footer_match = re.search(r'(</BANKTRANLIST>.*)$', content, re.DOTALL | re.IGNORECASE)
+    
+    if not header_match or not footer_match:
+        logger.warning("⚠️ Estrutura OFX inválida (BANKTRANLIST não encontrado). Retornando conteúdo completo.")
+        return [content]
+    
+    header = header_match.group(1)
+    footer = footer_match.group(1)
+    
+    # Extrair todas as transações
+    stmttrn_pattern = re.compile(r'<STMTTRN>.*?</STMTTRN>', re.DOTALL | re.IGNORECASE)
+    transacoes = stmttrn_pattern.findall(content)
+    
+    total_transacoes = len(transacoes)
+    
+    if total_transacoes == 0:
+        logger.warning("⚠️ Nenhuma transação encontrada no OFX")
+        return [content]
+    
+    if total_transacoes <= max_transacoes:
+        logger.info(f"ℹ️ OFX com {total_transacoes} transações não precisa ser dividido (limite: {max_transacoes})")
+        return [content]
+    
+    # Dividir em partes
+    partes = []
+    num_partes = (total_transacoes + max_transacoes - 1) // max_transacoes
+    
+    for i in range(num_partes):
+        inicio_idx = i * max_transacoes
+        fim_idx = min((i + 1) * max_transacoes, total_transacoes)
+        
+        transacoes_parte = transacoes[inicio_idx:fim_idx]
+        
+        # Montar OFX da parte (header + transações + footer)
+        ofx_parte = header + '\n' + '\n'.join(transacoes_parte) + '\n' + footer
+        partes.append(ofx_parte)
+    
+    logger.info(f"✅ OFX dividido: {total_transacoes} transações em {len(partes)} partes (máx {max_transacoes} por parte)")
+    
+    return partes
 
 
 # ============================================================
