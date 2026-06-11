@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_REGISTROS_POR_ARQUIVO = 10000
-MAX_TRANSACOES_OFX = 40  # ✅ Chunk seguro para evitar timeout no Render
+MAX_TRANSACOES_OFX = 25  # ✅ Chunk seguro para evitar timeout no Render
 
 # ============================================================
 # 📦 PROCESSAR UM ARQUIVO
