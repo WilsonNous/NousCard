@@ -254,6 +254,15 @@
     .action-icon.view:hover { color: var(--text); background: var(--gray-light); }
     .action-icon.delete:hover { color: var(--error); background: var(--error-bg); }
     
+    /* ✅ NOVO: Botão de Contratos na tabela */
+    .action-icon.contratos {
+        color: var(--primary);
+    }
+    .action-icon.contratos:hover {
+        color: white;
+        background: var(--primary);
+    }
+    
     /* Paginação */
     .nc-pagination {
         display: flex;
@@ -450,6 +459,12 @@
                             <td style="text-align:center;">{{ e.total_usuarios | default(0) }}</td>
                             <td>
                                 <div class="actions-cell">
+                                    <!-- ✅ NOVO: Botão de Contratos -->
+                                    <a href="{{ url_for('empresas.listar_contratos', empresa_id=e.id) }}" 
+                                       class="action-icon contratos" 
+                                       title="Gerenciar Contratos" 
+                                       aria-label="Contratos de {{ e.nome | e }}">📄</a>
+                                    
                                     <a href="{{ url_for('empresas.editar_empresa', empresa_id=e.id) }}" 
                                        class="action-icon edit" title="Editar" aria-label="Editar {{ e.nome | e }}">✏️</a>
                                     <a href="{{ url_for('empresas.empresa_detalhe', empresa_id=e.id) }}" 
