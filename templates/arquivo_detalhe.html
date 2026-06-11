@@ -1,263 +1,138 @@
 {% extends "base.html" %}
 
-{% block title %}{{ arquivo.nome_arquivo | e }} - NousCard{% endblock %}
-
-{% block extra_head %}
-<!-- ✅ NOVO: Estilos específicos para tabela de detalhamento -->
-<style>
-    /* Loading skeleton para tabela */
-    .table-loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem;
-        color: var(--gray-dark);
-    }
-    
-    /* Colunas monetárias alinhadas à direita */
-    .nc-table td.currency,
-    .nc-table th.currency {
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-    }
-    
-    /* Coluna de data com largura fixa */
-    .nc-table td.date,
-    .nc-table th.date {
-        white-space: nowrap;
-        width: 120px;
-    }
-    
-    /* Busca na tabela */
-    .table-search {
-        margin-bottom: 1rem;
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-    .table-search input {
-        flex: 1;
-        min-width: 200px;
-    }
-    
-    /* Export buttons */
-    .table-actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-    }
-</style>
-{% endblock %}
+{% block title %}Detalhes do Arquivo - NousCard{% endblock %}
 
 {% block content %}
-<section class="nc-section">
+<div class="nc-section">
     <div class="nc-section-header">
-        <div>
-            <h2>📄 {{ arquivo.nome_arquivo | e }}</h2>
-            <p class="nc-subtitle">
-                Tipo: {{ arquivo.tipo | title }} • 
-                Registros: {{ arquivo.total_registros }} • 
-                Valor Total: <strong>R$ {{ arquivo.total_valor | currency_br }}</strong> •
-                Importado em: {{ arquivo.created_at }}
-            </p>
+        <h2>📄 {{ arquivo.nome_arquivo }}</h2>
+        <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-btn nc-btn-outline">
+            ← Voltar
+        </a>
+    </div>
+    
+    <!-- ✅ Resumo do Arquivo -->
+    <div class="kpi-grid" style="margin-bottom: 1.5rem;">
+        <div class="kpi-card entradas">
+            <div class="kpi-label">📈 Total Entradas</div>
+            <div class="kpi-value" style="color: var(--success);">R$ {{ "%.2f"|format(total_entradas|float) }}</div>
         </div>
-        <div style="display:flex; gap:0.5rem; align-items:center;">
-            <!-- ✅ NOVO: Botões de ação -->
-            <a href="{{ url_for('operacoes.arquivos_importados_page') }}" class="nc-btn nc-btn-outline">← Voltar</a>
-            {% if registros %}
-            <button type="button" class="nc-btn nc-btn-secondary" onclick="exportarCSV()">📥 Exportar CSV</button>
-            {% endif %}
+        <div class="kpi-card saidas">
+            <div class="kpi-label">📉 Total Saídas</div>
+            <div class="kpi-value" style="color: var(--error);">R$ {{ "%.2f"|format(total_saidas|float) }}</div>
+        </div>
+        <div class="kpi-card saldo">
+            <div class="kpi-label">💰 Saldo</div>
+            <div class="kpi-value">R$ {{ "%.2f"|format((total_entradas - total_saidas)|float) }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">📊 Registros</div>
+            <div class="kpi-value">{{ total_registros }}</div>
         </div>
     </div>
     
-    {% if registros %}
-        <!-- ✅ NOVO: Busca na tabela -->
-        <div class="table-search">
-            <label for="tableSearch" class="nc-form-label">🔍 Buscar:</label>
-            <input type="search" id="tableSearch" class="nc-form-input" placeholder="Digite para filtrar registros..." onkeyup="filtrarTabela()">
-            <small class="nc-muted" id="searchCount"></small>
+    <!-- ✅ Informações do Arquivo -->
+    <div class="nc-card" style="margin-bottom: 1.5rem;">
+        <div class="nc-card-header">
+            <h3>Informações do Arquivo</h3>
         </div>
-        
-        <div class="nc-table-container" style="overflow-x: auto;" id="tableContainer">
-            <table class="nc-table" id="detalheTable" role="table" aria-label="Detalhamento do arquivo {{ arquivo.nome_arquivo }}">
+        <div class="nc-card-body">
+            <table class="nc-table">
+                <tbody>
+                    <tr>
+                        <td><strong>Nome:</strong></td>
+                        <td>{{ arquivo.nome_arquivo }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Tipo:</strong></td>
+                        <td>{{ arquivo.tipo }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Data de Importação:</strong></td>
+                        <td>{{ arquivo.created_at }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- ✅ Totais por Categoria -->
+    {% if categorias %}
+    <div class="nc-card" style="margin-bottom: 1.5rem;">
+        <div class="nc-card-header">
+            <h3>📊 Totais por Categoria</h3>
+        </div>
+        <div class="nc-card-body">
+            <table class="nc-table">
                 <thead>
                     <tr>
-                        {# ✅ CORREÇÃO: Colunas ordenadas e formatadas #}
-                        {% set colunas = ['data_venda', 'data_pagamento', 'bandeira', 'produto', 'quantidade', 'valor_bruto', 'desconto', 'valor_liquido', 'nsu', 'adquirente', 'estabelecimento'] %}
-                        {% for col in colunas %}
-                            {% if col in registros[0] %}
-                                <th scope="col" class="{% if col in ['valor_bruto', 'desconto', 'valor_liquido'] %}currency{% elif col in ['data_venda', 'data_pagamento'] %}date{% endif %}">
-                                    {{ col | replace('_', ' ') | title }}
-                                </th>
-                            {% endif %}
-                        {% endfor %}
-                        {# Colunas adicionais não mapeadas #}
-                        {% for key in registros[0].keys() %}
-                            {% if key not in colunas %}
-                                <th scope="col">{{ key | replace('_', ' ') | title }}</th>
-                            {% endif %}
-                        {% endfor %}
+                        <th>Categoria</th>
+                        <th style="text-align: right;">Total</th>
                     </tr>
                 </thead>
-                <tbody id="tableBody">
-                    {% for registro in registros[:100] %}
+                <tbody>
+                    {% for cat, valor in categorias.items() %}
                     <tr>
-                        {# Mesma ordem dos headers #}
-                        {% for col in colunas %}
-                            {% if col in registro %}
-                                <td class="{% if col in ['valor_bruto', 'desconto', 'valor_liquido'] %}currency{% elif col in ['data_venda', 'data_pagamento'] %}date{% endif %}">
-                                    {% if col in ['valor_bruto', 'desconto', 'valor_liquido'] %}
-                                        {{ registro[col] | currency_br }}
-                                    {% elif col in ['data_venda', 'data_pagamento'] %}
-                                        {{ registro[col] | date_br }}
-                                    {% else %}
-                                        {{ registro[col] if registro[col] else "—" }}
-                                    {% endif %}
-                                </td>
-                            {% endif %}
-                        {% endfor %}
-                        {# Colunas adicionais #}
-                        {% for key in registro.keys() %}
-                            {% if key not in colunas %}
-                                <td>{{ registro[key] if registro[key] else "—" }}</td>
-                            {% endif %}
-                        {% endfor %}
+                        <td>{{ cat }}</td>
+                        <td style="text-align: right; color: {% if valor > 0 %}var(--success){% else %}var(--error){% endif %};">
+                            R$ {{ "%.2f"|format(valor|float) }}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        
-        <!-- ✅ NOVO: Paginação simples -->
-        {% if registros|length > 100 %}
-        <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-            <p class="nc-muted">Mostrando 1-100 de {{ registros|length }} registros.</p>
-            <div>
-                <button class="nc-btn nc-btn-sm nc-btn-outline" onclick="carregarMais(100, 200)" id="btnLoadMore">Carregar mais 100</button>
-            </div>
-        </div>
-        {% endif %}
-        
-    {% else %}
-        <div class="nc-empty-state">
-            <p>📭 Nenhum registro neste arquivo.</p>
-            <small class="nc-muted">O arquivo pode estar vazio ou o formato não foi reconhecido.</small>
-        </div>
+    </div>
     {% endif %}
-</section>
-
-<!-- ✅ NOVO: Scripts para funcionalidades da tabela -->
-{% if registros %}
-<script>
-// Dados completos para busca/exportação (em memória)
-const todosRegistros = {{ registros | tojson }};
-const colunasVisiveis = {{ colunas | tojson }};
-
-// ✅ Filtro de busca na tabela
-function filtrarTabela() {
-    const termo = document.getElementById('tableSearch').value.toLowerCase();
-    const tbody = document.getElementById('tableBody');
-    const rows = tbody.querySelectorAll('tr');
-    let visiveis = 0;
     
-    rows.forEach((row, idx) => {
-        const registro = todosRegistros[idx];
-        const match = Object.values(registro).some(val => 
-            String(val || '').toLowerCase().includes(termo)
-        );
-        row.style.display = match ? '' : 'none';
-        if (match) visiveis++;
-    });
-    
-    // Atualizar contador
-    const total = rows.length;
-    document.getElementById('searchCount').textContent = 
-        termo ? `${visiveis}/${total} encontrados` : '';
-}
-
-// ✅ Exportar para CSV
-function exportarCSV() {
-    // Filtrar apenas registros visíveis (respeita busca)
-    const termo = document.getElementById('tableSearch')?.value.toLowerCase() || '';
-    const dados = termo 
-        ? todosRegistros.filter(r => Object.values(r).some(v => String(v||'').toLowerCase().includes(termo)))
-        : todosRegistros.slice(0, 100); // Limitar a 100 para não travar
-    
-    if (!dados.length) {
-        alert('Nenhum dado para exportar.');
-        return;
-    }
-    
-    // Cabeçalhos
-    const headers = Object.keys(dados[0]);
-    const csv = [
-        headers.join(';'),
-        ...dados.map(r => headers.map(h => {
-            const val = r[h] ?? '';
-            // Escapar ponto-e-vírgula e aspas para CSV
-            return `"${String(val).replace(/"/g, '""')}"`;
-        }).join(';'))
-    ].join('\n');
-    
-    // Download
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '{{ arquivo.nome_arquivo | e }}_detalhe.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// ✅ Carregar mais registros (paginação simples)
-function carregarMais(inicio, fim) {
-    const tbody = document.getElementById('tableBody');
-    const novos = todosRegistros.slice(inicio, fim);
-    
-    novos.forEach(registro => {
-        const tr = document.createElement('tr');
-        {% for col in colunas %}
-            {% if col in registros[0] %}
-        {
-            const td = document.createElement('td');
-            td.className = '{% if col in ['valor_bruto', 'desconto', 'valor_liquido'] %}currency{% elif col in ['data_venda', 'data_pagamento'] %}date{% endif %}';
-            {% if col in ['valor_bruto', 'desconto', 'valor_liquido'] %}
-                td.textContent = formatCurrency(registro['{{ col }}']);
-            {% elif col in ['data_venda', 'data_pagamento'] %}
-                td.textContent = formatDate(registro['{{ col }}']);
-            {% else %}
-                td.textContent = registro['{{ col }}'] ?? '—';
+    <!-- ✅ Registros -->
+    {% if registros %}
+    <div class="nc-card">
+        <div class="nc-card-header">
+            <h3>Registros ({{ total_registros }})</h3>
+        </div>
+        <div class="nc-card-body">
+            <div style="overflow-x: auto;">
+                <table class="nc-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrição</th>
+                            <th style="text-align: right;">Valor</th>
+                            <th>Categoria</th>
+                            <th>Tipo Pagamento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reg in registros[:200] %}
+                        <tr>
+                            <td>{{ reg.data }}</td>
+                            <td>{{ reg.descricao or '-' }}</td>
+                            <td style="text-align: right; color: {% if reg.valor > 0 %}var(--success){% else %}var(--error){% endif %};">
+                                R$ {{ "%.2f"|format(reg.valor|float) }}
+                            </td>
+                            <td>{{ reg.categoria or '-' }}</td>
+                            <td>{{ reg.tipo_pagamento or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if total_registros > 200 %}
+            <p style="margin-top: 1rem; color: var(--text-muted);">
+                Mostrando apenas os primeiros 200 de {{ total_registros }} registros.
+            </p>
             {% endif %}
-            tr.appendChild(td);
-        }
-            {% endif %}
-        {% endfor %}
-        // Colunas adicionais...
-        tbody.appendChild(tr);
-    });
-    
-    // Atualizar botão
-    if (fim >= todosRegistros.length) {
-        document.getElementById('btnLoadMore').style.display = 'none';
-    } else {
-        document.getElementById('btnLoadMore').onclick = () => carregarMais(fim, fim + 100);
-    }
-}
-
-// ✅ Helpers de formatação (se não estiverem em app.js)
-function formatCurrency(val) {
-    if (!val && val !== 0) return '—';
-    const num = parseFloat(val) || 0;
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
-}
-function formatDate(val) {
-    if (!val) return '—';
-    // Assume ISO ou BR
-    const d = new Date(val);
-    if (isNaN(d)) return val;
-    return d.toLocaleDateString('pt-BR');
-}
-</script>
-{% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="nc-card">
+        <div class="nc-card-body">
+            <p style="text-align: center; color: var(--text-muted);">
+                Nenhum registro encontrado neste arquivo.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}
