@@ -553,48 +553,71 @@ def extrair_dados_conta_ofx(content: str) -> dict:
 # ============================================================
 # 🔧 DIVIDIR OFX EM PARTES (✅ NOVA FUNÇÃO)
 # ============================================================
-def dividir_ofx_em_partes(content: str, max_transacoes: int = 1000) -> list:
+
+def dividir_ofx_em_partes(content: str, max_transacoes: int = 200) -> list:
     """
-    Divide arquivo OFX grande em partes menores.
+    Divide arquivo OFX em partes menores usando find() (NUNCA regex).
     
-    Preserva a estrutura original do OFX (header e footer),
-    dividindo apenas as transações <STMTTRN>.
-    
-    Args:
-        content: Conteúdo completo do OFX como string
-        max_transacoes: Número máximo de transações por parte
-    
-    Returns:
-        list: Lista de strings, cada uma sendo um OFX completo e válido
+    ✅ Usa método O(n) - impossível travar
+    ✅ Preserva header e footer do OFX
     """
-    # Extrair header (tudo até <BANKTRANLIST> inclusive)
-    header_match = re.search(r'^(.*?<BANKTRANLIST>)', content, re.DOTALL | re.IGNORECASE)
+    content_upper = content.upper()
     
-    # Extrair footer (tudo de </BANKTRANLIST> em diante)
-    footer_match = re.search(r'(</BANKTRANLIST>.*)$', content, re.DOTALL | re.IGNORECASE)
-    
-    if not header_match or not footer_match:
-        logger.warning("⚠️ Estrutura OFX inválida (BANKTRANLIST não encontrado). Retornando conteúdo completo.")
+    # ✅ Encontrar posições de <BANKTRANLIST> (header)
+    header_start = content_upper.find('<BANKTRANLIST>')
+    if header_start == -1:
+        logger.warning("⚠️ BANKTRANLIST não encontrado")
         return [content]
     
-    header = header_match.group(1)
-    footer = footer_match.group(1)
+    # Incluir tudo até <BANKTRANLIST> (inclusive)
+    header = content[:header_start + len('<BANKTRANLIST>')]
     
-    # Extrair todas as transações
-    stmttrn_pattern = re.compile(r'<STMTTRN>.*?</STMTTRN>', re.DOTALL | re.IGNORECASE)
-    transacoes = stmttrn_pattern.findall(content)
+    # ✅ Encontrar posições de </BANKTRANLIST> (footer)
+    footer_start = content_upper.find('</BANKTRANLIST>')
+    if footer_start == -1:
+        logger.warning("⚠️ </BANKTRANLIST> não encontrado")
+        return [content]
     
-    total_transacoes = len(transacoes)
+    # Incluir tudo de </BANKTRANLIST> em diante
+    footer = content[footer_start:]
+    
+    # ✅ Extrair apenas o bloco de transações (entre as tags)
+    bloco_transacoes = content[header_start + len('<BANKTRANLIST>'):footer_start]
+    bloco_upper = bloco_transacoes.upper()
+    
+    # ✅ Encontrar todas as posições de <STMTTRN> usando find() (RÁPIDO!)
+    posicoes_inicio = []
+    search_start = 0
+    while True:
+        pos = bloco_upper.find('<STMTTRN>', search_start)
+        if pos == -1:
+            break
+        posicoes_inicio.append(pos)
+        search_start = pos + 1
+    
+    total_transacoes = len(posicoes_inicio)
     
     if total_transacoes == 0:
-        logger.warning("⚠️ Nenhuma transação encontrada no OFX")
+        logger.warning("⚠️ Nenhuma transação encontrada")
         return [content]
     
     if total_transacoes <= max_transacoes:
-        logger.info(f"ℹ️ OFX com {total_transacoes} transações não precisa ser dividido (limite: {max_transacoes})")
+        logger.info(f"ℹ️ OFX com {total_transacoes} transações não precisa dividir")
         return [content]
     
-    # Dividir em partes
+    # ✅ Extrair cada transação individualmente
+    transacoes = []
+    for i, pos_inicio in enumerate(posicoes_inicio):
+        # Fim = início da próxima transação OU fim do bloco
+        if i + 1 < len(posicoes_inicio):
+            pos_fim = posicoes_inicio[i + 1]
+        else:
+            pos_fim = len(bloco_transacoes)
+        
+        transacao = bloco_transacoes[pos_inicio:pos_fim].strip()
+        transacoes.append(transacao)
+    
+    # ✅ Dividir em partes
     partes = []
     num_partes = (total_transacoes + max_transacoes - 1) // max_transacoes
     
@@ -604,11 +627,11 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 1000) -> list:
         
         transacoes_parte = transacoes[inicio_idx:fim_idx]
         
-        # Montar OFX da parte (header + transações + footer)
+        # Montar OFX da parte
         ofx_parte = header + '\n' + '\n'.join(transacoes_parte) + '\n' + footer
         partes.append(ofx_parte)
     
-    logger.info(f"✅ OFX dividido: {total_transacoes} transações em {len(partes)} partes (máx {max_transacoes} por parte)")
+    logger.info(f"✅ OFX dividido: {total_transacoes} transações em {len(partes)} partes (método find - O(n))")
     
     return partes
 
