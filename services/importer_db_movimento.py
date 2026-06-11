@@ -340,7 +340,7 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
             return estatisticas
     
     # ✅ Processar em batches de 1000 (mais rápido)
-    BATCH_SIZE = 1000
+    BATCH_SIZE = 200
     
     for i in range(0, len(registros), BATCH_SIZE):
         batch = registros[i:i+BATCH_SIZE]
