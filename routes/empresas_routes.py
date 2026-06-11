@@ -468,7 +468,7 @@ def excluir_empresa(empresa_id):
 # ============================================================
 # DETALHES DA EMPRESA
 # ============================================================
-@empresas_bp.route("/<int:empresa_id>", endpoint="empresa_detalhe")
+@empresas_bp.route("/<int:empresa_id>/detalhes", endpoint="empresa_detalhe")
 @master_required
 def empresa_detalhe(empresa_id):
     """Página de detalhes de uma empresa"""
