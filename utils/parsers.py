@@ -692,12 +692,12 @@ def is_flow_csv(filename: str, sample_content: str) -> bool:
     return False
 
 # ============================================================
-# ✅ FLOW CSV - PARSER
+# ✅ FLOW CSV - PARSER (VERSÃO FINAL CORRIGIDA)
 # ============================================================
 def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
     """
     Parser específico para CSV do Flow (relatório sumarizado de vendas).
-    Gera registros compatíveis com MovAdquirente para salvar_vendas.
+    Gera registros compatíveis com a tabela mov_adquirente.
     """
     inicio = time.time()
     logger.info(f"📄 Início parse Flow CSV: {filename}")
@@ -740,6 +740,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         # Linha 3: Header
         header_line = lines[2].strip()
         headers = [h.strip() for h in header_line.split(';')]
+        logger.info(f"📋 Headers detectados: {headers}")
         
         # Filtrar linhas de dados
         data_lines = []
@@ -748,8 +749,9 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
             if not line_stripped:
                 continue
             if line_stripped.lower().startswith('total'):
+                logger.info(f"🛑 Linha 'Total' encontrada, ignorando")
                 continue
-            if ';' in line_stripped:
+            if ';' in line_stripped and not line_stripped.startswith('Nº'):
                 data_lines.append(line_stripped)
         
         if not data_lines:
@@ -774,16 +776,22 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 for k, v in row.items():
                     if k:
                         key_normalized = k.strip().lower()
+                        key_normalized = key_normalized.replace('nº ', '').replace('nº', '')
                         row_normalized[key_normalized] = v.strip() if v else ''
                 
-                # Mapear campos
-                data_pagamento = row_normalized.get('data do pagamento', '')
+                # Mapear campos com múltiplas possibilidades
+                data_pagamento = (
+                    row_normalized.get('data do pagamento') or 
+                    row_normalized.get('data_pagamento') or 
+                    row_normalized.get('data') or ''
+                )
+                
                 bandeira = row_normalized.get('bandeira', '')
                 produto = row_normalized.get('produto', '')
-                quantidade = row_normalized.get('quantidade', '0')
+                quantidade = row_normalized.get('quantidade', '1')
                 valor_bruto_str = row_normalized.get('valor bruto', '0')
                 desconto_str = row_normalized.get('desconto', '0')
-                valor_liquido_str = row_normalized.get('valor líquido', '0')
+                valor_liquido_str = row_normalized.get('valor líquido') or row_normalized.get('valor liquido', '0')
                 
                 # Parse valores
                 valor_bruto = parse_valor(valor_bruto_str.replace('R$', '').replace('.', '').replace(',', '.'))
@@ -797,26 +805,49 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 desconto = parse_valor(desconto_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 valor_liquido = parse_valor(valor_liquido_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 
-                # Gerar NSU único para cada linha (Flow não fornece NSU real)
+                # Gerar NSU único
                 nsu_counter += 1
-                nsu = f"FLOW-{estabelecimento}-{data_venda.strftime('%Y%m%d')}-{nsu_counter:04d}"
+                nsu = f"FLOW-{estabelecimento or 'UNK'}-{data_venda.strftime('%Y%m%d')}-{nsu_counter:04d}"
                 
-                # ✅ Gerar registro compatível com MovAdquirente
+                # Normalizar bandeira
+                bandeira_lower = bandeira.lower().strip()
+                bandeira_map = {
+                    'mastercard': 'Mastercard',
+                    'visa': 'Visa',
+                    'elo': 'Elo',
+                    'amex': 'Amex',
+                    'hipercard': 'Hipercard',
+                }
+                bandeira_final = bandeira_map.get(bandeira_lower, bandeira)
+                
+                # Normalizar produto
+                produto_lower = produto.lower().strip()
+                if 'pix' in produto_lower:
+                    tipo_pagamento = 'pix'
+                    produto_final = 'PIX'
+                elif 'débito' in produto_lower or 'debito' in produto_lower:
+                    tipo_pagamento = 'cartao'
+                    produto_final = 'Débito'
+                elif 'crédito' in produto_lower or 'credito' in produto_lower:
+                    tipo_pagamento = 'cartao'
+                    produto_final = 'Crédito'
+                else:
+                    tipo_pagamento = 'cartao'
+                    produto_final = produto or 'Desconhecido'
+                
+                # ✅ Gerar registro com campos no formato correto
                 registro = {
-                    # Campos essenciais para salvar_vendas
-                    'adquirente': 'Flow',  # Nome da adquirente (Flow)
-                    'nsu': nsu,  # Identificador único
-                    'data_transacao': data_venda.strftime('%Y-%m-%d'),
-                    'data_venda': data_venda.strftime('%Y-%m-%d'),
-                    'valor': float(valor_liquido),  # Valor líquido (o que cai na conta)
-                    'valor_bruto': float(valor_bruto),
-                    'valor_liquido': float(valor_liquido),
-                    'desconto': float(desconto),
-                    'quantidade': int(quantidade) if quantidade else 1,
-                    'bandeira': bandeira,
-                    'produto': produto,  # Crédito, Débito, PIX
-                    'tipo_pagamento': 'cartao',
-                    'descricao': f"Flow {bandeira} {produto} - {data_venda.strftime('%d/%m/%Y')}",
+                    # Campos que o salvar_vendas espera
+                    'adquirente': 'Flow',
+                    'nsu': nsu,
+                    'data_venda': data_venda.strftime('%Y-%m-%d'),  # ✅ data_venda
+                    'valor_bruto': float(valor_bruto),              # ✅ valor_bruto
+                    'valor_liquido': float(valor_liquido),          # ✅ valor_liquido
+                    'desconto': float(desconto),                    # ✅ taxa_cobrada
+                    'bandeira': bandeira_final,
+                    'produto': produto_final,
+                    'tipo_pagamento': tipo_pagamento,
+                    'observacoes': f"Flow {bandeira_final} {produto_final} - Qtd: {quantidade} - {data_venda.strftime('%d/%m/%Y')}",
                     'empresa_id': empresa_id,
                     'estabelecimento': estabelecimento,
                 }
@@ -829,30 +860,16 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         
         tempo = time.time() - inicio
         logger.info(f"✅ Parse Flow CSV: {len(registros)} registros em {tempo:.2f}s")
+        
+        # Log de amostra para debug
+        if registros:
+            logger.info(f"📋 Exemplo de registro gerado: {registros[0]}")
+        
         return registros
         
     except Exception as e:
         logger.error(f"❌ Erro Flow CSV: {str(e)}", exc_info=True)
         raise ValueError(f"Erro Flow CSV: {str(e)}")
-
-def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: int = None) -> int:
-    try:
-        from models import EstabelecimentoMapeamento
-        if codigo_estabelecimento:
-            mapeamento = EstabelecimentoMapeamento.query.filter_by(
-                codigo_estabelecimento=codigo_estabelecimento, ativo=True
-            ).first()
-            if mapeamento:
-                return mapeamento.empresa_id
-    except:
-        pass
-    try:
-        from config.estabelecimentos import ESTABELECIMENTO_PARA_EMPRESA
-        if codigo_estabelecimento and codigo_estabelecimento in ESTABELECIMENTO_PARA_EMPRESA:
-            return ESTABELECIMENTO_PARA_EMPRESA[codigo_estabelecimento]
-    except:
-        pass
-    return fallback
 
 
 def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
