@@ -625,18 +625,68 @@ def dividir_csv_em_partes(content: str, max_linhas: int = 100) -> list:
 # ✅ FLOW CSV - DETECTOR
 # ============================================================
 def is_flow_csv(filename: str, sample_content: str) -> bool:
-    """Detecta se o arquivo é do formato Flow (relatório sumarizado de vendas)."""
-    filename_lower = filename.lower() if filename else ""
+    """
+    Detecta se o arquivo é do formato Flow (relatório sumarizado de vendas)
+    baseando-se APENAS no conteúdo, não no nome do arquivo.
     
-    # Verificar pelo nome do arquivo
-    if 'flow' in filename_lower or 'relatorio sumarizado' in filename_lower:
-        return True
+    Estrutura esperada:
+    - Linha 1: "Relatório sumarizado de vendas" (título)
+    - Linha 2: "Estabelecimento(s);XXX" (informação do estabelecimento)
+    - Linha 3: Header com colunas específicas
+    """
+    if not sample_content:
+        return False
     
-    # Verificar pelo conteúdo
-    content_preview = sample_content[:500].lower()
-    if ('relatório sumarizado de vendas' in content_preview or 
-        'relatorio sumarizado de vendas' in content_preview):
-        if 'estabelecimento' in content_preview:
+    # Normalizar para análise
+    content = sample_content.lower()
+    lines = sample_content.split('\n')
+    
+    # ✅ Verificar padrão de conteúdo (3 primeiras linhas)
+    if len(lines) >= 3:
+        linha1 = lines[0].strip().lower()
+        linha2 = lines[1].strip().lower()
+        linha3 = lines[2].strip().lower()
+        
+        # Padrão 1: Título + Estabelecimento + Header
+        if ('relatório sumarizado de vendas' in linha1 or 
+            'relatorio sumarizado de vendas' in linha1):
+            
+            if 'estabelecimento' in linha2:
+                
+                # Verificar se o header tem as colunas esperadas
+                colunas_esperadas = [
+                    'nº estabelecimento', 'numero estabelecimento',
+                    'data do pagamento', 'bandeira', 'produto',
+                    'quantidade', 'valor bruto', 'desconto', 'valor líquido'
+                ]
+                
+                # Verificar se pelo menos 5 das colunas principais estão presentes
+                colunas_encontradas = sum(
+                    1 for col in colunas_esperadas 
+                    if col in linha3
+                )
+                
+                if colunas_encontradas >= 5:
+                    logger.info(f"✅ CSV Flow detectado pelo conteúdo ({colunas_encontradas} colunas identificadas)")
+                    return True
+    
+    # ✅ Padrão alternativo: detectar pelo header mesmo sem título
+    if len(lines) >= 1:
+        header_line = lines[0].strip().lower()
+        
+        # Se o header tiver as colunas principais do Flow
+        colunas_principais = [
+            'data do pagamento', 'bandeira', 'produto',
+            'quantidade', 'valor bruto', 'valor líquido'
+        ]
+        
+        colunas_encontradas = sum(
+            1 for col in colunas_principais 
+            if col in header_line
+        )
+        
+        if colunas_encontradas >= 4:
+            logger.info(f"✅ CSV Flow detectado pelo header ({colunas_encontradas} colunas principais)")
             return True
     
     return False
