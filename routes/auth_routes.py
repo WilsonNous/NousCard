@@ -1,4 +1,4 @@
-# routes/auth_routes.py - VERSÃO COM EMAIL-VALIDATOR + ROTA RAIZ INTELIGENTE
+# routes/auth_routes.py - VERSÃO COM EMAIL-VALIDATOR
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app, g  
 from flask_login import login_user, logout_user, login_required, current_user
@@ -46,9 +46,7 @@ def check_auth_rate_limit(identifier: str) -> bool:
 # ============================================================
 
 def validar_email(email: str) -> tuple[bool, str]:
-    """
-    Valida email usando biblioteca robusta email-validator.
-    """
+    """Valida email usando biblioteca robusta email-validator."""
     if not email:
         return False, "Email é obrigatório"
     
@@ -92,31 +90,6 @@ def validar_csrf_token():
         logger.warning("CSRF token inválido ou ausente")
         return False
     return True
-
-# ============================================================
-# ✅ ROTA RAIZ INTELIGENTE (NOVA!)
-# ============================================================
-@auth_bp.route("/")
-def raiz_inteligente():
-    """
-    Rota raiz inteligente do NousCard.
-    
-    Comportamento:
-    - Usuário logado → redireciona para /dashboard
-    - Usuário NÃO logado → redireciona para /auth/login
-    
-    Isso garante que nouscard.com.br sempre mostre a página
-    correta baseada no estado de autenticação.
-    """
-    # Verificar se tem usuário logado
-    usuario = getattr(g, 'user', None)
-    
-    if usuario and getattr(usuario, 'id', None):
-        # Usuário logado → vai para o dashboard
-        return redirect(url_for('dashboard.dashboard'))
-    else:
-        # Usuário não logado → vai para o login
-        return redirect(url_for('auth.login_page'))
 
 
 # ============================================================
@@ -196,6 +169,7 @@ def logout():
     session.clear()
     logger.info(f"Logout: {usuario_email}")
     return redirect(url_for("auth.login_page"))
+
 
 # ============================================================
 # RECUPERAÇÃO DE SENHA
