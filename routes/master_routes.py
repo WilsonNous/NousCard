@@ -717,7 +717,7 @@ def dashboard_operacional_api():
         total_leads = Lead.query.count()
         leads_novos = Lead.query.filter_by(status='novo').count()
         leads_ultimos_7d = Lead.query.filter(
-            Lead.created_at >= hoje - timedelta(days=7)
+            Lead.criado_em >= hoje - timedelta(days=7)
         ).count()
         leads_convertidos = Lead.query.filter_by(status='cliente').count()
         
@@ -802,7 +802,7 @@ def dashboard_operacional_api():
         # KPI 7: NOVOS LEADS (lista detalhada)
         # ============================================================
         leads_recentes = Lead.query.order_by(
-            Lead.created_at.desc()
+            Lead.criado_em.desc()
         ).limit(10).all()
         
         # ============================================================
