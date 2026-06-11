@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_REGISTROS_POR_ARQUIVO = 10000
-MAX_TRANSACOES_OFX = 200  # ✅ Limite para divisão automática
+MAX_TRANSACOES_OFX = 30  # ✅ Limite para divisão automática
 
 # ============================================================
 # 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS
