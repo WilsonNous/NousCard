@@ -10,7 +10,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 100
+BATCH_SIZE = 200
 
 
 # ============================================================
