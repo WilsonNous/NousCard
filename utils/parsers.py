@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COMPLETA COM DIVISÃO CSV
+# utils/parsers.py - VERSÃO FINAL COMPLETA COM TODAS AS FUNÇÕES
 
 import csv
 import io
@@ -114,7 +114,7 @@ def sanitizar_celula(value):
         return ""
 
 # ============================================================
-# ✅ CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
+# CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
 # ============================================================
 def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: str = None) -> str:
     """Categoriza automaticamente a transação baseada em palavras-chave."""
@@ -122,6 +122,7 @@ def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: st
     eh_credito = valor > 0 or trntype == 'CREDIT'
     
     if eh_credito:
+        # Vendas via Maquininha (SIPAG/adquirentes)
         if any(kw in texto for kw in ['CR COMPRAS', 'SIPAG', 'CRED.COMPRAS']):
             if 'MASTERCARD' in texto:
                 return 'vendas_mastercard'
@@ -591,45 +592,29 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 30) -> list:
     return partes
 
 # ============================================================
-# ✅ DIVIDIR CSV (NOVA FUNÇÃO!)
+# ✅ DIVIDIR CSV (NOVA FUNÇÃO)
 # ============================================================
 def dividir_csv_em_partes(content: str, max_linhas: int = 100) -> list:
-    """
-    Divide arquivo CSV em partes menores, mantendo o header em cada parte.
-    
-    Args:
-        content: Conteúdo completo do CSV como string
-        max_linhas: Número máximo de linhas de dados por parte (excluindo header)
-    
-    Returns:
-        list: Lista de strings, cada uma sendo um CSV completo com header
-    """
+    """Divide arquivo CSV em partes menores, mantendo o header em cada parte."""
     lines = content.split('\n')
     
-    if len(lines) <= max_linhas + 1:  # +1 para o header
+    if len(lines) <= max_linhas + 1:
         return [content]
     
-    # Primeira linha é o header
     header = lines[0]
     data_lines = lines[1:]
-    
-    # Filtrar linhas vazias
     data_lines = [line for line in data_lines if line.strip()]
     
     total_linhas = len(data_lines)
     logger.info(f"📊 CSV com {total_linhas} linhas de dados")
     
-    # Dividir em partes
     partes = []
     num_partes = (total_linhas + max_linhas - 1) // max_linhas
     
     for i in range(num_partes):
         inicio_idx = i * max_linhas
         fim_idx = min((i + 1) * max_linhas, total_linhas)
-        
         linhas_parte = data_lines[inicio_idx:fim_idx]
-        
-        # Montar CSV da parte (header + linhas)
         csv_parte = header + '\n' + '\n'.join(linhas_parte)
         partes.append(csv_parte)
     
@@ -637,10 +622,30 @@ def dividir_csv_em_partes(content: str, max_linhas: int = 100) -> list:
     return partes
 
 # ============================================================
-# FLOW CSV
+# ✅ FLOW CSV - DETECTOR
+# ============================================================
+def is_flow_csv(filename: str, sample_content: str) -> bool:
+    """Detecta se o arquivo é do formato Flow (relatório sumarizado de vendas)."""
+    filename_lower = filename.lower() if filename else ""
+    
+    # Verificar pelo nome do arquivo
+    if 'flow' in filename_lower or 'relatorio sumarizado' in filename_lower:
+        return True
+    
+    # Verificar pelo conteúdo
+    content_preview = sample_content[:500].lower()
+    if ('relatório sumarizado de vendas' in content_preview or 
+        'relatorio sumarizado de vendas' in content_preview):
+        if 'estabelecimento' in content_preview:
+            return True
+    
+    return False
+
+# ============================================================
+# ✅ FLOW CSV - PARSER
 # ============================================================
 def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
-    """Parser específico para CSV do Cliente Flow."""
+    """Parser específico para CSV do Flow (relatório sumarizado de vendas)."""
     inicio = time.time()
     logger.info(f"📄 Início parse Flow CSV: {filename}")
     
@@ -676,7 +681,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 return []
             empresa_id = default_empresa_id
         
-        # ✅ NOVO: Usar header real da linha 3
+        # Linha 3: Header
         header_line = lines[2].strip()
         headers = [h.strip() for h in header_line.split(';')]
         
@@ -688,7 +693,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 continue
             if line_stripped.lower().startswith('total'):
                 continue
-            # Verificar se é uma linha de dados válida (tem ; e não é header)
             if ';' in line_stripped and not line_stripped.startswith('Nº'):
                 data_lines.append(line_stripped)
         
@@ -696,7 +700,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
             logger.warning("⚠️ Nenhuma linha de dados encontrada")
             return []
         
-        # ✅ NOVO: Usar csv.DictReader com header real
+        # Usar csv.DictReader com header real
         reader = csv.DictReader(
             data_lines,
             delimiter=';',
@@ -706,7 +710,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         registros = []
         for row_num, row in enumerate(reader, start=3):
             try:
-                # Normalizar chaves (remover espaços e converter para minúsculo)
+                # Normalizar chaves
                 row_normalized = {k.strip().lower(): v.strip() if v else '' for k, v in row.items() if k}
                 
                 # Mapear campos
@@ -718,7 +722,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 desconto_str = row_normalized.get('desconto', '0')
                 valor_liquido_str = row_normalized.get('valor líquido', '0')
                 
-                # Parse valores (remover R$ e converter vírgula)
+                # Parse valores
                 valor_bruto = parse_valor(valor_bruto_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 if not valor_bruto or valor_bruto <= 0:
                     continue
@@ -766,89 +770,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         logger.info(f"✅ Parse Flow CSV: {len(registros)} registros em {tempo:.2f}s")
         return registros
         
-    except Exception as e:
-        logger.error(f"❌ Erro Flow CSV: {str(e)}")
-        raise ValueError(f"Erro Flow CSV: {str(e)}")
-
-
-def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
-    inicio = time.time()
-    logger.info(f"📄 Início parse Flow CSV: {filename}")
-    file_stream.seek(0, 2)
-    size = file_stream.tell()
-    file_stream.seek(0)
-    if size > MAX_FILE_SIZE:
-        raise ValueError(f"Arquivo Flow CSV excede {MAX_FILE_SIZE/1024/1024}MB")
-    encoding = detectar_encoding(file_stream)
-    try:
-        file_stream.seek(0)
-        raw = file_stream.read().decode(encoding, errors="replace")
-        lines = raw.strip().split('\n')
-        if len(lines) < 3:
-            raise ValueError("Arquivo Flow CSV muito curto")
-        estabelecimento = None
-        linha_estabelecimento = lines[1].strip() if len(lines) > 1 else ""
-        if 'Estabelecimento' in linha_estabelecimento:
-            partes = linha_estabelecimento.split(';')
-            if len(partes) >= 2:
-                estabelecimento = partes[1].strip()
-        empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento, default_empresa_id)
-        if not empresa_id:
-            if not default_empresa_id:
-                return []
-            empresa_id = default_empresa_id
-        data_lines = []
-        for i, line in enumerate(lines[3:], start=4):
-            line_stripped = line.strip()
-            if not line_stripped or line_stripped.lower().startswith('total'):
-                continue
-            data_lines.append(line)
-        if not data_lines:
-            return []
-        reader = csv.DictReader(data_lines, delimiter=';', fieldnames=[
-            'estabelecimento', 'data_pagamento', 'bandeira',
-            'produto', 'quantidade', 'valor_bruto', 'desconto', 'valor_liquido'
-        ])
-        registros = []
-        for row_num, row in enumerate(reader, start=4):
-            try:
-                valor_bruto = parse_valor(row.get('valor_bruto'))
-                if not valor_bruto or valor_bruto <= 0:
-                    continue
-                data_venda = parse_data(row.get('data_pagamento'))
-                if not data_venda:
-                    continue
-                produto_val = (row.get('produto') or '').strip().lower()
-                bandeira_val = (row.get('bandeira') or '').strip().lower()
-                if 'pix' in produto_val or bandeira_val == 'pix':
-                    tipo_pagamento = 'pix'
-                    bandeira = None
-                elif 'boleto' in produto_val:
-                    tipo_pagamento = 'boleto'
-                    bandeira = None
-                else:
-                    tipo_pagamento = 'cartao'
-                    bandeira = row.get('bandeira', '').strip() if row.get('bandeira') else None
-                registro = normalize_row({
-                    'valor_bruto': str(valor_bruto),
-                    'data_venda': data_venda.strftime('%Y-%m-%d') if data_venda else None,
-                    'bandeira': bandeira,
-                    'produto': row.get('produto', '').strip(),
-                    'quantidade': row.get('quantidade', '0'),
-                    'desconto': row.get('desconto', '0'),
-                    'valor_liquido': row.get('valor_liquido', '0'),
-                    'tipo_pagamento': tipo_pagamento,
-                    'empresa_id': empresa_id,
-                })
-                registro['empresa_id'] = empresa_id
-                registro['tipo_pagamento'] = tipo_pagamento
-                registros.append(registro)
-            except Exception as e:
-                logger.error(f"❌ Erro linha {row_num}: {str(e)}")
-                continue
-        tempo = time.time() - inicio
-        logger.info(f"✅ Parse Flow CSV: {len(registros)} registros em {tempo:.2f}s")
-        return registros
     except Exception as e:
         logger.error(f"❌ Erro Flow CSV: {str(e)}")
         raise ValueError(f"Erro Flow CSV: {str(e)}")
