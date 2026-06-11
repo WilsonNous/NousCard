@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Operacional - Master{% endblock %}
+
+{% block extra_head %}
+<style>
+    .ops-header {
+        background: linear-gradient(135deg, #1877F2 0%, #166FE5 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    
+    .ops-header h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.75rem;
+    }
+    
+    .ops-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+    
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .kpi-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-left: 4px solid #1877F2;
+        transition: transform 0.2s;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .kpi-card.success { border-left-color: #42B72A; }
+    .kpi-card.warning { border-left-color: #F7B928; }
+    .kpi-card.error { border-left-color: #F02849; }
+    .kpi-card.info { border-left-color: #17A2B8; }
+    
+    .kpi-label {
+        font-size: 0.85rem;
+        color: #65676B;
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1C1E21;
+        margin-bottom: 0.25rem;
+    }
+    
+    .kpi-sub {
+        font-size: 0.85rem;
+        color: #65676B;
+    }
+    
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .detail-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .detail-card h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+        color: #1C1E21;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    .ops-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .ops-table th {
+        background: #F0F2F5;
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #65676B;
+    }
+    
+    .ops-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #F0F2F5;
+        font-size: 0.9rem;
+    }
+    
+    .ops-table tr:hover {
+        background: #F8F9FA;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.novo {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-badge.contato {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-badge.qualificado {
+        background: #cce5ff;
+        color: #004085;
+    }
+    
+    .status-badge.cliente {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .status-badge.perdido {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .chart-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    
+    .chart-container h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1.1rem;
+    }
+    
+    .bar-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 1rem;
+        height: 220px;
+        padding: 1rem 0;
+    }
+    
+    .bar-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .bar {
+        width: 100%;
+        background: linear-gradient(180deg, #1877F2 0%, #166FE5 100%);
+        border-radius: 8px 8px 0 0;
+        min-height: 20px;
+        transition: all 0.3s;
+        position: relative;
+    }
+    
+    .bar:hover {
+        opacity: 0.8;
+    }
+    
+    .bar-label {
+        font-size: 0.75rem;
+        color: #65676B;
+        text-align: center;
+    }
+    
+    .bar-value {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1C1E21;
+    }
+    
+    .refresh-btn {
+        background: white;
+        border: 1px solid #1877F2;
+        color: #1877F2;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .refresh-btn:hover {
+        background: #1877F2;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ops-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        <h2>🎯 Dashboard Operacional</h2>
+        <p>Acompanhe a evolução do NousCard em tempo real</p>
+    </div>
+    <button class="refresh-btn" onclick="carregarDashboard()">🔄 Atualizar</button>
+</div>
+
+<!-- KPIs Principais -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">🏢 Total de Empresas</div>
+        <div class="kpi-value" id="kpi-empresas">-</div>
+        <div class="kpi-sub" id="kpi-empresas-sub">Carregando...</div>
+    </div>
+    
+    <div class="kpi-card success">
+        <div class="kpi-label">📊 Transações (30d)</div>
+        <div class="kpi-value" id="kpi-transacoes">-</div>
+        <div class="kpi-sub" id="kpi-transacoes-sub">Carregando...</div>
+    </div>
+    
+    <div class="kpi-card warning">
+        <div class="kpi-label">👥 Leads Totais</div>
+        <div class="kpi-value" id="kpi-leads">-</div>
+        <div class="kpi-sub" id="kpi-leads-sub">Carregando...</div>
+    </div>
+    
+    <div class="kpi-card info">
+        <div class="kpi-label">💰 Volume (30d)</div>
+        <div class="kpi-value" id="kpi-volume">-</div>
+        <div class="kpi-sub" id="kpi-volume-sub">Carregando...</div>
+    </div>
+    
+    <div class="kpi-card error">
+        <div class="kpi-label">⚠️ Empresas Sem Dados</div>
+        <div class="kpi-value" id="kpi-sem-dados">-</div>
+        <div class="kpi-sub" id="kpi-sem-dados-sub">Precisam de atenção</div>
+    </div>
+</div>
+
+<!-- Evolução Mensal -->
+<div class="chart-container">
+    <h3>📈 Evolução Mensal (Últimos 6 Meses)</h3>
+    <div class="bar-chart" id="evolucaoChart"></div>
+</div>
+
+<!-- Detalhes -->
+<div class="detail-grid">
+    <!-- Empresas Top -->
+    <div class="detail-card">
+        <h3>🏆 Top 10 Empresas (30 dias)</h3>
+        <div class="table-responsive">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Empresa</th>
+                        <th style="text-align: right;">Transações</th>
+                        <th style="text-align: right;">Volume</th>
+                    </tr>
+                </thead>
+                <tbody id="empresasTopTable">
+                    <tr><td colspan="3" style="text-align: center;">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Leads Recentes -->
+    <div class="detail-card">
+        <h3>📝 Leads Recentes</h3>
+        <div class="table-responsive">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Empresa</th>
+                        <th>Contato</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="leadsTable">
+                    <tr><td colspan="3" style="text-align: center;">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Últimos Acessos -->
+    <div class="detail-card" style="grid-column: 1 / -1;">
+        <h3>👤 Últimos Acessos de Usuários (7 dias)</h3>
+        <div class="table-responsive">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>E-mail</th>
+                        <th>Empresa</th>
+                        <th>Data/Hora</th>
+                    </tr>
+                </thead>
+                <tbody id="acessosTable">
+                    <tr><td colspan="4" style="text-align: center;">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+const formatBRL = (value) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+};
+
+const formatNumber = (value) => {
+    return new Intl.NumberFormat('pt-BR').format(value || 0);
+};
+
+const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleString('pt-BR');
+};
+
+async function carregarDashboard() {
+    try {
+        const response = await fetch('/master/api/dashboard-operacional');
+        const data = await response.json();
+        
+        if (!data.ok) {
+            throw new Error(data.error || 'Erro ao carregar dados');
+        }
+        
+        const kpis = data.kpis;
+        
+        // KPIs principais
+        document.getElementById('kpi-empresas').textContent = formatNumber(kpis.empresas.total);
+        document.getElementById('kpi-empresas-sub').textContent = 
+            `${kpis.empresas.ativas_30d} ativas nos últimos 30 dias`;
+        
+        document.getElementById('kpi-transacoes').textContent = formatNumber(kpis.transacoes.ultimos_30d.total);
+        document.getElementById('kpi-transacoes-sub').textContent = 
+            `${formatNumber(kpis.transacoes.hoje.total)} hoje`;
+        
+        document.getElementById('kpi-leads').textContent = formatNumber(kpis.leads.total);
+        document.getElementById('kpi-leads-sub').textContent = 
+            `${kpis.leads.novos} novos | ${kpis.leads.convertidos} convertidos`;
+        
+        document.getElementById('kpi-volume').textContent = formatBRL(kpis.transacoes.ultimos_30d.volume);
+        document.getElementById('kpi-volume-sub').textContent = 
+            `${formatBRL(kpis.transacoes.hoje.volume)} hoje`;
+        
+        document.getElementById('kpi-sem-dados').textContent = formatNumber(kpis.empresas.sem_dados);
+        document.getElementById('kpi-sem-dados-sub').textContent = 
+            `de ${kpis.empresas.total} empresas cadastradas`;
+        
+        // Gráfico de evolução
+        const chartContainer = document.getElementById('evolucaoChart');
+        const maxVolume = Math.max(...kpis.evolucao_mensal.map(m => m.volume));
+        
+        chartContainer.innerHTML = kpis.evolucao_mensal.map(mes => {
+            const height = maxVolume > 0 ? (mes.volume / maxVolume * 100) : 0;
+            return `
+                <div class="bar-item">
+                    <div class="bar-value">${formatBRL(mes.volume)}</div>
+                    <div class="bar" style="height: ${Math.max(height, 5)}%;" 
+                         title="${formatNumber(mes.transacoes)} transações"></div>
+                    <div class="bar-label">${mes.mes}</div>
+                </div>
+            `;
+        }).join('');
+        
+        // Tabela de empresas top
+        const empresasTopTable = document.getElementById('empresasTopTable');
+        if (kpis.empresas_top.length === 0) {
+            empresasTopTable.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #65676B;">Nenhum dado disponível</td></tr>';
+        } else {
+            empresasTopTable.innerHTML = kpis.empresas_top.map(emp => `
+                <tr>
+                    <td><strong>${emp.nome}</strong></td>
+                    <td style="text-align: right;">${formatNumber(emp.transacoes)}</td>
+                    <td style="text-align: right;">${formatBRL(emp.volume)}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // Tabela de leads recentes
+        const leadsTable = document.getElementById('leadsTable');
+        if (kpis.leads_recentes.length === 0) {
+            leadsTable.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #65676B;">Nenhum lead cadastrado</td></tr>';
+        } else {
+            leadsTable.innerHTML = kpis.leads_recentes.map(lead => `
+                <tr>
+                    <td>
+                        <strong>${lead.empresa}</strong><br>
+                        <small style="color: #65676B;">${lead.cnpj}</small>
+                    </td>
+                    <td>
+                        ${lead.nome}<br>
+                        <small style="color: #65676B;">${lead.email}</small>
+                    </td>
+                    <td><span class="status-badge ${lead.status}">${lead.status}</span></td>
+                </tr>
+            `).join('');
+        }
+        
+        // Tabela de acessos
+        const acessosTable = document.getElementById('acessosTable');
+        if (kpis.ultimos_acessos.length === 0) {
+            acessosTable.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #65676B;">Nenhum acesso registrado</td></tr>';
+        } else {
+            acessosTable.innerHTML = kpis.ultimos_acessos.map(acesso => `
+                <tr>
+                    <td>${acesso.usuario}</td>
+                    <td>${acesso.email}</td>
+                    <td>${acesso.empresa}</td>
+                    <td>${formatDateTime(acesso.data)}</td>
+                </tr>
+            `).join('');
+        }
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao carregar dashboard: ' + error.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', carregarDashboard);
+</script>
+{% endblock %}
