@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COMPLETA
+# utils/parsers.py - VERSÃO FINAL COMPLETA COM MELHORIAS
 
 import csv
 import io
@@ -69,9 +69,13 @@ def parse_data(value):
         return value if isinstance(value, date) else value.date()
     try:
         value = str(value).strip()
+        # Remove timezone se presente (ex: "20260302120000[-3:BRT]")
+        if '[' in value:
+            value = value.split('[')[0]
         formatos = [
             "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d",
             "%m/%d/%Y", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S", "%Y%m%d",
+            "%Y%m%d%H%M%S",  # ✅ NOVO: Formato OFX completo
         ]
         for fmt in formatos:
             try:
@@ -110,14 +114,14 @@ def sanitizar_celula(value):
         return ""
 
 # ============================================================
-# ✅ CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
+# ✅ CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES (MELHORADA)
 # ============================================================
 def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: str = None) -> str:
     """
     Categoriza automaticamente a transação baseada em palavras-chave.
     
     Returns:
-        str: Categoria da transação (ex: 'pix_recebido', 'vendas_cartao', 'fornecedores', etc.)
+        str: Categoria da transação
     """
     texto = f"{descricao} {name}".upper()
     eh_credito = valor > 0 or trntype == 'CREDIT'
@@ -147,7 +151,7 @@ def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: st
         
         # Devoluções
         if 'DEVOLUÇÃO' in texto or 'DEVOLUCAO' in texto:
-            return 'devolucao'
+            return 'devolucao_pix'
         
         # Transferências Recebidas
         if any(kw in texto for kw in ['TRANSF.RECEBIDA', 'CRED.TRANSF', 'REM.:']):
@@ -169,7 +173,6 @@ def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: st
     else:
         # PIX Emitido (pagamentos)
         if 'PIX EMITIDO' in texto or ('PAGAMENTO' in texto and 'PIX' in texto):
-            # Diferenciar: mesma titularidade vs fornecedores
             if 'MESMA TIT' in texto:
                 return 'pix_transferencia_propria'
             return 'pix_fornecedores'
@@ -341,7 +344,7 @@ def normalize_row(row: dict):
     if "tipo_pagamento" not in new or new["tipo_pagamento"] in ("cartao", "outros"):
         new["tipo_pagamento"] = inferir_tipo_pagamento_ofx(new)
     
-    # ✅ Categorizar transação (NOVO!)
+    # ✅ Categorizar transação
     new["categoria"] = categorizar_transacao(
         new.get("descricao", ""),
         new.get("name", ""),
@@ -439,9 +442,10 @@ def parse_excel_generic(file_stream, filename=None):
         raise ValueError(f"Erro ao processar Excel: {str(e)}")
 
 # ============================================================
-# PARSER OFX (com extração de NAME e TRNTYPE)
+# PARSER OFX (MELHORADO - Extrai TODOS os campos úteis)
 # ============================================================
 def _extrair_tag_ofx(bloco: str, tag: str) -> str:
+    """Extrai valor de uma tag OFX de forma ultra-rápida usando find()."""
     tag_upper = tag.upper()
     bloco_upper = bloco.upper()
     start_tag = f"<{tag_upper}>"
@@ -460,6 +464,7 @@ def _extrair_tag_ofx(bloco: str, tag: str) -> str:
 
 
 def parse_ofx_generic(file_stream, filename=None):
+    """Parser OFX otimizado com extração completa de campos."""
     inicio_total = time.time()
     logger.info(f"🏦 Início parse OFX: {filename}")
     file_stream.seek(0, 2)
@@ -504,18 +509,25 @@ def parse_ofx_generic(file_stream, filename=None):
         memo = _extrair_tag_ofx(bloco, "MEMO")
         name = _extrair_tag_ofx(bloco, "NAME")
         fitid = _extrair_tag_ofx(bloco, "FITID")
-        trntype = _extrair_tag_ofx(bloco, "TRNTYPE")  # ✅ NOVO
+        trntype = _extrair_tag_ofx(bloco, "TRNTYPE")
+        checknum = _extrair_tag_ofx(bloco, "CHECKNUM")  # ✅ NOVO
+        refnum = _extrair_tag_ofx(bloco, "REFNUM")      # ✅ NOVO
         
         if not trnamt:
             continue
         
+        # Parse data (remove timezone)
         data = None
-        if dtposted and len(dtposted) >= 8:
-            try:
-                data = datetime.strptime(dtposted[:8], "%Y%m%d").date()
-            except ValueError:
-                pass
+        if dtposted:
+            # Remove timezone se presente
+            dtposted_clean = dtposted.split('[')[0] if '[' in dtposted else dtposted
+            if len(dtposted_clean) >= 8:
+                try:
+                    data = datetime.strptime(dtposted_clean[:8], "%Y%m%d").date()
+                except ValueError:
+                    pass
         
+        # Parse valor
         try:
             valor_str = trnamt
             if ',' in valor_str and '.' in valor_str:
@@ -526,6 +538,7 @@ def parse_ofx_generic(file_stream, filename=None):
         except (InvalidOperation, ValueError):
             continue
         
+        # Construir descrição completa
         descricao_parts = []
         if memo:
             descricao_parts.append(memo)
@@ -538,8 +551,10 @@ def parse_ofx_generic(file_stream, filename=None):
             "valor": valor,
             "descricao": descricao,
             "name": name,
-            "trntype": trntype,  # ✅ NOVO
+            "trntype": trntype,
             "id": fitid or None,
+            "checknum": checknum or None,  # ✅ NOVO
+            "refnum": refnum or None,      # ✅ NOVO
             "tipo_ofx": None
         })
     
