@@ -36,10 +36,11 @@ def raiz_inteligente():
     usuario = getattr(g, 'user', None)
     
     if usuario and getattr(usuario, 'id', None):
-        # Usuário logado → vai para o dashboard
-        return redirect(url_for('dashboard.dashboard'))
+        if getattr(usuario, 'master', False):
+            return redirect(url_for('master.dashboard_operacional_page'))
+        else:
+            return redirect(url_for('dashboard.dashboard'))
     else:
-        # Usuário não logado → vai para o login
         return redirect(url_for('auth.login_page'))
 
 
@@ -77,6 +78,10 @@ def dashboard():
     """Página principal do dashboard (HTML)"""
     
     usuario = g.user
+    
+    if getattr(usuario, 'master', False):
+        return redirect(url_for('master.dashboard_operacional_page'))
+        
     empresa_id = getattr(usuario, 'empresa_id', None)
     
     # Rate limiting
