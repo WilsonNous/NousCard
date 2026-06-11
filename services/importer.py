@@ -1,10 +1,11 @@
-# services/importer.py - VERSÃO COM EXTRAÇÃO AUTOMÁTICA DE CONTA OFX
+# services/importer.py - VERSÃO COM DIVISÃO AUTOMÁTICA DE OFX
 
 import os
 import hashlib
 import logging
 import re
 import time
+from io import BytesIO
 from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
 from utils.parsers import (
@@ -13,7 +14,8 @@ from utils.parsers import (
     parse_ofx_generic,
     parse_flow_csv,
     is_flow_csv,
-    extrair_dados_conta_ofx  # ← NOVO: Import da função de extração
+    extrair_dados_conta_ofx,
+    dividir_ofx_em_partes
 )
 from utils.helpers import gerar_hash_arquivo
 from services.importer_db import (
@@ -28,12 +30,16 @@ from models import db
 
 logger = logging.getLogger(__name__)
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
-MAX_TOTAL_SIZE = 50 * 1024 * 1024
+# ============================================================
+# CONFIGURAÇÕES
+# ============================================================
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_REGISTROS_POR_ARQUIVO = 10000
+MAX_TRANSACOES_OFX = 1000  # ✅ Limite para divisão automática
 
 # ============================================================
-# 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS (mantido igual)
+# 🧠 MAPEAMENTO INTELIGENTE DE COLUNAS
 # ============================================================
 
 COLUNAS_PADRAO_VENDA = {
@@ -111,7 +117,7 @@ COLUNAS_MINIMAS_VENDA = ['valor_bruto', 'data_venda', 'nsu']
 COLUNAS_MINIMAS_RECEBIMENTO = ['valor', 'data_movimento', 'documento']
 
 # ============================================================
-# 🧰 UTILITÁRIOS DE NORMALIZAÇÃO (mantido igual)
+# 🧰 UTILITÁRIOS DE NORMALIZAÇÃO
 # ============================================================
 
 def normalizar_chave(key):
@@ -180,7 +186,7 @@ def inferir_tipo_pagamento(registro):
 
 
 # ============================================================
-# 🔍 VALIDAÇÕES (mantido igual)
+# 🔍 VALIDAÇÕES
 # ============================================================
 
 def validar_tamanho_arquivo(file_storage):
@@ -251,14 +257,15 @@ def identificar_tipo_por_conteudo(registros, nome_arquivo):
 
 
 # ============================================================
-# 📦 PROCESSAR UM ARQUIVO (✅ MODIFICADO PARA OFX)
+# 📦 PROCESSAR UM ARQUIVO (✅ COM DIVISÃO AUTOMÁTICA DE OFX)
 # ============================================================
 
 def process_file(file_storage, default_empresa_id=None):
     """
     Processa um arquivo e retorna registros normalizados.
     
-    ✅ NOVO: Para OFX, extrai dados da conta automaticamente
+    ✅ NOVO: Se for OFX grande, divide automaticamente em partes menores
+    ✅ NOVO: Extrai dados da conta do OFX automaticamente
     """
     nome = file_storage.filename.lower()
     
@@ -277,11 +284,13 @@ def process_file(file_storage, default_empresa_id=None):
     file_storage.seek(0)
     hash_arquivo = hashlib.sha256(conteudo).hexdigest()
     
-    # ✅ NOVO: Variável para armazenar dados da conta (apenas OFX)
+    # Variáveis para metadados
     dados_conta = None
+    dividido_automaticamente = False
+    total_transacoes_original = None
+    num_partes = None
     
     try:
-        # 🔹 Detectar CSV Flow ANTES de parsear
         sample = conteudo[:1024].decode('utf-8', errors='ignore') if isinstance(conteudo, bytes) else conteudo[:1024]
         
         if nome.endswith(('.csv', '.txt')) and is_flow_csv(nome, sample):
@@ -303,7 +312,7 @@ def process_file(file_storage, default_empresa_id=None):
             registros = normalizar_registros(registros, mapeamento)
             
         elif nome.endswith(".ofx"):
-            # ✅ NOVO: Extrair dados da conta ANTES de parsear
+            # ✅ Extrair dados da conta do OFX
             try:
                 content_text = conteudo.decode('utf-8', errors='replace')
                 dados_conta = extrair_dados_conta_ofx(content_text)
@@ -312,8 +321,42 @@ def process_file(file_storage, default_empresa_id=None):
                 logger.warning(f"⚠️ Erro ao extrair dados da conta do OFX: {str(e)}")
                 dados_conta = None
             
-            file_storage.seek(0)
-            registros = parse_ofx_generic(file_storage)
+            # ✅ Verificar se precisa dividir automaticamente
+            content_text = conteudo.decode('utf-8', errors='replace')
+            total_transacoes_original = content_text.upper().count('<STMTTRN>')
+            
+            logger.info(f"🔍 OFX com {total_transacoes_original} transações (limite: {MAX_TRANSACOES_OFX})")
+            
+            if total_transacoes_original > MAX_TRANSACOES_OFX:
+                # ✅ DIVIDIR AUTOMATICAMENTE
+                dividido_automaticamente = True
+                logger.info(f"🔧 OFX grande detectado! Dividindo em partes de {MAX_TRANSACOES_OFX} transações...")
+                
+                partes = dividir_ofx_em_partes(content_text, MAX_TRANSACOES_OFX)
+                num_partes = len(partes)
+                logger.info(f"✅ OFX dividido em {num_partes} partes")
+                
+                # Processar cada parte
+                todos_registros = []
+                for i, parte in enumerate(partes, 1):
+                    inicio_parte = time.time()
+                    logger.info(f"📄 Processando parte {i}/{num_partes}...")
+                    
+                    stream = BytesIO(parte.encode('utf-8'))
+                    registros_parte = parse_ofx_generic(stream, f"{nome}_parte_{i}")
+                    todos_registros.extend(registros_parte)
+                    
+                    tempo_parte = time.time() - inicio_parte
+                    logger.info(f"✅ Parte {i}/{num_partes} processada: {len(registros_parte)} registros em {tempo_parte:.2f}s")
+                
+                registros = todos_registros
+                logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
+                
+            else:
+                # OFX pequeno, processar normalmente
+                file_storage.seek(0)
+                registros = parse_ofx_generic(file_storage)
+            
             tipo = "recebimento"
             mapeamento = {}
             
@@ -348,7 +391,7 @@ def process_file(file_storage, default_empresa_id=None):
             "erro": msg
         }
     
-    # Inferir tipo_pagamento para cada registro
+    # Inferir tipo_pagamento
     for reg in registros:
         if 'tipo_pagamento' not in reg or not reg['tipo_pagamento']:
             reg['tipo_pagamento'] = inferir_tipo_pagamento(reg)
@@ -362,19 +405,20 @@ def process_file(file_storage, default_empresa_id=None):
         "registros": registros,
         "hash": hash_arquivo,
         "linhas": len(registros),
-        "dados_conta": dados_conta  # ← NOVO: Retornar dados da conta
+        "dados_conta": dados_conta,
+        "dividido_automaticamente": dividido_automaticamente,
+        "total_transacoes_original": total_transacoes_original,
+        "num_partes": num_partes
     }
 
 
 # ============================================================
-# 📦 PROCESSAR MÚLTIPLOS ARQUIVOS (✅ MODIFICADO)
+# 📦 PROCESSAR MÚLTIPLOS ARQUIVOS
 # ============================================================
 
 def process_uploaded_files(files, empresa_id, usuario_id):
     """
     Processa múltiplos arquivos com logs de performance detalhados.
-    
-    ✅ NOVO: Passa dados_conta para salvar_recebimentos (OFX)
     """
     inicio_total = time.time()
     logger.info(f"🚀 INÍCIO UPLOAD: usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
@@ -403,7 +447,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         logger.info(f"📄 [{i}/{len(files)}] Processando: {nome}")
         
         try:
-            # Parse do arquivo
+            # Parse do arquivo (com divisão automática se OFX grande)
             inicio_parse = time.time()
             resultado = process_file(file_storage, default_empresa_id=empresa_id)
             tempo_parse = time.time() - inicio_parse
@@ -415,10 +459,13 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 resultados.append(resultado)
                 continue
             
-            # ✅ NOVO: Capturar dados_conta do resultado
+            # Capturar metadados
             dados_conta = resultado.get("dados_conta")
             if dados_conta:
-                logger.info(f"🏦 Dados da conta disponíveis para {nome}: {dados_conta}")
+                logger.info(f"🏦 Dados da conta: {dados_conta}")
+            
+            if resultado.get("dividido_automaticamente"):
+                logger.info(f"🔧 OFX dividido automaticamente: {resultado.get('total_transacoes_original')} transações em {resultado.get('num_partes')} partes")
             
             # Verificar duplicata
             inicio_duplicata = time.time()
@@ -450,12 +497,11 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             if resultado["tipo"] == "venda":
                 stats = salvar_vendas(resultado["registros"], empresa_id, arquivo_id)
             elif resultado["tipo"] == "recebimento":
-                # ✅ NOVO: Passar dados_conta para salvar_recebimentos
                 stats = salvar_recebimentos(
                     resultado["registros"], 
                     empresa_id, 
                     arquivo_id,
-                    dados_conta=dados_conta  # ← NOVO: Passar dados da conta
+                    dados_conta=dados_conta
                 )
             
             db.session.commit()
@@ -470,13 +516,25 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 "tipo": resultado["tipo"],
                 "linhas": resultado["linhas"],
                 "hash": resultado["hash"],
-                "estatisticas": stats
+                "estatisticas": stats,
+                "dividido_automaticamente": resultado.get("dividido_automaticamente", False),
+                "total_transacoes_original": resultado.get("total_transacoes_original"),
+                "num_partes": resultado.get("num_partes")
             }
             
             mensagens = []
+            
+            # Mensagem especial se foi dividido automaticamente
+            if resultado.get("dividido_automaticamente"):
+                mensagens.append(
+                    f"🔧 Arquivo grande detectado: {resultado.get('total_transacoes_original')} transações "
+                    f"divididas automaticamente em {resultado.get('num_partes')} partes para processamento."
+                )
+            
             if stats:
                 if stats.get("conta_criada"):
-                    mensagens.append("✅ Conta bancária criada automaticamente a partir dos dados do OFX.")
+                    nome_conta = dados_conta.get("nome", "Conta OFX") if dados_conta else "Conta OFX"
+                    mensagens.append(f"✅ Conta bancária criada automaticamente: {nome_conta}")
                 
                 if stats.get("falhas", 0) > 0:
                     mensagens.append(f"⚠️ {stats['falhas']} registros não puderam ser importados.")
