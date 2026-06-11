@@ -9,6 +9,7 @@ from .conciliacao import Conciliacao
 from .usuarios import Usuario
 from .arquivo_importado import ArquivoImportado
 from .log_auditoria import LogAuditoria
+from .lead import Lead
 
 __all__ = [
     'db',
