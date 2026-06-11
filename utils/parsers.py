@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COM EXTRAÇÃO DE CONTA + DIVISÃO AUTOMÁTICA
+# utils/parsers.py - VERSÃO FINAL COM EXTRAÇÃO DE NAME + DIVISÃO AUTOMÁTICA
 
 import csv
 import io
@@ -12,15 +12,9 @@ import chardet
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# CONFIGURAÇÕES
-# ============================================================
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_ROWS = 10000
 
-# ============================================================
-# DETECTAR ENCODING
-# ============================================================
 def detectar_encoding(file_stream):
     """Detecta encoding do arquivo com fallback seguro"""
     try:
@@ -36,9 +30,6 @@ def detectar_encoding(file_stream):
         file_stream.seek(0)
         return 'utf-8'
 
-# ============================================================
-# PARSE VALOR MONETÁRIO
-# ============================================================
 def parse_valor(value, raise_on_error=False):
     """Converte valor para Decimal de forma segura."""
     if value is None:
@@ -72,9 +63,6 @@ def parse_valor(value, raise_on_error=False):
             raise
         return Decimal("0")
 
-# ============================================================
-# PARSE DATA
-# ============================================================
 def parse_data(value):
     """Converte valor para date de forma segura."""
     if not value:
@@ -113,9 +101,6 @@ def parse_data(value):
         logger.warning(f"Erro ao parsear data '{value}': {str(e)}")
         return None
 
-# ============================================================
-# SANITIZAR CÉLULA
-# ============================================================
 def sanitizar_celula(value):
     """Previne CSV/Excel injection."""
     if not value:
@@ -138,9 +123,6 @@ def sanitizar_celula(value):
         logger.warning(f"Erro ao sanitizar célula: {str(e)}")
         return ""
 
-# ============================================================
-# NORMALIZAR ROW
-# ============================================================
 def normalize_row(row: dict):
     """Normaliza uma linha de dados mapeando nomes de colunas."""
     if not row:
@@ -148,7 +130,7 @@ def normalize_row(row: dict):
             "valor": Decimal("0"), 
             "data": None, 
             "descricao": "",
-            "tipo_pagamento": "cartao"
+            "tipo_pagamento": "outros"
         }
     
     new = {}
@@ -178,7 +160,11 @@ def normalize_row(row: dict):
         elif k in ("descricao", "desc", "memo", "historico", "detalhe", "description", "note"):
             new["descricao"] = sanitizar_celula(value)
         
-        elif k in ("nsu", "id", "transaction_id", "codigo"):
+        # ✅ NOVO: Extrair NAME (pagador/recebedor)
+        elif k in ("name", "pagador", "beneficiario", "favorecido"):
+            new["name"] = sanitizar_celula(value)
+        
+        elif k in ("nsu", "id", "transaction_id", "codigo", "fitid"):
             new["nsu"] = sanitizar_celula(value) if value else None
         elif k in ("adquirente", "merchant", "estabelecimento"):
             new["adquirente"] = sanitizar_celula(value) if value else None
@@ -216,22 +202,65 @@ def normalize_row(row: dict):
     if "data" not in new:
         new["data"] = None
     
-    if "tipo_pagamento" not in new:
-        produto = new.get("produto", "").lower() if new.get("produto") else ""
-        bandeira = new.get("bandeira", "").lower() if new.get("bandeira") else ""
-        
-        if 'pix' in produto or bandeira == 'pix':
-            new["tipo_pagamento"] = 'pix'
-        elif 'boleto' in produto:
-            new["tipo_pagamento"] = 'boleto'
-        else:
-            new["tipo_pagamento"] = 'cartao'
+    # ✅ MELHORADO: Inferir tipo_pagamento analisando descricao e name
+    if "tipo_pagamento" not in new or new["tipo_pagamento"] == "cartao":
+        new["tipo_pagamento"] = inferir_tipo_pagamento_ofx(new)
     
     return new
 
-# ============================================================
-# PARSE CSV
-# ============================================================
+
+def inferir_tipo_pagamento_ofx(registro):
+    """
+    Infere o tipo de pagamento analisando descricao, name e outros campos.
+    ✅ Versão melhorada para OFX de bancos brasileiros
+    """
+    descricao = str(registro.get('descricao') or '').strip().upper()
+    name = str(registro.get('name') or '').strip().upper()
+    texto_completo = f"{descricao} {name}"
+    
+    # ✅ PIX (prioridade máxima)
+    if 'PIX' in texto_completo:
+        return 'pix'
+    
+    # ✅ Cartão de Crédito (vendas maquininha)
+    if any(kw in texto_completo for kw in [
+        'MASTERCARD', 'VISA', 'MAESTRO', 'ELO', 'SIPAG', 
+        'CRED.COMPRAS', 'CR COMPRAS'
+    ]):
+        return 'cartao'
+    
+    # ✅ Débito
+    if any(kw in texto_completo for kw in ['DÉBITO', 'DEBITO', 'DEB._']):
+        return 'debito'
+    
+    # ✅ Boleto/Tributos
+    if any(kw in texto_completo for kw in [
+        'BOLETO', 'DAS-', 'DAS ', 'TRIBUTOS', 'COMPE', 'TÍTULO'
+    ]):
+        return 'boleto'
+    
+    # ✅ Transferência
+    if any(kw in texto_completo for kw in [
+        'TRANSF', 'TED', 'DOC', 'REM.:', 'FAV.:'
+    ]):
+        return 'transferencia'
+    
+    # ✅ Empréstimo
+    if 'EMPRÉSTIMO' in texto_completo or 'EMPRESTIMO' in texto_completo:
+        return 'emprestimo'
+    
+    # ✅ Investimento
+    if any(kw in texto_completo for kw in ['APLICAÇÃO', 'RESGATE', 'RDC', 'CDB']):
+        return 'investimento'
+    
+    # ✅ Seguro
+    if any(kw in texto_completo for kw in ['SEGURO', 'ALLIANZ']):
+        return 'seguro'
+    
+    # Default
+    return 'outros'
+
+
 def parse_csv_generic(file_stream, filename=None):
     """Parse CSV com detecção automática de encoding."""
     inicio = time.time()
@@ -284,9 +313,6 @@ def parse_csv_generic(file_stream, filename=None):
         logger.error(f"❌ Erro ao parsear CSV: {str(e)}")
         raise ValueError(f"Erro ao processar arquivo CSV: {str(e)}")
 
-# ============================================================
-# PARSE EXCEL
-# ============================================================
 def parse_excel_generic(file_stream, filename=None):
     """Parse Excel com proteção XXE."""
     inicio = time.time()
@@ -343,11 +369,8 @@ def parse_excel_generic(file_stream, filename=None):
         logger.error(f"❌ Erro ao parsear Excel: {str(e)}")
         raise ValueError(f"Erro ao processar arquivo Excel: {str(e)}")
 
-# ============================================================
-# ✅ PARSER OFX ULTRA-RÁPIDO (SPLIT DE STRING)
-# ============================================================
 def _extrair_tag_ofx(bloco: str, tag: str) -> str:
-    """Extrai valor de uma tag OFX de forma ultra-rápida."""
+    """Extrai valor de uma tag OFX de forma ultra-rápida usando find()."""
     tag_upper = tag.upper()
     bloco_upper = bloco.upper()
     
@@ -438,10 +461,11 @@ def parse_ofx_generic(file_stream, filename=None):
             
             bloco = content[start_pos:end_pos]
             
+            # ✅ Extrair campos incluindo NAME
             dtposted = _extrair_tag_ofx(bloco, "DTPOSTED")
             trnamt = _extrair_tag_ofx(bloco, "TRNAMT")
             memo = _extrair_tag_ofx(bloco, "MEMO")
-            name = _extrair_tag_ofx(bloco, "NAME")
+            name = _extrair_tag_ofx(bloco, "NAME")  # ✅ NOVO
             fitid = _extrair_tag_ofx(bloco, "FITID")
             
             if not trnamt:
@@ -464,12 +488,19 @@ def parse_ofx_generic(file_stream, filename=None):
             except (InvalidOperation, ValueError):
                 continue
             
-            descricao = memo or name or ""
+            # ✅ Combinar MEMO e NAME para descrição completa
+            descricao_parts = []
+            if memo:
+                descricao_parts.append(memo)
+            if name and name != memo:
+                descricao_parts.append(name)
+            descricao = " - ".join(descricao_parts) if descricao_parts else ""
             
             registros.append({
                 "data": data,
                 "valor": valor,
                 "descricao": descricao,
+                "name": name,  # ✅ NOVO: pagador/recebedor
                 "id": fitid or None,
                 "tipo_ofx": None
             })
@@ -481,27 +512,13 @@ def parse_ofx_generic(file_stream, filename=None):
     tempo_parse = time.time() - inicio_parse
     tempo_total = time.time() - inicio_total
     
-    logger.info(f"✅ OFX parseado: {len(registros)}/{total_transacoes} registros em {tempo_total:.2f}s (split={tempo_split:.3f}s, parse={tempo_parse:.2f}s)")
+    logger.info(f"✅ OFX parseado: {len(registros)}/{total_transacoes} registros em {tempo_total:.2f}s")
     
     return [normalize_row(r) for r in registros]
 
 
-# ============================================================
-# 🏦 EXTRAIR DADOS DA CONTA DO OFX
-# ============================================================
 def extrair_dados_conta_ofx(content: str) -> dict:
-    """
-    Extrai dados da conta bancária do arquivo OFX.
-    
-    Returns:
-        dict: {
-            "banco": "001",
-            "agencia": "1234",
-            "conta": "12345-6",
-            "tipo": "corrente",
-            "nome": "Banco 001 - Ag 1234 - CC 12345-6"
-        }
-    """
+    """Extrai dados da conta bancária do arquivo OFX."""
     dados = {
         "banco": None,
         "agencia": None,
@@ -550,42 +567,24 @@ def extrair_dados_conta_ofx(content: str) -> dict:
     return dados
 
 
-# ============================================================
-# 🔧 DIVIDIR OFX EM PARTES (✅ NOVA FUNÇÃO)
-# ============================================================
-
-def dividir_ofx_em_partes(content: str, max_transacoes: int = 200) -> list:
-    """
-    Divide arquivo OFX em partes menores usando find() (NUNCA regex).
-    
-    ✅ Usa método O(n) - impossível travar
-    ✅ Preserva header e footer do OFX
-    """
+def dividir_ofx_em_partes(content: str, max_transacoes: int = 30) -> list:
+    """Divide arquivo OFX em partes menores usando find() (NUNCA regex)."""
     content_upper = content.upper()
     
-    # ✅ Encontrar posições de <BANKTRANLIST> (header)
-    header_start = content_upper.find('<BANKTRANLIST>')
-    if header_start == -1:
-        logger.warning("⚠️ BANKTRANLIST não encontrado")
+    banktranlist_start = content_upper.find('<BANKTRANLIST>')
+    if banktranlist_start == -1:
         return [content]
     
-    # Incluir tudo até <BANKTRANLIST> (inclusive)
-    header = content[:header_start + len('<BANKTRANLIST>')]
-    
-    # ✅ Encontrar posições de </BANKTRANLIST> (footer)
-    footer_start = content_upper.find('</BANKTRANLIST>')
-    if footer_start == -1:
-        logger.warning("⚠️ </BANKTRANLIST> não encontrado")
+    banktranlist_end = content_upper.find('</BANKTRANLIST>')
+    if banktranlist_end == -1:
         return [content]
     
-    # Incluir tudo de </BANKTRANLIST> em diante
-    footer = content[footer_start:]
+    header = content[:banktranlist_start + len('<BANKTRANLIST>')]
+    footer = content[banktranlist_end:]
     
-    # ✅ Extrair apenas o bloco de transações (entre as tags)
-    bloco_transacoes = content[header_start + len('<BANKTRANLIST>'):footer_start]
+    bloco_transacoes = content[banktranlist_start + len('<BANKTRANLIST>'):banktranlist_end]
     bloco_upper = bloco_transacoes.upper()
     
-    # ✅ Encontrar todas as posições de <STMTTRN> usando find() (RÁPIDO!)
     posicoes_inicio = []
     search_start = 0
     while True:
@@ -598,17 +597,13 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 200) -> list:
     total_transacoes = len(posicoes_inicio)
     
     if total_transacoes == 0:
-        logger.warning("⚠️ Nenhuma transação encontrada")
         return [content]
     
     if total_transacoes <= max_transacoes:
-        logger.info(f"ℹ️ OFX com {total_transacoes} transações não precisa dividir")
         return [content]
     
-    # ✅ Extrair cada transação individualmente
     transacoes = []
     for i, pos_inicio in enumerate(posicoes_inicio):
-        # Fim = início da próxima transação OU fim do bloco
         if i + 1 < len(posicoes_inicio):
             pos_fim = posicoes_inicio[i + 1]
         else:
@@ -617,7 +612,6 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 200) -> list:
         transacao = bloco_transacoes[pos_inicio:pos_fim].strip()
         transacoes.append(transacao)
     
-    # ✅ Dividir em partes
     partes = []
     num_partes = (total_transacoes + max_transacoes - 1) // max_transacoes
     
@@ -626,19 +620,13 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 200) -> list:
         fim_idx = min((i + 1) * max_transacoes, total_transacoes)
         
         transacoes_parte = transacoes[inicio_idx:fim_idx]
-        
-        # Montar OFX da parte
         ofx_parte = header + '\n' + '\n'.join(transacoes_parte) + '\n' + footer
         partes.append(ofx_parte)
     
-    logger.info(f"✅ OFX dividido: {total_transacoes} transações em {len(partes)} partes (método find - O(n))")
+    logger.info(f"✅ OFX dividido: {total_transacoes} transações em {len(partes)} partes")
     
     return partes
 
-
-# ============================================================
-# DETECTOR E PARSER FLOW
-# ============================================================
 
 def is_flow_csv(filename: str, sample_content: str) -> bool:
     """Detecta se o arquivo é do formato Cliente Flow."""
@@ -686,7 +674,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         
         empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento, default_empresa_id)
         if not empresa_id:
-            logger.error(f"❌ Não foi possível determinar empresa_id: {estabelecimento}")
             if not default_empresa_id:
                 return []
             empresa_id = default_empresa_id
@@ -699,7 +686,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
             data_lines.append(line)
         
         if not data_lines:
-            logger.warning("⚠️ Nenhuma linha de dados encontrada")
             return []
         
         reader = csv.DictReader(
@@ -746,9 +732,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     'valor_liquido': row.get('valor_liquido', '0'),
                     'tipo_pagamento': tipo_pagamento,
                     'empresa_id': empresa_id,
-                    'estabelecimento_origem': estabelecimento,
-                    'arquivo_origem': filename.split('/')[-1] if filename else 'unknown',
-                    'linha_origem': row_num,
                 })
                 
                 registro['empresa_id'] = empresa_id
@@ -780,26 +763,18 @@ def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: i
             ).first()
             if mapeamento:
                 return mapeamento.empresa_id
-    except ImportError:
+    except:
         pass
-    except Exception as e:
-        logger.warning(f"⚠️ Erro ao consultar mapeamento: {str(e)}")
     
     try:
         from config.estabelecimentos import ESTABELECIMENTO_PARA_EMPRESA
         if codigo_estabelecimento and codigo_estabelecimento in ESTABELECIMENTO_PARA_EMPRESA:
             return ESTABELECIMENTO_PARA_EMPRESA[codigo_estabelecimento]
-    except ImportError:
+    except:
         pass
-    except Exception as e:
-        logger.warning(f"⚠️ Erro ao ler config: {str(e)}")
     
     return fallback
 
-
-# ============================================================
-# FUNÇÃO GENÉRICA
-# ============================================================
 
 def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
     """Detecta formato automaticamente e chama parser apropriado."""
@@ -821,8 +796,6 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
-                if 'tipo_pagamento' not in reg:
-                    reg['tipo_pagamento'] = 'cartao'
         return registros
     
     elif filename_lower.endswith(('.xlsx', '.xls')):
@@ -831,8 +804,6 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
-                if 'tipo_pagamento' not in reg:
-                    reg['tipo_pagamento'] = 'cartao'
         return registros
     
     elif filename_lower.endswith('.ofx'):
@@ -841,26 +812,7 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
             for reg in registros:
                 if 'empresa_id' not in reg or not reg['empresa_id']:
                     reg['empresa_id'] = default_empresa_id
-                if 'tipo_pagamento' not in reg:
-                    reg['tipo_pagamento'] = 'cartao'
         return registros
     
     else:
-        if sample.strip().startswith('<?xml') or '<OFX>' in sample.upper():
-            registros = parse_ofx_generic(file_stream, filename)
-        elif ',' in sample or ';' in sample:
-            if is_flow_csv(filename, sample):
-                registros = parse_flow_csv(file_stream, filename, default_empresa_id)
-            else:
-                registros = parse_csv_generic(file_stream, filename)
-        else:
-            raise ValueError(f"Formato não suportado: {filename}")
-        
-        if default_empresa_id:
-            for reg in registros:
-                if 'empresa_id' not in reg or not reg['empresa_id']:
-                    reg['empresa_id'] = default_empresa_id
-                if 'tipo_pagamento' not in reg:
-                    reg['tipo_pagamento'] = 'cartao'
-        
-        return registros
+        raise ValueError(f"Formato não suportado: {filename}")
