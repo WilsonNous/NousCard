@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify, session
 from utils.auth_middleware import master_required
 from models import db, Empresa, Usuario, LogAuditoria, MovAdquirente, MovBanco
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, func
 import logging
