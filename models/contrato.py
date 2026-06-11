@@ -51,8 +51,8 @@ class Contrato(db.Model, BaseMixin):
     atualizado_em = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), 
                               onupdate=lambda: datetime.now(timezone.utc))
     
-    # Relacionamentos
-    empresa = db.relationship('Empresa', foreign_keys=[empresa_id])
+    # ✅ Relacionamento SEM backref (usamos back_populates no Empresa)
+    empresa = db.relationship('Empresa', back_populates='contratos_comerciais')
     
     def __repr__(self):
         return f"<Contrato {self.numero} - {self.empresa.nome if self.empresa else 'N/A'}>"
