@@ -157,8 +157,10 @@ def login_post():
     iniciar_sessao_segura(usuario)
     
     logger.info(f"✅ Login bem-sucedido: {email}, ip={ip}")
-    return redirect(url_for("dashboard.dashboard"))
-
+    if getattr(usuario, 'master', False):
+        return redirect(url_for("master.dashboard_operacional_page"))
+    else:
+        return redirect(url_for("dashboard.dashboard"))
 
 # ============================================================
 # LOGOUT
