@@ -52,7 +52,7 @@ class Contrato(db.Model, BaseMixin):
                               onupdate=lambda: datetime.now(timezone.utc))
     
     # Relacionamentos
-    empresa = db.relationship('Empresa', backref=db.backref('contratos', lazy=True))
+    empresa = db.relationship('Empresa', foreign_keys=[empresa_id])
     
     def __repr__(self):
         return f"<Contrato {self.numero} - {self.empresa.nome if self.empresa else 'N/A'}>"
