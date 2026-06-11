@@ -102,9 +102,8 @@ def resolver_adquirente_id(valor, empresa_id=None):
     
     return None
 
-
 # ============================================================
-# SALVAR VENDAS (MovAdquirente)
+# SALVAR VENDAS (MovAdquirente) - VERSÃO COM LOGS DETALHADOS
 # ============================================================
 def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> dict:
     """
@@ -122,116 +121,205 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         "adquirentes_processadas": set()
     }
     
+    if not registros:
+        logger.warning("⚠️ Nenhum registro para salvar como venda")
+        return stats
+    
+    logger.info(f"💾 Iniciando salvamento de {len(registros)} vendas para empresa {empresa_id}")
+    
+    # ✅ Log do primeiro registro para debug
+    if registros:
+        logger.info(f"📋 Exemplo de registro recebido: {registros[0]}")
+    
     try:
-        for reg in registros:
+        for idx, reg in enumerate(registros):
             try:
-                # ✅ Extrair dados com fallbacks
-                adquirente_nome = reg.get('adquirente') or reg.get('nome_adquirente') or 'Desconhecida'
-                nsu = reg.get('nsu') or reg.get('id') or reg.get('fitid')
-                data_transacao = reg.get('data_transacao') or reg.get('data_venda') or reg.get('data')
-                valor = reg.get('valor') or reg.get('valor_liquido') or reg.get('valor_bruto') or 0
-                valor_bruto = reg.get('valor_bruto') or valor
+                # ✅ Extrair dados com múltiplos fallbacks
+                adquirente_nome = (
+                    reg.get('adquirente') or 
+                    reg.get('nome_adquirente') or 
+                    reg.get('adquirente_nome') or 
+                    'Flow'
+                )
+                
+                nsu = (
+                    reg.get('nsu') or 
+                    reg.get('id') or 
+                    reg.get('fitid') or 
+                    reg.get('transaction_id') or
+                    f"AUTO-{idx}-{empresa_id}"
+                )
+                
+                data_transacao_raw = (
+                    reg.get('data_transacao') or 
+                    reg.get('data_venda') or 
+                    reg.get('data') or 
+                    reg.get('date')
+                )
+                
+                valor_raw = (
+                    reg.get('valor') or 
+                    reg.get('valor_liquido') or 
+                    reg.get('valor_bruto') or 
+                    reg.get('amount') or 
+                    0
+                )
+                
+                valor_bruto_raw = reg.get('valor_bruto') or valor_raw
                 bandeira = reg.get('bandeira')
                 produto = reg.get('produto')
                 quantidade = reg.get('quantidade') or 1
-                descricao = reg.get('descricao') or reg.get('memo') or ''
+                descricao = (
+                    reg.get('descricao') or 
+                    reg.get('memo') or 
+                    reg.get('description') or 
+                    ''
+                )
                 
-                # Converter valor para Decimal
-                if not isinstance(valor, Decimal):
+                # ✅ Converter valor para Decimal
+                if not isinstance(valor_raw, Decimal):
                     try:
-                        valor = Decimal(str(valor))
+                        valor = Decimal(str(valor_raw))
                     except:
                         valor = Decimal("0")
+                else:
+                    valor = valor_raw
                 
                 if valor <= 0:
+                    logger.debug(f"⚠️ Valor inválido ({valor_raw}), pulando registro {idx}")
                     stats["falhas"] += 1
                     continue
                 
-                # ✅ Resolver adquirente
-                adquirente = Adquirente.query.filter(
-                    db.func.lower(Adquirente.nome) == adquirente_nome.lower()
-                ).first()
+                # ✅ Resolver adquirente com logs detalhados
+                adquirente = None
+                try:
+                    adquirente = Adquirente.query.filter(
+                        func.lower(Adquirente.nome) == adquirente_nome.lower()
+                    ).first()
+                    
+                    if adquirente:
+                        logger.debug(f"✅ Adquirente encontrada: {adquirente_nome} (id={adquirente.id})")
+                except Exception as e:
+                    logger.warning(f"⚠️ Erro ao buscar adquirente: {str(e)}")
                 
                 if not adquirente:
                     # Criar adquirente automaticamente
-                    adquirente = Adquirente(
-                        nome=adquirente_nome,
-                        ativo=True,
-                        criado_em=datetime.now(timezone.utc)
-                    )
-                    db.session.add(adquirente)
-                    db.session.flush()
-                    stats["adquirente_criada"] = True
-                    logger.info(f"✅ Adquirente criada: {adquirente_nome}")
+                    try:
+                        # ✅ Verificar campos obrigatórios do modelo Adquirente
+                        # Se o modelo tem campo 'codigo', precisamos fornecer um
+                        nova_adquirente = Adquirente(
+                            nome=adquirente_nome[:100],
+                            codigo=adquirente_nome[:20].upper().replace(' ', '_'),  # ✅ Gera código baseado no nome
+                            ativo=True,
+                            criado_em=datetime.now(timezone.utc)
+                        )
+                        db.session.add(nova_adquirente)
+                        db.session.flush()
+                        adquirente = nova_adquirente
+                        stats["adquirente_criada"] = True
+                        logger.info(f"✅ Adquirente criada: {adquirente_nome} (id={adquirente.id})")
+                    except Exception as e:
+                        logger.error(f"❌ Erro ao criar adquirente '{adquirente_nome}': {str(e)}", exc_info=True)
+                        stats["falhas"] += 1
+                        continue
                 
                 stats["adquirentes_processadas"].add(adquirente_nome)
                 
                 # ✅ Verificar duplicata pelo NSU
                 if nsu:
-                    duplicata = MovAdquirente.query.filter_by(
-                        empresa_id=empresa_id,
-                        nsu=nsu,
-                        ativo=True
-                    ).first()
-                    
-                    if duplicata:
-                        stats["duplicados"] += 1
-                        continue
+                    try:
+                        duplicata = MovAdquirente.query.filter_by(
+                            empresa_id=empresa_id,
+                            nsu=nsu,
+                            ativo=True
+                        ).first()
+                        
+                        if duplicata:
+                            stats["duplicados"] += 1
+                            continue
+                    except Exception as e:
+                        logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
                 
-                # ✅ Parse data
+                # ✅ Parse data com múltiplos formatos
                 data_venda = None
-                if data_transacao:
-                    if isinstance(data_transacao, str):
-                        try:
-                            data_venda = datetime.strptime(data_transacao, '%Y-%m-%d').date()
-                        except:
+                if data_transacao_raw:
+                    if isinstance(data_transacao_raw, (date, datetime)):
+                        data_venda = data_transacao_raw if isinstance(data_transacao_raw, date) else data_transacao_raw.date()
+                    elif isinstance(data_transacao_raw, str):
+                        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y']:
                             try:
-                                data_venda = datetime.strptime(data_transacao, '%d/%m/%Y').date()
+                                data_venda = datetime.strptime(data_transacao_raw, fmt).date()
+                                break
                             except:
-                                data_venda = date.today()
-                    elif isinstance(data_transacao, (date, datetime)):
-                        data_venda = data_transacao if isinstance(data_transacao, date) else data_transacao.date()
+                                continue
+                        if not data_venda:
+                            data_venda = date.today()
                     else:
                         data_venda = date.today()
                 else:
                     data_venda = date.today()
                 
                 # ✅ Criar registro MovAdquirente
-                mov = MovAdquirente(
-                    empresa_id=empresa_id,
-                    adquirente_id=adquirente.id,
-                    arquivo_id=arquivo_id,
-                    nsu=nsu,
-                    data_transacao=data_venda,
-                    valor=valor,
-                    valor_bruto=Decimal(str(valor_bruto)) if valor_bruto else valor,
-                    bandeira=bandeira,
-                    produto=produto,
-                    quantidade=int(quantidade) if quantidade else 1,
-                    descricao=descricao,
-                    tipo_pagamento='cartao',
-                    status='conciliado' if reg.get('conciliado') else 'pendente',
-                    ativo=True,
-                    criado_em=datetime.now(timezone.utc)
-                )
-                
-                db.session.add(mov)
-                stats["sucesso"] += 1
-                stats["total_valor"] += valor
+                try:
+                    mov = MovAdquirente(
+                        empresa_id=empresa_id,
+                        adquirente_id=adquirente.id,
+                        arquivo_id=arquivo_id,
+                        nsu=nsu,
+                        data_transacao=data_venda,
+                        valor=valor,
+                        valor_bruto=Decimal(str(valor_bruto_raw)) if valor_bruto_raw else valor,
+                        bandeira=bandeira,
+                        produto=produto,
+                        quantidade=int(quantidade) if quantidade else 1,
+                        descricao=descricao[:500] if descricao else '',
+                        tipo_pagamento=reg.get('tipo_pagamento', 'cartao'),
+                        status='pendente',
+                        ativo=True,
+                        criado_em=datetime.now(timezone.utc)
+                    )
+                    
+                    db.session.add(mov)
+                    stats["sucesso"] += 1
+                    stats["total_valor"] += valor
+                    
+                    # ✅ Log do primeiro sucesso
+                    if stats["sucesso"] == 1:
+                        logger.info(f"✅ Primeira venda salva com sucesso: NSU={nsu}, Valor=R$ {valor}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Erro ao criar MovAdquirente (registro {idx}): {str(e)}", exc_info=True)
+                    stats["falhas"] += 1
+                    continue
                 
             except Exception as e:
-                logger.error(f"❌ Erro ao salvar venda: {str(e)}", exc_info=True)
+                logger.error(f"❌ Erro ao processar registro {idx}: {str(e)}", exc_info=True)
                 stats["falhas"] += 1
                 continue
         
-        db.session.commit()
-        logger.info(f"✅ Vendas salvas: {stats['sucesso']} sucesso, {stats['falhas']} falhas, {stats['duplicados']} duplicados")
+        # ✅ Commit final
+        try:
+            db.session.commit()
+            logger.info(
+                f"✅ Vendas salvas: {stats['sucesso']} sucesso, "
+                f"{stats['falhas']} falhas, {stats['duplicados']} duplicados, "
+                f"total: R$ {stats['total_valor']:.2f}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Erro no commit: {str(e)}", exc_info=True)
+            db.session.rollback()
+            stats["falhas"] += stats["sucesso"]
+            stats["sucesso"] = 0
+            stats["total_valor"] = Decimal("0")
         
         return stats
         
     except Exception as e:
         logger.error(f"❌ Erro geral ao salvar vendas: {str(e)}", exc_info=True)
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return stats
 
 
