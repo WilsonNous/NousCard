@@ -125,13 +125,7 @@ def register_blueprints(app: Flask):
             'access': 'authenticated',
             'required': True
         },
-        {
-            'blueprint': dashboard_api,
-            'prefix': '/api/v1/dashboard',
-            'description': 'API de dashboard (KPIs, gráficos - legado)',
-            'access': 'authenticated',
-            'required': False  # ← Opcional, pode ser removido depois
-        },
+
         {
             'blueprint': bp_conc,
             'prefix': '/api/v1/conciliacao',
