@@ -1,4 +1,4 @@
-# services/importer.py - VERSÃO FINAL COM INTELIGÊNCIA FINANCEIRA
+# services/importer.py - VERSÃO FINAL COM DIVISÃO AUTOMÁTICA TRANSPARENTE
 
 import os
 import hashlib
@@ -15,7 +15,8 @@ from utils.parsers import (
     parse_flow_csv,
     is_flow_csv,
     extrair_dados_conta_ofx,
-    dividir_ofx_em_partes
+    dividir_ofx_em_partes,
+    dividir_csv_em_partes  # ← NOVO: Função para dividir CSV
 )
 from utils.helpers import gerar_hash_arquivo
 from services.importer_db import salvar_arquivo_importado, verificar_arquivo_duplicado
@@ -30,12 +31,16 @@ logger = logging.getLogger(__name__)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_REGISTROS_POR_ARQUIVO = 10000
-MAX_TRANSACOES_OFX = 25  # ✅ Chunk seguro para evitar timeout no Render
+MAX_TRANSACOES_POR_LOTE = 100  # ✅ Reduzido para 100 (mais seguro para Render)
 
 # ============================================================
-# 📦 PROCESSAR UM ARQUIVO
+# 📦 PROCESSAR UM ARQUIVO (COM DIVISÃO AUTOMÁTICA)
 # ============================================================
 def process_file(file_storage, default_empresa_id=None):
+    """
+    Processa um arquivo com divisão automática se for grande.
+    Totalmente transparente para o cliente.
+    """
     nome = file_storage.filename.lower()
     
     valido, size = validar_tamanho_arquivo(file_storage)
@@ -55,20 +60,72 @@ def process_file(file_storage, default_empresa_id=None):
     try:
         sample = conteudo[:1024].decode('utf-8', errors='ignore') if isinstance(conteudo, bytes) else conteudo[:1024]
         
+        # ============================================================
+        # CSV FLOW (relatório de vendas)
+        # ============================================================
         if nome.endswith(('.csv', '.txt')) and is_flow_csv(nome, sample):
+            logger.info(f"📄 Detectado CSV Flow: {nome}")
             file_storage.seek(0)
             registros = parse_flow_csv(file_storage, nome, default_empresa_id=default_empresa_id)
             tipo = "venda"
             
+        # ============================================================
+        # CSV GENÉRICO (pode ser grande)
+        # ============================================================
         elif nome.endswith(".csv") or nome.endswith(".txt"):
-            registros = parse_csv_generic(file_storage)
+            logger.info(f"📄 Detectado CSV: {nome}")
+            
+            # ✅ Verificar tamanho do CSV
+            content_text = conteudo.decode('utf-8', errors='replace')
+            total_linhas = content_text.count('\n')
+            logger.info(f"🔍 CSV com {total_linhas} linhas")
+            
+            if total_linhas > MAX_TRANSACOES_POR_LOTE:
+                dividido_automaticamente = True
+                total_transacoes_original = total_linhas
+                logger.info(f"🔧 CSV grande ({total_linhas} linhas). Dividindo em lotes de {MAX_TRANSACOES_POR_LOTE}...")
+                
+                # Dividir CSV em partes
+                partes = dividir_csv_em_partes(content_text, MAX_TRANSACOES_POR_LOTE)
+                num_partes = len(partes)
+                logger.info(f"✅ CSV dividido em {num_partes} partes")
+                
+                # Processar cada parte
+                todos_registros = []
+                for i, parte in enumerate(partes, 1):
+                    inicio_parte = time.time()
+                    logger.info(f"📄 Processando parte CSV {i}/{num_partes}...")
+                    
+                    stream = BytesIO(parte.encode('utf-8'))
+                    regs = parse_csv_generic(stream, f"{nome}_parte_{i}")
+                    todos_registros.extend(regs)
+                    
+                    tempo_parte = time.time() - inicio_parte
+                    logger.info(f"✅ Parte CSV {i}/{num_partes} processada: {len(regs)} registros em {tempo_parte:.2f}s")
+                
+                registros = todos_registros
+                logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
+            else:
+                file_storage.seek(0)
+                registros = parse_csv_generic(file_storage)
+            
             tipo = identificar_tipo_por_conteudo(registros, nome)
             
+        # ============================================================
+        # EXCEL
+        # ============================================================
         elif nome.endswith(".xlsx") or nome.endswith(".xls"):
+            logger.info(f"📊 Detectado Excel: {nome}")
+            file_storage.seek(0)
             registros = parse_excel_generic(file_storage)
             tipo = identificar_tipo_por_conteudo(registros, nome)
             
+        # ============================================================
+        # OFX (extrato bancário - pode ser grande)
+        # ============================================================
         elif nome.endswith(".ofx"):
+            logger.info(f"🏦 Detectado OFX: {nome}")
+            
             # 1. Extrair dados da conta
             try:
                 content_text = conteudo.decode('utf-8', errors='replace')
@@ -81,23 +138,36 @@ def process_file(file_storage, default_empresa_id=None):
             content_text = conteudo.decode('utf-8', errors='replace')
             total_transacoes_original = content_text.upper().count('<STMTTRN>')
             
-            if total_transacoes_original > MAX_TRANSACOES_OFX:
+            logger.info(f"🔍 OFX com {total_transacoes_original} transações (limite: {MAX_TRANSACOES_POR_LOTE})")
+            
+            if total_transacoes_original > MAX_TRANSACOES_POR_LOTE:
                 dividido_automaticamente = True
-                logger.info(f"🔧 OFX grande ({total_transacoes_original} transações). Dividindo em partes de {MAX_TRANSACOES_OFX}...")
+                logger.info(f"🔧 OFX grande ({total_transacoes_original} transações). Dividindo em lotes de {MAX_TRANSACOES_POR_LOTE}...")
                 
-                partes = dividir_ofx_em_partes(content_text, MAX_TRANSACOES_OFX)
+                inicio_divisao = time.time()
+                partes = dividir_ofx_em_partes(content_text, MAX_TRANSACOES_POR_LOTE)
                 num_partes = len(partes)
+                tempo_divisao = time.time() - inicio_divisao
                 
+                logger.info(f"✅ OFX dividido em {num_partes} partes em {tempo_divisao:.2f}s")
+                
+                # Processar cada parte
                 todos_registros = []
                 for i, parte in enumerate(partes, 1):
-                    logger.info(f"📄 Processando parte {i}/{num_partes}...")
+                    inicio_parte = time.time()
+                    logger.info(f"📄 Processando parte OFX {i}/{num_partes}...")
+                    
                     stream = BytesIO(parte.encode('utf-8'))
                     regs = parse_ofx_generic(stream, f"{nome}_parte_{i}")
                     todos_registros.extend(regs)
+                    
+                    tempo_parte = time.time() - inicio_parte
+                    logger.info(f"✅ Parte OFX {i}/{num_partes} processada: {len(regs)} registros em {tempo_parte:.2f}s")
                 
                 registros = todos_registros
-                logger.info(f"✅ Total consolidado: {len(registros)} registros")
+                logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
             else:
+                logger.info(f"ℹ️ OFX pequeno ({total_transacoes_original} transações), processando normalmente")
                 file_storage.seek(0)
                 registros = parse_ofx_generic(file_storage)
             
@@ -107,10 +177,10 @@ def process_file(file_storage, default_empresa_id=None):
             return {"ok": False, "arquivo": nome, "erro": "Formato não suportado"}
         
     except Exception as e:
-        logger.error(f"Erro ao parsear {nome}: {str(e)}")
+        logger.error(f"Erro ao parsear {nome}: {str(e)}", exc_info=True)
         return {"ok": False, "arquivo": nome, "erro": f"Erro ao processar: {str(e)}"}
     
-    # Inferir tipo e categoria (já feito dentro do normalize_row do parser, mas garantindo empresa_id)
+    # Inferir tipo e categoria
     for reg in registros:
         if default_empresa_id and ('empresa_id' not in reg or not reg['empresa_id']):
             reg['empresa_id'] = default_empresa_id
@@ -161,6 +231,10 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             
             dados_conta = resultado.get("dados_conta")
             
+            # Mensagem especial se foi dividido
+            if resultado.get("dividido_automaticamente"):
+                logger.info(f"🔧 Arquivo dividido automaticamente: {resultado.get('total_transacoes_original')} transações em {resultado.get('num_partes')} partes")
+            
             inicio_duplicata = time.time()
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
                 resultados.append({"ok": False, "arquivo": nome, "erro": "Arquivo já importado anteriormente"})
@@ -203,6 +277,14 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             }
             
             mensagens = []
+            
+            # Mensagem especial se foi dividido
+            if resultado.get("dividido_automaticamente"):
+                mensagens.append(
+                    f"🔧 Arquivo grande detectado: {resultado.get('total_transacoes_original')} transações "
+                    f"divididas automaticamente em {resultado.get('num_partes')} partes para processamento."
+                )
+            
             if stats:
                 if stats.get("conta_criada"):
                     nome_conta = dados_conta.get("nome", "Conta OFX") if dados_conta else "Conta OFX"
@@ -228,7 +310,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             resultados.append({"ok": False, "arquivo": nome, "erro": f"Erro ao salvar dados: {str(e)}"})
         except Exception as e:
             db.session.rollback()
-            logger.error(f"❌ Erro desconhecido ao importar {nome}: {str(e)}")
+            logger.error(f"❌ Erro desconhecido ao importar {nome}: {str(e)}", exc_info=True)
             resultados.append({"ok": False, "arquivo": nome, "erro": f"Erro interno: {str(e)}"})
     
     logger.info(f"🏁 FIM UPLOAD: {time.time() - inicio_total:.2f}s total")
