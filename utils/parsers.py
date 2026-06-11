@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COMPLETA COM MELHORIAS
+# utils/parsers.py - VERSÃO FINAL COMPLETA COM DIVISÃO CSV
 
 import csv
 import io
@@ -69,13 +69,13 @@ def parse_data(value):
         return value if isinstance(value, date) else value.date()
     try:
         value = str(value).strip()
-        # Remove timezone se presente (ex: "20260302120000[-3:BRT]")
+        # Remove timezone se presente
         if '[' in value:
             value = value.split('[')[0]
         formatos = [
             "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d",
             "%m/%d/%Y", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S", "%Y%m%d",
-            "%Y%m%d%H%M%S",  # ✅ NOVO: Formato OFX completo
+            "%Y%m%d%H%M%S",
         ]
         for fmt in formatos:
             try:
@@ -114,23 +114,14 @@ def sanitizar_celula(value):
         return ""
 
 # ============================================================
-# ✅ CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES (MELHORADA)
+# ✅ CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
 # ============================================================
 def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: str = None) -> str:
-    """
-    Categoriza automaticamente a transação baseada em palavras-chave.
-    
-    Returns:
-        str: Categoria da transação
-    """
+    """Categoriza automaticamente a transação baseada em palavras-chave."""
     texto = f"{descricao} {name}".upper()
     eh_credito = valor > 0 or trntype == 'CREDIT'
     
-    # ============================================================
-    # ENTRADAS (RECEITAS)
-    # ============================================================
     if eh_credito:
-        # Vendas via Maquininha (SIPAG/adquirentes)
         if any(kw in texto for kw in ['CR COMPRAS', 'SIPAG', 'CRED.COMPRAS']):
             if 'MASTERCARD' in texto:
                 return 'vendas_mastercard'
@@ -145,74 +136,56 @@ def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: st
             else:
                 return 'vendas_cartao'
         
-        # PIX Recebido (vendas)
         if 'PIX RECEBIDO' in texto or ('RECEBIMENTO' in texto and 'PIX' in texto):
             return 'pix_recebido'
         
-        # Devoluções
         if 'DEVOLUÇÃO' in texto or 'DEVOLUCAO' in texto:
             return 'devolucao_pix'
         
-        # Transferências Recebidas
         if any(kw in texto for kw in ['TRANSF.RECEBIDA', 'CRED.TRANSF', 'REM.:']):
             return 'transferencia_recebida'
         
-        # Resgate de investimentos
         if 'RESGATE' in texto:
             return 'resgate_investimento'
         
-        # Crédito em conta (genérico)
         if 'CRÉDITO EM CONTA' in texto or 'CREDITO EM CONTA' in texto:
             return 'credito_conta'
         
         return 'outras_receitas'
     
-    # ============================================================
-    # SAÍDAS (DESPESAS)
-    # ============================================================
     else:
-        # PIX Emitido (pagamentos)
         if 'PIX EMITIDO' in texto or ('PAGAMENTO' in texto and 'PIX' in texto):
             if 'MESMA TIT' in texto:
                 return 'pix_transferencia_propria'
             return 'pix_fornecedores'
         
-        # Transferências enviadas
         if any(kw in texto for kw in ['TRANSF.REALIZADA', 'DÉB.TRANSF', 'DEB.TRANSF', 'FAV.:']):
             return 'transferencia_enviada'
         
-        # Empréstimos
         if 'EMPRÉSTIMO' in texto or 'EMPRESTIMO' in texto:
             return 'emprestimo'
         
-        # Tributos/Impostos
         if any(kw in texto for kw in ['TRIBUTOS', 'DAS-', 'DAS ', 'IMPOSTO', 'RFB', 'COMPE']):
             if 'SIMPLES' in texto or 'DAS-' in texto:
                 return 'tributos_simples'
             return 'tributos'
         
-        # Boletos
         if any(kw in texto for kw in ['BOLETO', 'TÍTULO', 'TIT.COMPE']):
             return 'boleto'
         
-        # Seguros
         if any(kw in texto for kw in ['SEGURO', 'ALLIANZ']):
             return 'seguro'
         
-        # Tarifas bancárias
         if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA', 'TARIFAS', 'MANUTENÇÃO']):
             return 'tarifa_bancaria'
         
-        # Aplicações/Investimentos
         if any(kw in texto for kw in ['APLICAÇÃO', 'APLICACAO', 'RDC', 'CDB']):
             return 'aplicacao_investimento'
         
-        # Débito de cartão (compras no débito)
         if 'DÉB.CONV' in texto or 'DEB.CONV' in texto:
             return 'debito_cartao'
         
         return 'outras_despesas'
-
 
 # ============================================================
 # INFERIR TIPO PAGAMENTO
@@ -224,44 +197,25 @@ def inferir_tipo_pagamento_ofx(registro):
     trntype = str(registro.get('trntype') or '').upper()
     texto = f"{descricao} {name}"
     
-    # PIX
     if 'PIX' in texto:
         return 'pix'
-    
-    # Cartão de Crédito (vendas maquininha)
     if any(kw in texto for kw in ['MASTERCARD', 'VISA', 'MAESTRO', 'ELO', 'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS']):
         return 'cartao'
-    
-    # Débito
     if any(kw in texto for kw in ['DÉBITO', 'DEBITO', 'DEB._', 'VISA ELECTRON']):
         return 'debito'
-    
-    # Boleto/Tributos
     if any(kw in texto for kw in ['BOLETO', 'DAS-', 'DAS ', 'TRIBUTOS', 'COMPE', 'TÍTULO']):
         return 'boleto'
-    
-    # Transferência
     if any(kw in texto for kw in ['TRANSF', 'TED', 'DOC', 'REM.:', 'FAV.:']):
         return 'transferencia'
-    
-    # Empréstimo
     if 'EMPRÉSTIMO' in texto or 'EMPRESTIMO' in texto:
         return 'emprestimo'
-    
-    # Investimento
     if any(kw in texto for kw in ['APLICAÇÃO', 'RESGATE', 'RDC', 'CDB']):
         return 'investimento'
-    
-    # Seguro
     if any(kw in texto for kw in ['SEGURO', 'ALLIANZ']):
         return 'seguro'
-    
-    # Tarifa
     if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA']):
         return 'tarifa'
-    
     return 'outros'
-
 
 # ============================================================
 # NORMALIZE ROW
@@ -340,11 +294,9 @@ def normalize_row(row: dict):
     if "data" not in new:
         new["data"] = None
     
-    # ✅ Inferir tipo_pagamento
     if "tipo_pagamento" not in new or new["tipo_pagamento"] in ("cartao", "outros"):
         new["tipo_pagamento"] = inferir_tipo_pagamento_ofx(new)
     
-    # ✅ Categorizar transação
     new["categoria"] = categorizar_transacao(
         new.get("descricao", ""),
         new.get("name", ""),
@@ -442,10 +394,9 @@ def parse_excel_generic(file_stream, filename=None):
         raise ValueError(f"Erro ao processar Excel: {str(e)}")
 
 # ============================================================
-# PARSER OFX (MELHORADO - Extrai TODOS os campos úteis)
+# PARSER OFX
 # ============================================================
 def _extrair_tag_ofx(bloco: str, tag: str) -> str:
-    """Extrai valor de uma tag OFX de forma ultra-rápida usando find()."""
     tag_upper = tag.upper()
     bloco_upper = bloco.upper()
     start_tag = f"<{tag_upper}>"
@@ -464,7 +415,6 @@ def _extrair_tag_ofx(bloco: str, tag: str) -> str:
 
 
 def parse_ofx_generic(file_stream, filename=None):
-    """Parser OFX otimizado com extração completa de campos."""
     inicio_total = time.time()
     logger.info(f"🏦 Início parse OFX: {filename}")
     file_stream.seek(0, 2)
@@ -503,23 +453,20 @@ def parse_ofx_generic(file_stream, filename=None):
             end_pos = len(content)
         bloco = content[start_pos:end_pos]
         
-        # ✅ Extrair TODOS os campos relevantes
         dtposted = _extrair_tag_ofx(bloco, "DTPOSTED")
         trnamt = _extrair_tag_ofx(bloco, "TRNAMT")
         memo = _extrair_tag_ofx(bloco, "MEMO")
         name = _extrair_tag_ofx(bloco, "NAME")
         fitid = _extrair_tag_ofx(bloco, "FITID")
         trntype = _extrair_tag_ofx(bloco, "TRNTYPE")
-        checknum = _extrair_tag_ofx(bloco, "CHECKNUM")  # ✅ NOVO
-        refnum = _extrair_tag_ofx(bloco, "REFNUM")      # ✅ NOVO
+        checknum = _extrair_tag_ofx(bloco, "CHECKNUM")
+        refnum = _extrair_tag_ofx(bloco, "REFNUM")
         
         if not trnamt:
             continue
         
-        # Parse data (remove timezone)
         data = None
         if dtposted:
-            # Remove timezone se presente
             dtposted_clean = dtposted.split('[')[0] if '[' in dtposted else dtposted
             if len(dtposted_clean) >= 8:
                 try:
@@ -527,7 +474,6 @@ def parse_ofx_generic(file_stream, filename=None):
                 except ValueError:
                     pass
         
-        # Parse valor
         try:
             valor_str = trnamt
             if ',' in valor_str and '.' in valor_str:
@@ -538,7 +484,6 @@ def parse_ofx_generic(file_stream, filename=None):
         except (InvalidOperation, ValueError):
             continue
         
-        # Construir descrição completa
         descricao_parts = []
         if memo:
             descricao_parts.append(memo)
@@ -553,8 +498,8 @@ def parse_ofx_generic(file_stream, filename=None):
             "name": name,
             "trntype": trntype,
             "id": fitid or None,
-            "checknum": checknum or None,  # ✅ NOVO
-            "refnum": refnum or None,      # ✅ NOVO
+            "checknum": checknum or None,
+            "refnum": refnum or None,
             "tipo_ofx": None
         })
     
@@ -598,7 +543,7 @@ def extrair_dados_conta_ofx(content: str) -> dict:
     return dados
 
 # ============================================================
-# DIVIDIR OFX (com find, sem regex)
+# DIVIDIR OFX
 # ============================================================
 def dividir_ofx_em_partes(content: str, max_transacoes: int = 30) -> list:
     content_upper = content.upper()
@@ -646,7 +591,53 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 30) -> list:
     return partes
 
 # ============================================================
-# FLOW CSV (mantido igual)
+# ✅ DIVIDIR CSV (NOVA FUNÇÃO!)
+# ============================================================
+def dividir_csv_em_partes(content: str, max_linhas: int = 100) -> list:
+    """
+    Divide arquivo CSV em partes menores, mantendo o header em cada parte.
+    
+    Args:
+        content: Conteúdo completo do CSV como string
+        max_linhas: Número máximo de linhas de dados por parte (excluindo header)
+    
+    Returns:
+        list: Lista de strings, cada uma sendo um CSV completo com header
+    """
+    lines = content.split('\n')
+    
+    if len(lines) <= max_linhas + 1:  # +1 para o header
+        return [content]
+    
+    # Primeira linha é o header
+    header = lines[0]
+    data_lines = lines[1:]
+    
+    # Filtrar linhas vazias
+    data_lines = [line for line in data_lines if line.strip()]
+    
+    total_linhas = len(data_lines)
+    logger.info(f"📊 CSV com {total_linhas} linhas de dados")
+    
+    # Dividir em partes
+    partes = []
+    num_partes = (total_linhas + max_linhas - 1) // max_linhas
+    
+    for i in range(num_partes):
+        inicio_idx = i * max_linhas
+        fim_idx = min((i + 1) * max_linhas, total_linhas)
+        
+        linhas_parte = data_lines[inicio_idx:fim_idx]
+        
+        # Montar CSV da parte (header + linhas)
+        csv_parte = header + '\n' + '\n'.join(linhas_parte)
+        partes.append(csv_parte)
+    
+    logger.info(f"✅ CSV dividido: {total_linhas} linhas em {len(partes)} partes")
+    return partes
+
+# ============================================================
+# FLOW CSV
 # ============================================================
 def is_flow_csv(filename: str, sample_content: str) -> bool:
     filename_lower = filename.lower() if filename else ""
