@@ -326,7 +326,7 @@ def gerar_insight_inteligente(kpis, periodo):
 @dashboard_api_bp.route('/api/v1/dashboard/kpis', methods=['GET'])
 @login_required
 def get_dashboard_kpis():
-    """API principal do dashboard. Query params: periodo (atual, anterior, todos)"""
+    """API principal do dashboard com KPIs de vendas por bandeira."""
     try:
         periodo = request.args.get('periodo', 'atual')
         
@@ -341,6 +341,9 @@ def get_dashboard_kpis():
         data_inicio, data_fim = get_periodo_datas(periodo)
         kpis = calcular_kpis_financeiros(empresa_id, data_inicio, data_fim)
         insight = gerar_insight_inteligente(kpis, periodo)
+        
+        # ✅ NOVO: Calcular vendas por bandeira
+        vendas_por_bandeira = calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim)
         
         response = {
             'ok': True,
@@ -363,6 +366,7 @@ def get_dashboard_kpis():
                 'impostos': round(kpis['despesas']['impostos'], 2),
                 'outras': round(kpis['despesas']['outras'], 2)
             },
+            'vendas_por_bandeira': vendas_por_bandeira,  # ✅ NOVO
             'insight': insight,
             'total_registros': kpis['total_registros']
         }
@@ -376,6 +380,31 @@ def get_dashboard_kpis():
             'error': 'Erro ao processar dados do dashboard',
             'details': str(e)
         }), 500
+
+
+def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
+    """
+    Calcula vendas por bandeira (Mastercard, Visa, Elo, etc.)
+    """
+    from models import MovAdquirente
+    
+    # Query para somar valor_bruto agrupado por bandeira
+    resultados = db.session.query(
+        MovAdquirente.bandeira,
+        func.sum(MovAdquirente.valor_bruto).label('total')
+    ).filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.data_venda >= data_inicio,
+        MovAdquirente.data_venda <= data_fim,
+        MovAdquirente.ativo == True
+    ).group_by(MovAdquirente.bandeira).all()
+    
+    vendas_por_bandeira = {}
+    for bandeira, total in resultados:
+        if bandeira:
+            vendas_por_bandeira[bandeira.lower()] = float(total or 0)
+    
+    return vendas_por_bandeira
 
 
 @dashboard_api_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
