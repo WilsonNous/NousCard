@@ -7,7 +7,8 @@ from sqlalchemy import func, extract, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-dashboard_bp = Blueprint('dashboard', __name__)
+# ✅ CORRETO (nome diferente)
+dashboard_api_bp = Blueprint('dashboard_api', __name__)
 
 
 def get_periodo_datas(periodo):
@@ -157,7 +158,7 @@ def gerar_insight_inteligente(kpis, periodo):
     return insights[0] if insights else "Continue acompanhando seu fluxo de caixa regularmente para tomar melhores decisões financeiras."
 
 
-@dashboard_bp.route('/api/v1/dashboard/kpis', methods=['GET'])
+@dashboard_api_bp.route('/api/v1/dashboard/kpis', methods=['GET'])
 def get_dashboard_kpis():
     """
     API principal do dashboard.
@@ -223,7 +224,7 @@ def get_dashboard_kpis():
         }), 500
 
 
-@dashboard_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
+@dashboard_api_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
 def get_resumo_mensal():
     """
     API para gráfico de evolução mensal (últimos 6 meses).
