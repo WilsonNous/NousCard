@@ -381,7 +381,7 @@
 <script>
 // Função para formatar moeda BRL
 const formatBRL = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 };
 
 // Função principal de atualização do Dashboard
@@ -391,6 +391,10 @@ async function atualizarDashboard(periodo) {
     document.getElementById('kpi-entradas').textContent = '...';
     document.getElementById('kpi-saidas').textContent = '...';
     document.getElementById('kpi-cartao').textContent = '...';
+    document.getElementById('kpi-mastercard').textContent = '...';
+    document.getElementById('kpi-visa').textContent = '...';
+    document.getElementById('kpi-elo').textContent = '...';
+    document.getElementById('kpi-outras').textContent = '...';
     
     try {
         // ✅ CHAMAR API REAL
@@ -419,6 +423,18 @@ async function atualizarDashboard(periodo) {
         document.getElementById('kpi-entradas').textContent = formatBRL(data.entradas);
         document.getElementById('kpi-saidas').textContent = formatBRL(data.saidas);
         document.getElementById('kpi-cartao').textContent = formatBRL(data.vendas_cartao);
+        
+        // ✅ Atualizar KPIs de Vendas por Bandeira
+        const bandeiras = data.vendas_por_bandeira || {};
+        document.getElementById('kpi-mastercard').textContent = formatBRL(bandeiras.mastercard || 0);
+        document.getElementById('kpi-visa').textContent = formatBRL(bandeiras.visa || 0);
+        document.getElementById('kpi-elo').textContent = formatBRL(bandeiras.elo || 0);
+        
+        // Calcular "Outras" (soma de todas as bandeiras não listadas)
+        const outrasBandeiras = Object.entries(bandeiras)
+            .filter(([key]) => !['mastercard', 'visa', 'elo'].includes(key.toLowerCase()))
+            .reduce((sum, [_, value]) => sum + (value || 0), 0);
+        document.getElementById('kpi-outras').textContent = formatBRL(outrasBandeiras);
         
         // Calcular totais para porcentagens
         const totalRec = data.receitas.cartao + data.receitas.pix + data.receitas.transferencias;
@@ -498,6 +514,13 @@ async function atualizarDashboard(periodo) {
     } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
         document.getElementById('kpi-saldo').textContent = 'Erro';
+        document.getElementById('kpi-entradas').textContent = 'Erro';
+        document.getElementById('kpi-saidas').textContent = 'Erro';
+        document.getElementById('kpi-cartao').textContent = 'Erro';
+        document.getElementById('kpi-mastercard').textContent = 'Erro';
+        document.getElementById('kpi-visa').textContent = 'Erro';
+        document.getElementById('kpi-elo').textContent = 'Erro';
+        document.getElementById('kpi-outras').textContent = 'Erro';
         document.getElementById('insight-text').textContent = 
             `Erro ao carregar dados: ${error.message}. Verifique se há movimentos importados no período.`;
     }
