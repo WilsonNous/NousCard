@@ -668,3 +668,193 @@ def teste_ofx_processar():
         resultados["traceback_geral"] = traceback.format_exc()
     
     return jsonify(resultados), 200
+
+# ============================================================
+# 🎯 DASHBOARD OPERACIONAL DO MASTER
+# ============================================================
+
+@master_bp.route("/dashboard-operacional")
+@master_required
+def dashboard_operacional_page():
+    """Dashboard operacional do Master - visão geral do sistema"""
+    return render_template("master/dashboard_operacional.html")
+
+
+@master_bp.route("/api/dashboard-operacional")
+@master_required
+def dashboard_operacional_api():
+    """API do dashboard operacional com KPIs completos"""
+    try:
+        from models import Lead, Empresa, Usuario, MovBanco, LogAuditoria
+        
+        hoje = datetime.now(timezone.utc)
+        
+        # ============================================================
+        # KPI 1: TOTAL DE EMPRESAS
+        # ============================================================
+        total_empresas = Empresa.query.filter_by(ativo=True).count()
+        empresas_ativas_30d = db.session.query(Empresa).filter(
+            Empresa.ativo == True,
+            Empresa.id.in_(
+                db.session.query(MovBanco.empresa_id).filter(
+                    MovBanco.data_movimento >= hoje.date() - timedelta(days=30)
+                ).distinct()
+            )
+        ).count()
+        
+        # Empresas que já têm dados vs sem dados
+        empresas_com_dados = db.session.query(Empresa).filter(
+            Empresa.ativo == True,
+            Empresa.id.in_(
+                db.session.query(MovBanco.empresa_id).distinct()
+            )
+        ).count()
+        empresas_sem_dados = total_empresas - empresas_com_dados
+        
+        # ============================================================
+        # KPI 2: LEADS
+        # ============================================================
+        total_leads = Lead.query.count()
+        leads_novos = Lead.query.filter_by(status='novo').count()
+        leads_ultimos_7d = Lead.query.filter(
+            Lead.created_at >= hoje - timedelta(days=7)
+        ).count()
+        leads_convertidos = Lead.query.filter_by(status='cliente').count()
+        
+        # ============================================================
+        # KPI 3: VOLUME DE TRANSAÇÕES
+        # ============================================================
+        transacoes_30d = db.session.query(
+            func.count(MovBanco.id).label('total'),
+            func.sum(func.abs(MovBanco.valor)).label('volume')
+        ).filter(
+            MovBanco.data_movimento >= hoje.date() - timedelta(days=30)
+        ).first()
+        
+        transacoes_hoje = db.session.query(
+            func.count(MovBanco.id).label('total'),
+            func.sum(func.abs(MovBanco.valor)).label('volume')
+        ).filter(
+            MovBanco.data_movimento == hoje.date()
+        ).first()
+        
+        # ============================================================
+        # KPI 4: EMPRESAS MAIS ATIVAS (últimos 30 dias)
+        # ============================================================
+        empresas_top = db.session.query(
+            Empresa.nome,
+            func.count(MovBanco.id).label('total_transacoes'),
+            func.sum(func.abs(MovBanco.valor)).label('volume_total')
+        ).join(MovBanco).filter(
+            MovBanco.data_movimento >= hoje.date() - timedelta(days=30),
+            Empresa.ativo == True
+        ).group_by(Empresa.id, Empresa.nome).order_by(
+            func.sum(func.abs(MovBanco.valor)).desc()
+        ).limit(10).all()
+        
+        # ============================================================
+        # KPI 5: ÚLTIMOS ACESSOS DE USUÁRIOS
+        # ============================================================
+        ultimos_acessos = db.session.query(
+            Usuario.nome,
+            Usuario.email,
+            Empresa.nome.label('empresa'),
+            LogAuditoria.criado_em
+        ).join(Usuario, LogAuditoria.usuario_id == Usuario.id)\
+         .join(Empresa, Usuario.empresa_id == Empresa.id)\
+         .filter(
+             LogAuditoria.acao == 'dashboard_acesso',
+             LogAuditoria.criado_em >= hoje - timedelta(days=7)
+         ).order_by(LogAuditoria.criado_em.desc()).limit(20).all()
+        
+        # ============================================================
+        # KPI 6: EVOLUÇÃO MENSAL (últimos 6 meses)
+        # ============================================================
+        evolucao_mensal = []
+        for i in range(5, -1, -1):
+            mes_atual = hoje.month - i
+            ano_atual = hoje.year
+            while mes_atual <= 0:
+                mes_atual += 12
+                ano_atual -= 1
+            
+            inicio_mes = datetime(ano_atual, mes_atual, 1, tzinfo=timezone.utc).date()
+            if mes_atual == 12:
+                fim_mes = datetime(ano_atual, 12, 31, tzinfo=timezone.utc).date()
+            else:
+                fim_mes = datetime(ano_atual, mes_atual + 1, 1, tzinfo=timezone.utc).date() - timedelta(days=1)
+            
+            stats = db.session.query(
+                func.count(MovBanco.id).label('total'),
+                func.sum(func.abs(MovBanco.valor)).label('volume')
+            ).filter(
+                MovBanco.data_movimento >= inicio_mes,
+                MovBanco.data_movimento <= fim_mes
+            ).first()
+            
+            evolucao_mensal.append({
+                'mes': f'{mes_atual:02d}/{ano_atual}',
+                'transacoes': stats[0] or 0,
+                'volume': float(stats[1] or 0)
+            })
+        
+        # ============================================================
+        # KPI 7: NOVOS LEADS (lista detalhada)
+        # ============================================================
+        leads_recentes = Lead.query.order_by(
+            Lead.created_at.desc()
+        ).limit(10).all()
+        
+        # ============================================================
+        # MONTAR RESPOSTA
+        # ============================================================
+        response = {
+            "ok": True,
+            "kpis": {
+                "empresas": {
+                    "total": total_empresas,
+                    "ativas_30d": empresas_ativas_30d,
+                    "com_dados": empresas_com_dados,
+                    "sem_dados": empresas_sem_dados
+                },
+                "leads": {
+                    "total": total_leads,
+                    "novos": leads_novos,
+                    "ultimos_7d": leads_ultimos_7d,
+                    "convertidos": leads_convertidos
+                },
+                "transacoes": {
+                    "ultimos_30d": {
+                        "total": transacoes_30d[0] or 0,
+                        "volume": float(transacoes_30d[1] or 0)
+                    },
+                    "hoje": {
+                        "total": transacoes_hoje[0] or 0,
+                        "volume": float(transacoes_hoje[1] or 0)
+                    }
+                },
+                "empresas_top": [
+                    {
+                        "nome": e[0],
+                        "transacoes": e[1],
+                        "volume": float(e[2] or 0)
+                    } for e in empresas_top
+                ],
+                "ultimos_acessos": [
+                    {
+                        "usuario": a[0],
+                        "email": a[1],
+                        "empresa": a[2],
+                        "data": a[3].isoformat() if a[3] else None
+                    } for a in ultimos_acessos
+                ],
+                "evolucao_mensal": evolucao_mensal,
+                "leads_recentes": [l.to_dict() for l in leads_recentes]
+            }
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Erro no dashboard operacional: {str(e)}", exc_info=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
