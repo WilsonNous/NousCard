@@ -39,7 +39,7 @@ def _import_blueprint(module_path: str, blueprint_name: str):
 
 
 # Importações diretas (padrão para produção)
-from .dashboard_routes import dashboard_bp
+from .dashboard_routes import dashboard_api_bp
 from .contrato_routes import contrato_bp
 from .assistant_routes import assistant_bp
 from .auth_routes import auth_bp
