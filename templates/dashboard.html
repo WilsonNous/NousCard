@@ -564,7 +564,9 @@ function updateBreakdown(containerId, items) {
 
 // Carregar dados ao iniciar a página
 document.addEventListener('DOMContentLoaded', () => {
-    atualizarDashboard('atual');
+    // ✅ NOVO: Pegar o valor selecionado no select (padrão: 12meses)
+    const periodoSelecionado = document.getElementById('periodoSelect').value;
+    atualizarDashboard(periodoSelecionado);
 });
 </script>
 {% endblock %}
