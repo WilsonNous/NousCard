@@ -74,69 +74,101 @@
     <!-- ===================== TOPBAR ===================== -->
     <header class="nc-topbar" role="banner">
         <div class="nc-topbar-left">
-            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-logo" aria-label="NousCard - Página inicial">
-                NousCard
-            </a>
+            {# ✅ Logo adaptada por perfil de usuário #}
+            {% if g.user and g.user.master %}
+                <a href="{{ url_for('master.dashboard_operacional_page') }}" class="nc-logo" aria-label="NousCard - Dashboard Operacional">
+                    🎯 NousCard <small style="font-size:0.7rem;opacity:0.7;">Master</small>
+                </a>
+            {% else %}
+                <a href="{{ url_for('dashboard.dashboard') }}" class="nc-logo" aria-label="NousCard - Página inicial">
+                    💳 NousCard
+                </a>
+            {% endif %}
         </div>
         
-        <!-- ✅ Navegação semântica com lista -->
+        <!-- ✅ Navegação semântica com lista - Menu adaptado por perfil -->
         <nav class="nc-topbar-nav" role="navigation" aria-label="Navegação principal">
             <ul class="nc-nav-list">
-                <li>
-                    <a href="{{ url_for('dashboard.dashboard') }}" 
-                       class="nc-topbar-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
-                       aria-label="Ir para Dashboard"
-                       {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}>
-                        📊 Dashboard
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('operacoes.importar_page') }}" 
-                       class="nc-topbar-item {% if request.endpoint == 'operacoes.importar_page' %}active{% endif %}"
-                       aria-label="Importar arquivos">
-                        ⬆️ Importar
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('operacoes.arquivos_importados_page') }}" 
-                       class="nc-topbar-item {% if request.endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
-                       aria-label="Ver arquivos importados">
-                        📂 Arquivos
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('operacoes.conciliar_page') }}" 
-                       class="nc-topbar-item {% if request.endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
-                       aria-label="Executar conciliação">
-                        ✔️ Conciliação
-                    </a>
-                </li>
                 
-                {% if is_master %}
+                {# ============================================================
+                   MENU DO CLIENTE (oculto para Master)
+                   ============================================================ #}
+                {% if not (g.user and g.user.master) %}
                     <li>
-                        <a href="{{ url_for('empresas.listar_empresas') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}"
-                           aria-label="Gerenciar empresas (admin)">
-                            🏢 Empresas
+                        <a href="{{ url_for('dashboard.dashboard') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
+                           aria-label="Ir para Dashboard"
+                           {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}>
+                            📊 Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('operacoes.importar_page') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'operacoes.importar_page' %}active{% endif %}"
+                           aria-label="Importar arquivos"
+                           {% if request.endpoint == 'operacoes.importar_page' %}aria-current="page"{% endif %}>
+                            ⬆️ Importar
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('operacoes.arquivos_importados_page') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
+                           aria-label="Ver arquivos importados"
+                           {% if request.endpoint == 'operacoes.arquivos_importados_page' %}aria-current="page"{% endif %}>
+                            📂 Arquivos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('operacoes.conciliar_page') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
+                           aria-label="Executar conciliação"
+                           {% if request.endpoint == 'operacoes.conciliar_page' %}aria-current="page"{% endif %}>
+                            ✔️ Conciliação
                         </a>
                     </li>
                 {% endif %}
                 
+                {# ============================================================
+                   MENU EXCLUSIVO DO MASTER
+                   ============================================================ #}
                 {% if g.user and g.user.master %}
                     <li>
+                        <a href="{{ url_for('master.dashboard_operacional_page') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'master.dashboard_operacional_page' %}active{% endif %}"
+                           aria-label="Dashboard Operacional"
+                           {% if request.endpoint == 'master.dashboard_operacional_page' %}aria-current="page"{% endif %}>
+                            🎯 Dashboard Operacional
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('empresas.listar_empresas') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}"
+                           aria-label="Gerenciar empresas"
+                           {% if request.endpoint == 'empresas.listar_empresas' %}aria-current="page"{% endif %}>
+                            🏢 Empresas
+                        </a>
+                    </li>
+                    <li>
                         <a href="{{ url_for('usuarios.listar_usuarios') }}" 
-                           class="nc-topbar-item {% if request.endpoint and 'usuarios' in request.endpoint %}active{% endif %}">
+                           class="nc-topbar-item {% if request.endpoint and 'usuarios' in request.endpoint %}active{% endif %}"
+                           aria-label="Gerenciar usuários"
+                           {% if request.endpoint and 'usuarios' in request.endpoint %}aria-current="page"{% endif %}>
                             👥 Usuários
                         </a>
                     </li>
                     <li>
                         <a href="{{ url_for('master.teste_ofx_page') }}" 
-                           class="nc-topbar-item {% if request.endpoint and 'teste_ofx' in request.endpoint %}active{% endif %}">
+                           class="nc-topbar-item {% if request.endpoint and 'teste_ofx' in request.endpoint %}active{% endif %}"
+                           aria-label="Teste OFX"
+                           {% if request.endpoint and 'teste_ofx' in request.endpoint %}aria-current="page"{% endif %}>
                             🧪 Teste OFX
                         </a>
                     </li>
                 {% endif %}
                 
+                {# ============================================================
+                   LINK DE SAIR (comum a todos)
+                   ============================================================ #}
                 <li>
                     <a href="{{ url_for('auth.logout') }}" 
                        class="nc-topbar-item logout"
