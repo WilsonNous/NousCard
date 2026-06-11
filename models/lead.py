@@ -21,7 +21,6 @@ class Lead(db.Model, BaseMixin):
     
     # Status do lead
     status = db.Column(db.String(50), default='novo', index=True)
-    # Possíveis valores: novo, contato, qualificado, cliente, perdido
     
     # Metadados
     origem = db.Column(db.String(100), default='landing_nouscard')
@@ -31,10 +30,9 @@ class Lead(db.Model, BaseMixin):
     # Relacionamento com empresa (quando convertido em cliente)
     empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id'), nullable=True)
     
-    # Timestamps
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), 
-                          onupdate=lambda: datetime.now(timezone.utc))
+    # ✅ REMOVIDO: created_at e updated_at (já vêm do BaseMixin como criado_em e atualizado_em)
+    
+    # Campos específicos de conversão
     contacted_at = db.Column(db.DateTime, nullable=True)
     converted_at = db.Column(db.DateTime, nullable=True)
     
@@ -42,6 +40,7 @@ class Lead(db.Model, BaseMixin):
         return f"<Lead {self.email} - {self.empresa}>"
     
     def to_dict(self):
+        # ✅ USAR criado_em e atualizado_em (do BaseMixin)
         return {
             "id": self.id,
             "nome": self.nome,
@@ -52,7 +51,7 @@ class Lead(db.Model, BaseMixin):
             "mensagem": self.mensagem,
             "status": self.status,
             "origem": self.origem,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": self.criado_em.isoformat() if self.criado_em else None,
             "contacted_at": self.contacted_at.isoformat() if self.contacted_at else None,
             "converted_at": self.converted_at.isoformat() if self.converted_at else None
         }
