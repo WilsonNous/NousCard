@@ -66,6 +66,7 @@
     /* ✅ Usa variáveis globais */
     .badge-success { background: var(--success-bg); color: var(--success); }
     .badge-danger { background: var(--error-bg); color: var(--error); }
+    .badge-primary { background: var(--primary-light); color: var(--primary); }
     
     .detail-grid {
         display: grid;
@@ -105,6 +106,46 @@
         color: var(--text-muted);
         font-size: 0.9rem;
         word-break: break-word;
+    }
+    
+    /* ✅ NOVO: Card de Contrato Ativo */
+    .contrato-ativo-card {
+        background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
+        border: 1px solid var(--primary);
+        border-left: 4px solid var(--primary);
+        border-radius: 10px;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .contrato-ativo-info {
+        flex: 1;
+        min-width: 200px;
+    }
+    .contrato-ativo-info .label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    .contrato-ativo-info .numero {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 0.25rem;
+    }
+    .contrato-ativo-info .detalhes {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+    .contrato-ativo-info .detalhes strong {
+        color: var(--primary);
     }
     
     .logs-section {
@@ -175,6 +216,42 @@
         </div>
     </div>
     
+    <!-- ✅ NOVO: Card de Contrato Ativo -->
+    {% if contratos %}
+        {% set contrato_ativo = None %}
+        {% for c in contratos %}
+            {% if c.status in ['gerado', 'enviado', 'assinado', 'ativo'] and not contrato_ativo %}
+                {% set contrato_ativo = c %}
+            {% endif %}
+        {% endfor %}
+        
+        {% if contrato_ativo %}
+        <div class="contrato-ativo-card">
+            <div class="contrato-ativo-info">
+                <div class="label">📄 Contrato Comercial Ativo</div>
+                <div class="numero">{{ contrato_ativo.numero }}</div>
+                <div class="detalhes">
+                    Plano <strong>{{ contrato_ativo.plano | capitalize }}</strong> • 
+                    Mensalidade <strong>R$ {{ "%.2f"|format(contrato_ativo.valor_mensal|float) }}</strong> •
+                    Status <strong>{{ contrato_ativo.status | capitalize }}</strong>
+                </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                {% if contrato_ativo.pdf_base64 %}
+                <a href="{{ url_for('empresas.baixar_contrato_pdf', empresa_id=empresa.id, contrato_id=contrato_ativo.id) }}" 
+                   class="nc-btn nc-btn-sm" target="_blank" style="background: var(--primary); color: white;">
+                    📥 Baixar PDF
+                </a>
+                {% endif %}
+                <a href="{{ url_for('empresas.listar_contratos', empresa_id=empresa.id) }}" 
+                   class="nc-btn nc-btn-outline nc-btn-sm">
+                    Ver todos os contratos →
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+    
     <!-- Cards de detalhes -->
     <div class="detail-grid">
         <div class="detail-card">
@@ -218,8 +295,11 @@
                 <dt>Contas bancárias:</dt>
                 <dd>{{ empresa.contas_bancarias | length if empresa.contas_bancarias else 0 }}</dd>
                 
-                <dt>Contratos:</dt>
+                <dt>Contratos de taxa:</dt>
                 <dd>{{ empresa.contratos | length if empresa.contratos else 0 }}</dd>
+                
+                <dt>Contratos comerciais:</dt>
+                <dd>{{ contratos | length if contratos else 0 }}</dd>
                 
                 <dt>Movimentos:</dt>
                 <dd>{{ empresa.movimentos_adquirente | length if empresa.movimentos_adquirente else 0 }}</dd>
@@ -238,6 +318,7 @@
                 {% elif 'editou' in log.acao %}✏️
                 {% elif 'excluiu' in log.acao %}🗑️
                 {% elif 'upload' in log.acao %}🖼️
+                {% elif 'contrato' in log.acao %}📄
                 {% else %}📋{% endif %}
             </span>
             <span class="log-text">{{ log.detalhes | e }}</span>
@@ -249,6 +330,12 @@
     
     <!-- Barra de ações -->
     <div class="action-bar">
+        <!-- ✅ NOVO: Botão de Contratos em destaque -->
+        <a href="{{ url_for('empresas.listar_contratos', empresa_id=empresa.id) }}" 
+           class="nc-btn" style="background: var(--primary); color: white; font-weight: 600;">
+            📄 Gerenciar Contratos
+        </a>
+        
         <a href="{{ url_for('empresas.editar_empresa', empresa_id=empresa.id) }}" class="nc-btn nc-btn-primary">
             ✏️ Editar Empresa
         </a>
