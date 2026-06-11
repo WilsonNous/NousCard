@@ -173,7 +173,22 @@ def arquivos_importados_page():
     
     arquivos = listar_arquivos_importados(empresa_id, page=page, per_page=per_page)
     
-    return render_template("arquivos_importados.html", arquivos=arquivos, page=page, per_page=per_page)
+    # ✅ Função auxiliar para construir URLs de paginação
+    def build_pagination_url(page_num):
+        """Constrói URL de paginação mantendo parâmetros atuais"""
+        params = request.args.to_dict()
+        params['page'] = page_num
+        # Remover parâmetros vazios
+        params = {k: v for k, v in params.items() if v}
+        return url_for('operacoes.arquivos_importados_page', **params)
+    
+    return render_template(
+        "arquivos_importados.html", 
+        arquivos=arquivos, 
+        page=page, 
+        per_page=per_page,
+        build_pagination_url=build_pagination_url  # ✅ Passar função para o template
+    )
 
 @operacoes_bp.route("/arquivo/<int:arquivo_id>")
 @login_required
