@@ -359,35 +359,31 @@ const formatBRL = (value) => {
 
 // Função principal de atualização do Dashboard
 async function atualizarDashboard(periodo) {
-    // Mostrar estado de carregamento (opcional, mas recomendado)
+    // Mostrar estado de carregamento
     document.getElementById('kpi-saldo').textContent = 'Carregando...';
+    document.getElementById('kpi-entradas').textContent = '...';
+    document.getElementById('kpi-saidas').textContent = '...';
+    document.getElementById('kpi-cartao').textContent = '...';
     
     try {
-        // ✅ AQUI VOCÊ CHAMARÁ SUA API REAL
-        // const response = await fetch(`/api/v1/dashboard/kpis?periodo=${periodo}`);
-        // const data = await response.json();
+        // ✅ CHAMAR API REAL
+        const response = await fetch(`/api/v1/dashboard/kpis?periodo=${periodo}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
         
-        // --- MOCK DE DADOS (Baseado no seu OFX real do Sicoob) ---
-        // Substitua isso pela resposta real da sua API quando estiver pronta
-        const data = {
-            saldo: 7405.55,
-            entradas: 48500.00,
-            saidas: 41094.45,
-            vendas_cartao: 18500.00,
-            receitas: {
-                cartao: 18500.00,
-                pix: 12400.00,
-                transferencias: 17600.00
-            },
-            despesas: {
-                fornecedores: 22000.00,
-                impostos: 1500.00,
-                outras: 17594.45
-            },
-            insight: "Você recebeu R$ 18.500,00 via maquininha este mês. Verifique se as taxas cobradas pela adquirente estão de acordo com seu contrato!"
-        };
-        // ---------------------------------------------------------
-
+        if (!response.ok) {
+            throw new Error(`Erro na API: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.ok) {
+            throw new Error(data.error || 'Erro ao carregar dados');
+        }
+        
         // Atualizar KPIs Principais
         document.getElementById('kpi-saldo').textContent = formatBRL(data.saldo);
         document.getElementById('kpi-saldo-sub').textContent = data.saldo >= 0 ? '✅ Fluxo positivo' : '⚠️ Fluxo negativo';
@@ -396,29 +392,87 @@ async function atualizarDashboard(periodo) {
         document.getElementById('kpi-entradas').textContent = formatBRL(data.entradas);
         document.getElementById('kpi-saidas').textContent = formatBRL(data.saidas);
         document.getElementById('kpi-cartao').textContent = formatBRL(data.vendas_cartao);
-
-        // Atualizar Breakdown de Receitas (com barras de progresso visuais)
+        
+        // Calcular totais para porcentagens
         const totalRec = data.receitas.cartao + data.receitas.pix + data.receitas.transferencias;
-        updateBreakdown('receitas-breakdown', [
-            { name: 'Maquininha (Cartão)', desc: 'Mastercard, Visa, Elo, Maestro', value: data.receitas.cartao, total: totalRec, color: 'var(--primary)', icon: '💳', bg: '#e7f3ff' },
-            { name: 'PIX Recebido', desc: 'Vendas e transferências de clientes', value: data.receitas.pix, total: totalRec, color: 'var(--success)', icon: '⚡', bg: '#e6f4ea' },
-            { name: 'Transferências', desc: 'TED, DOC e outras receitas', value: data.receitas.transferencias, total: totalRec, color: 'var(--text-muted)', icon: '🏦', bg: '#f0f2f5' }
-        ]);
-
-        // Atualizar Breakdown de Despesas
         const totalDesp = data.despesas.fornecedores + data.despesas.impostos + data.despesas.outras;
-        updateBreakdown('despesas-breakdown', [
-            { name: 'Fornecedores', desc: 'PIX e boletos pagos', value: data.despesas.fornecedores, total: totalDesp, color: 'var(--error)', icon: '🏪', bg: '#fce8e6' },
-            { name: 'Impostos e Tributos', desc: 'DAS, RFB, Simples Nacional', value: data.despesas.impostos, total: totalDesp, color: '#856404', icon: '🏛️', bg: '#fff3cd' },
-            { name: 'Outras Despesas', desc: 'Tarifas, empréstimos, etc.', value: data.despesas.outras, total: totalDesp, color: 'var(--text-muted)', icon: '📦', bg: '#f0f2f5' }
+        
+        // Atualizar Breakdown de Receitas
+        updateBreakdown('receitas-breakdown', [
+            { 
+                name: 'Maquininha (Cartão)', 
+                desc: 'Mastercard, Visa, Elo, Maestro', 
+                value: data.receitas.cartao, 
+                total: totalRec, 
+                color: 'var(--primary)', 
+                icon: '💳', 
+                bg: '#e7f3ff' 
+            },
+            { 
+                name: 'PIX Recebido', 
+                desc: 'Vendas e transferências de clientes', 
+                value: data.receitas.pix, 
+                total: totalRec, 
+                color: 'var(--success)', 
+                icon: '⚡', 
+                bg: '#e6f4ea' 
+            },
+            { 
+                name: 'Transferências', 
+                desc: 'TED, DOC e outras receitas', 
+                value: data.receitas.transferencias, 
+                total: totalRec, 
+                color: 'var(--text-muted)', 
+                icon: '🏦', 
+                bg: '#f0f2f5' 
+            }
         ]);
-
+        
+        // Atualizar Breakdown de Despesas
+        updateBreakdown('despesas-breakdown', [
+            { 
+                name: 'Fornecedores', 
+                desc: 'PIX e boletos pagos', 
+                value: data.despesas.fornecedores, 
+                total: totalDesp, 
+                color: 'var(--error)', 
+                icon: '🏪', 
+                bg: '#fce8e6' 
+            },
+            { 
+                name: 'Impostos e Tributos', 
+                desc: 'DAS, RFB, Simples Nacional', 
+                value: data.despesas.impostos, 
+                total: totalDesp, 
+                color: '#856404', 
+                icon: '🏛️', 
+                bg: '#fff3cd' 
+            },
+            { 
+                name: 'Outras Despesas', 
+                desc: 'Tarifas, empréstimos, etc.', 
+                value: data.despesas.outras, 
+                total: totalDesp, 
+                color: 'var(--text-muted)', 
+                icon: '📦', 
+                bg: '#f0f2f5' 
+            }
+        ]);
+        
         // Atualizar Insight
         document.getElementById('insight-text').textContent = data.insight;
-
+        
+        // Mostrar mensagem se não houver dados
+        if (data.total_registros === 0) {
+            document.getElementById('insight-text').textContent = 
+                "Nenhum dado encontrado para este período. Importe seu extrato bancário (OFX ou CSV) para visualizar seus KPIs financeiros!";
+        }
+        
     } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
         document.getElementById('kpi-saldo').textContent = 'Erro';
+        document.getElementById('insight-text').textContent = 
+            `Erro ao carregar dados: ${error.message}. Verifique se há movimentos importados no período.`;
     }
 }
 
