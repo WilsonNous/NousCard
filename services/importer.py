@@ -1,4 +1,4 @@
-# services/importer.py - VERSÃO FINAL COM DIVISÃO AUTOMÁTICA TRANSPARENTE
+# services/importer.py - VERSÃO FINAL COM PROCESSAMENTO SEQUENCIAL E PAUSAS
 
 import os
 import hashlib
@@ -16,7 +16,7 @@ from utils.parsers import (
     is_flow_csv,
     extrair_dados_conta_ofx,
     dividir_ofx_em_partes,
-    dividir_csv_em_partes  # ← NOVO: Função para dividir CSV
+    dividir_csv_em_partes
 )
 from utils.helpers import gerar_hash_arquivo
 from services.importer_db import salvar_arquivo_importado, verificar_arquivo_duplicado
@@ -31,14 +31,15 @@ logger = logging.getLogger(__name__)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_REGISTROS_POR_ARQUIVO = 10000
-MAX_TRANSACOES_POR_LOTE = 100  # ✅ Reduzido para 100 (mais seguro para Render)
+MAX_TRANSACOES_POR_LOTE = 50  # ✅ Reduzido para 50 (mais seguro)
+PAUSA_ENTRE_PARTES = 0.5  # ✅ Pausa de 0.5s entre partes (respiro para o Gunicorn)
 
 # ============================================================
-# 📦 PROCESSAR UM ARQUIVO (COM DIVISÃO AUTOMÁTICA)
+# 📦 PROCESSAR UM ARQUIVO (COM PROCESSAMENTO SEQUENCIAL)
 # ============================================================
 def process_file(file_storage, default_empresa_id=None):
     """
-    Processa um arquivo com divisão automática se for grande.
+    Processa um arquivo com divisão automática e processamento sequencial com pausas.
     Totalmente transparente para o cliente.
     """
     nome = file_storage.filename.lower()
@@ -90,7 +91,7 @@ def process_file(file_storage, default_empresa_id=None):
                 num_partes = len(partes)
                 logger.info(f"✅ CSV dividido em {num_partes} partes")
                 
-                # Processar cada parte
+                # ✅ Processar cada parte SEQUENCIALMENTE com pausas
                 todos_registros = []
                 for i, parte in enumerate(partes, 1):
                     inicio_parte = time.time()
@@ -102,6 +103,11 @@ def process_file(file_storage, default_empresa_id=None):
                     
                     tempo_parte = time.time() - inicio_parte
                     logger.info(f"✅ Parte CSV {i}/{num_partes} processada: {len(regs)} registros em {tempo_parte:.2f}s")
+                    
+                    # ✅ PAUSA entre partes (respiro para o Gunicorn)
+                    if i < num_partes:  # Não pausa na última parte
+                        logger.info(f"⏸️ Pausa de {PAUSA_ENTRE_PARTES}s antes da próxima parte...")
+                        time.sleep(PAUSA_ENTRE_PARTES)
                 
                 registros = todos_registros
                 logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
@@ -151,7 +157,7 @@ def process_file(file_storage, default_empresa_id=None):
                 
                 logger.info(f"✅ OFX dividido em {num_partes} partes em {tempo_divisao:.2f}s")
                 
-                # Processar cada parte
+                # ✅ Processar cada parte SEQUENCIALMENTE com pausas
                 todos_registros = []
                 for i, parte in enumerate(partes, 1):
                     inicio_parte = time.time()
@@ -163,6 +169,11 @@ def process_file(file_storage, default_empresa_id=None):
                     
                     tempo_parte = time.time() - inicio_parte
                     logger.info(f"✅ Parte OFX {i}/{num_partes} processada: {len(regs)} registros em {tempo_parte:.2f}s")
+                    
+                    # ✅ PAUSA entre partes (respiro para o Gunicorn)
+                    if i < num_partes:  # Não pausa na última parte
+                        logger.info(f"⏸️ Pausa de {PAUSA_ENTRE_PARTES}s antes da próxima parte...")
+                        time.sleep(PAUSA_ENTRE_PARTES)
                 
                 registros = todos_registros
                 logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
