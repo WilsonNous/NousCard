@@ -221,6 +221,93 @@
         background: #1877F2;
         color: white;
     }
+    
+    /* ✅ NOVO: Tabela de Últimos Acessos com Scroll */
+    .acessos-scroll-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #F0F2F5;
+        border-radius: 8px;
+    }
+    
+    .acessos-scroll-container::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .acessos-scroll-container::-webkit-scrollbar-track {
+        background: #F0F2F5;
+        border-radius: 4px;
+    }
+    
+    .acessos-scroll-container::-webkit-scrollbar-thumb {
+        background: #1877F2;
+        border-radius: 4px;
+    }
+    
+    .acessos-scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #166FE5;
+    }
+    
+    .acessos-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .acessos-table thead {
+        position: sticky;
+        top: 0;
+        background: #F0F2F5;
+        z-index: 1;
+    }
+    
+    .acessos-table th {
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #65676B;
+        border-bottom: 2px solid #E4E6EB;
+    }
+    
+    .acessos-table td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid #F0F2F5;
+        font-size: 0.88rem;
+        color: #1C1E21;
+    }
+    
+    .acessos-table tbody tr:hover {
+        background: #F8F9FA;
+    }
+    
+    .acessos-table .user-name {
+        font-weight: 600;
+        color: #1C1E21;
+    }
+    
+    .acessos-table .user-email {
+        font-size: 0.78rem;
+        color: #65676B;
+    }
+    
+    .acessos-table .empresa-name {
+        font-weight: 500;
+        color: #1877F2;
+    }
+    
+    .acessos-table .data-hora {
+        font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+        font-size: 0.82rem;
+        color: #65676B;
+        white-space: nowrap;
+    }
+    
+    .acessos-counter {
+        font-size: 0.85rem;
+        color: #65676B;
+        margin-top: 0.5rem;
+        text-align: right;
+    }
 </style>
 {% endblock %}
 
@@ -312,17 +399,17 @@
         </div>
     </div>
     
-    <!-- Últimos Acessos -->
+    <!-- ✅ MELHORADO: Últimos Acessos com Tabela Scroll -->
     <div class="detail-card" style="grid-column: 1 / -1;">
         <h3>👤 Últimos Acessos de Usuários (7 dias)</h3>
-        <div class="table-responsive">
-            <table class="ops-table">
+        <div class="acessos-scroll-container" id="acessosContainer">
+            <table class="acessos-table">
                 <thead>
                     <tr>
                         <th>Usuário</th>
                         <th>E-mail</th>
                         <th>Empresa</th>
-                        <th>Data/Hora</th>
+                        <th>Data/Hora (Brasília)</th>
                     </tr>
                 </thead>
                 <tbody id="acessosTable">
@@ -330,6 +417,7 @@
                 </tbody>
             </table>
         </div>
+        <div class="acessos-counter" id="acessosCounter"></div>
     </div>
 </div>
 
@@ -342,9 +430,23 @@ const formatNumber = (value) => {
     return new Intl.NumberFormat('pt-BR').format(value || 0);
 };
 
-const formatDateTime = (dateStr) => {
+// ✅ CORREÇÃO: Converter UTC para Horário de Brasília
+const formatDateTimeBrasilia = (dateStr) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleString('pt-BR');
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleString('pt-BR', { 
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    } catch (e) {
+        return dateStr;
+    }
 };
 
 async function carregarDashboard() {
@@ -429,19 +531,23 @@ async function carregarDashboard() {
             `).join('');
         }
         
-        // Tabela de acessos
+        // ✅ MELHORADO: Tabela de acessos com scroll e horário de Brasília
         const acessosTable = document.getElementById('acessosTable');
+        const acessosCounter = document.getElementById('acessosCounter');
+        
         if (kpis.ultimos_acessos.length === 0) {
             acessosTable.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #65676B;">Nenhum acesso registrado</td></tr>';
+            acessosCounter.textContent = '';
         } else {
             acessosTable.innerHTML = kpis.ultimos_acessos.map(acesso => `
                 <tr>
-                    <td>${acesso.usuario}</td>
-                    <td>${acesso.email}</td>
-                    <td>${acesso.empresa}</td>
-                    <td>${formatDateTime(acesso.data)}</td>
+                    <td class="user-name">${acesso.usuario}</td>
+                    <td class="user-email">${acesso.email}</td>
+                    <td class="empresa-name">${acesso.empresa}</td>
+                    <td class="data-hora">${formatDateTimeBrasilia(acesso.data)}</td>
                 </tr>
             `).join('');
+            acessosCounter.textContent = `${kpis.ultimos_acessos.length} acesso(s) registrado(s)`;
         }
         
     } catch (error) {
