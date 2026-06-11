@@ -1,0 +1,520 @@
+{% extends "base.html" %}
+
+{% block title %}Contratos - {{ empresa.nome }} - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .contratos-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .contratos-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        color: var(--text);
+    }
+    
+    .contratos-header .empresa-info {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+    
+    .btn-novo-contrato {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-novo-contrato:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .contrato-card {
+        background: var(--white);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+        border-left: 4px solid var(--gray-border);
+        transition: all 0.2s;
+    }
+    
+    .contrato-card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+    }
+    
+    .contrato-card.status-gerado { border-left-color: #6c757d; }
+    .contrato-card.status-enviado { border-left-color: var(--warning); }
+    .contrato-card.status-assinado { border-left-color: var(--primary); }
+    .contrato-card.status-ativo { border-left-color: var(--success); }
+    .contrato-card.status-suspenso { border-left-color: #fd7e14; }
+    .contrato-card.status-cancelado { border-left-color: var(--error); }
+    
+    .contrato-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .contrato-numero {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.35rem 0.85rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-badge.gerado { background: #e9ecef; color: #495057; }
+    .status-badge.enviado { background: #fff3cd; color: #856404; }
+    .status-badge.assinado { background: #cfe2ff; color: #084298; }
+    .status-badge.ativo { background: #d1e7dd; color: #0f5132; }
+    .status-badge.suspenso { background: #ffe5d0; color: #974706; }
+    .status-badge.cancelado { background: #f8d7da; color: #842029; }
+    
+    .contrato-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .info-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        color: var(--text);
+        font-weight: 500;
+    }
+    
+    .info-value.destaque {
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .contrato-acoes {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gray-border);
+    }
+    
+    .btn-acao {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-acao:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .btn-pdf {
+        background: var(--primary);
+        color: white;
+    }
+    
+    .btn-pdf:hover {
+        background: var(--primary-dark);
+    }
+    
+    .btn-assinar {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-assinar:hover {
+        background: #138496;
+    }
+    
+    .btn-ativar {
+        background: var(--success);
+        color: white;
+    }
+    
+    .btn-ativar:hover {
+        background: #198754;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: var(--white);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .empty-state-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+        color: var(--text);
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state p {
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Modal */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    
+    .modal-overlay.active {
+        display: flex;
+    }
+    
+    .modal {
+        background: var(--white);
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .modal h3 {
+        margin: 0 0 1rem 0;
+        color: var(--text);
+    }
+    
+    .modal p {
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+    }
+    
+    .modal-acoes {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+    
+    .btn-cancelar {
+        background: var(--gray-light);
+        color: var(--text);
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    
+    .btn-confirmar {
+        background: var(--primary);
+        color: white;
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    
+    .btn-confirmar:hover {
+        background: var(--primary-dark);
+    }
+    
+    /* Select do plano */
+    .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid var(--gray-border);
+        border-radius: 8px;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-select:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    
+    <!-- Header -->
+    <div class="contratos-header">
+        <div>
+            <h2>📄 Contratos</h2>
+            <div class="empresa-info">
+                <strong>{{ empresa.nome }}</strong>
+                {% if empresa.documento %}
+                    • CNPJ: {{ empresa.documento }}
+                {% endif %}
+            </div>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="{{ url_for('empresas.empresa_detalhe', empresa_id=empresa.id) }}" 
+               class="btn-acao btn-cancelar">
+                ← Voltar
+            </a>
+            <button type="button" class="btn-novo-contrato" onclick="abrirModalNovoContrato()">
+                ✨ Gerar Novo Contrato
+            </button>
+        </div>
+    </div>
+    
+    <!-- Lista de Contratos -->
+    {% if contratos %}
+        {% for contrato in contratos %}
+        <div class="contrato-card status-{{ contrato.status }}">
+            <div class="contrato-header">
+                <div>
+                    <h3 class="contrato-numero">{{ contrato.numero }}</h3>
+                </div>
+                <span class="status-badge {{ contrato.status }}">{{ contrato.status }}</span>
+            </div>
+            
+            <div class="contrato-info">
+                <div class="info-item">
+                    <span class="info-label">Plano</span>
+                    <span class="info-value destaque">
+                        {% if contrato.plano == 'inicial' %}Inicial
+                        {% elif contrato.plano == 'profissional' %}Profissional
+                        {% elif contrato.plano == 'business' %}Business
+                        {% elif contrato.plano == 'parceiro' %}Parceiro
+                        {% else %}{{ contrato.plano }}{% endif %}
+                    </span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Setup (único)</span>
+                    <span class="info-value">R$ {{ "%.2f"|format(contrato.valor_setup|float) }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Mensalidade</span>
+                    <span class="info-value">R$ {{ "%.2f"|format(contrato.valor_mensal|float) }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Data de Emissão</span>
+                    <span class="info-value">{{ contrato.data_emissao.strftime('%d/%m/%Y') if contrato.data_emissao else '-' }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Início da Vigência</span>
+                    <span class="info-value">{{ contrato.data_inicio_vigencia.strftime('%d/%m/%Y') if contrato.data_inicio_vigencia else '-' }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Fim da Vigência</span>
+                    <span class="info-value">{{ contrato.data_fim_vigencia.strftime('%d/%m/%Y') if contrato.data_fim_vigencia else 'Indeterminado' }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Setup Pago</span>
+                    <span class="info-value">
+                        {% if contrato.setup_pago %}
+                            ✅ Sim
+                        {% else %}
+                            ⏳ Pendente
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Assinado</span>
+                    <span class="info-value">
+                        {% if contrato.assinado_digitalmente %}
+                            ✅ Sim ({{ contrato.data_assinatura.strftime('%d/%m/%Y') if contrato.data_assinatura else '' }})
+                        {% else %}
+                            ⏳ Pendente
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="contrato-acoes">
+                {% if contrato.pdf_base64 %}
+                <a href="{{ url_for('empresas.baixar_contrato_pdf', empresa_id=empresa.id, contrato_id=contrato.id) }}" 
+                   class="btn-acao btn-pdf" target="_blank">
+                    📄 Baixar PDF
+                </a>
+                {% endif %}
+                
+                {% if contrato.status in ['gerado', 'enviado'] %}
+                <form method="POST" action="{{ url_for('empresas.marcar_contrato_assinado', empresa_id=empresa.id, contrato_id=contrato.id) }}" 
+                      style="display: inline;" onsubmit="return confirmarAcao('marcar como assinado')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn-acao btn-assinar">
+                        ✍️ Marcar como Assinado
+                    </button>
+                </form>
+                {% endif %}
+                
+                {% if contrato.status == 'assinado' %}
+                <form method="POST" action="{{ url_for('empresas.ativar_contrato', empresa_id=empresa.id, contrato_id=contrato.id) }}" 
+                      style="display: inline;" onsubmit="return confirmarAcao('ativar o contrato e registrar pagamento do setup')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn-acao btn-ativar">
+                        ✅ Ativar Contrato
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <!-- Estado vazio -->
+        <div class="empty-state">
+            <div class="empty-state-icon">📄</div>
+            <h3>Nenhum contrato encontrado</h3>
+            <p>Esta empresa ainda não possui contratos gerados. Clique no botão abaixo para gerar o primeiro contrato.</p>
+            <button type="button" class="btn-novo-contrato" onclick="abrirModalNovoContrato()">
+                ✨ Gerar Primeiro Contrato
+            </button>
+        </div>
+    {% endif %}
+    
+</section>
+
+<!-- Modal: Gerar Novo Contrato -->
+<div class="modal-overlay" id="modalNovoContrato">
+    <div class="modal">
+        <h3>✨ Gerar Novo Contrato</h3>
+        <p>Selecione o plano para gerar o contrato automaticamente. O PDF será criado com todos os dados da empresa.</p>
+        
+        <form method="POST" action="{{ url_for('empresas.gerar_novo_contrato', empresa_id=empresa.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <label for="plano" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Plano:</label>
+            <select name="plano" id="plano" class="form-select" required>
+                <option value="inicial">Inicial - R$ 297 setup + R$ 97/mês</option>
+                <option value="profissional">Profissional - R$ 297 setup + R$ 197/mês</option>
+                <option value="business">Business - R$ 297 setup + R$ 397/mês</option>
+                <option value="parceiro">Parceiro - Gratuito</option>
+            </select>
+            
+            <div class="modal-acoes">
+                <button type="button" class="btn-cancelar" onclick="fecharModalNovoContrato()">Cancelar</button>
+                <button type="submit" class="btn-confirmar">Gerar Contrato</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Confirmação de Ação -->
+<div class="modal-overlay" id="modalConfirmacao">
+    <div class="modal">
+        <h3>⚠️ Confirmar Ação</h3>
+        <p id="modalConfirmacaoTexto">Tem certeza que deseja realizar esta ação?</p>
+        
+        <div class="modal-acoes">
+            <button type="button" class="btn-cancelar" onclick="fecharModalConfirmacao()">Cancelar</button>
+            <button type="button" class="btn-confirmar" onclick="confirmarAcaoFinal()">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Modal: Novo Contrato
+function abrirModalNovoContrato() {
+    document.getElementById('modalNovoContrato').classList.add('active');
+}
+
+function fecharModalNovoContrato() {
+    document.getElementById('modalNovoContrato').classList.remove('active');
+}
+
+// Modal: Confirmação
+let formAtual = null;
+
+function confirmarAcao(acao) {
+    formAtual = event.target.closest('form');
+    document.getElementById('modalConfirmacaoTexto').textContent = 
+        `Tem certeza que deseja ${acao}? Esta ação não pode ser desfeita.`;
+    document.getElementById('modalConfirmacao').classList.add('active');
+    return false;
+}
+
+function fecharModalConfirmacao() {
+    document.getElementById('modalConfirmacao').classList.remove('active');
+    formAtual = null;
+}
+
+function confirmarAcaoFinal() {
+    if (formAtual) {
+        formAtual.submit();
+    }
+    fecharModalConfirmacao();
+}
+
+// Fechar modais ao clicar fora
+document.getElementById('modalNovoContrato').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalNovoContrato();
+});
+
+document.getElementById('modalConfirmacao').addEventListener('click', function(e) {
+    if (e.target === this) fecharModalConfirmacao();
+});
+</script>
+{% endblock %}
