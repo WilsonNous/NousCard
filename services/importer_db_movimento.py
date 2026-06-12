@@ -103,30 +103,12 @@ def resolver_adquirente_id(valor, empresa_id=None):
     return None
 
 # ============================================================
-# SALVAR VENDAS (MovAdquirente) - VERSÃO FINAL CORRIGIDA
+# SALVAR VENDAS (MovAdquirente) - VERSÃO OTIMIZADA COM BATCHES
 # ============================================================
 def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> dict:
     """
-    Salva registros de vendas (MovAdquirente) no banco.
-    Aceita tanto formato OFX quanto Flow CSV.
-    
-    Campos reais da tabela mov_adquirente:
-    - empresa_id (NOT NULL)
-    - adquirente_id (NOT NULL)
-    - data_venda (date)
-    - data_prevista_pagamento (date)
-    - bandeira (varchar 50)
-    - tipo_pagamento (enum: cartao, pix, boleto, outros)
-    - produto (varchar 50)
-    - parcela, total_parcelas
-    - nsu (varchar 50)
-    - autorizacao (varchar 50)
-    - valor_bruto (decimal 12,2 NOT NULL)
-    - taxa_cobrada (decimal 10,4)
-    - valor_liquido (decimal 12,2)
-    - valor_conciliado (decimal 12,2, default 0)
-    - status_conciliacao (varchar 30, default 'pendente')
-    - arquivo_origem (varchar 255)
+    Salva registros de vendas (MovAdquirente) em batches pequenos com commits frequentes.
+    Otimizado para evitar timeout do Gunicorn.
     """
     from models import MovAdquirente, Adquirente
     
@@ -146,215 +128,173 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
     
     logger.info(f"💾 Iniciando salvamento de {len(registros)} vendas para empresa {empresa_id}")
     
-    # ✅ Log do primeiro registro para debug
-    if registros:
-        logger.info(f"📋 Exemplo de registro recebido: {registros[0]}")
+    # ✅ OTIMIZAÇÃO 1: Resolver adquirentes UMA VEZ no início
+    adquirentes_cache = {}
     
-    try:
-        for idx, reg in enumerate(registros):
-            try:
-                # ============================================================
-                # EXTRAÇÃO DE DADOS COM FALLBACKS
-                # ============================================================
-                
-                # Adquirente (nome)
-                adquirente_nome = (
-                    reg.get('adquirente') or 
-                    reg.get('nome_adquirente') or 
-                    reg.get('adquirente_nome') or 
-                    'Flow'
+    # Extrair nomes únicos de adquirentes
+    nomes_adquirentes = set()
+    for reg in registros:
+        nome = (
+            reg.get('adquirente') or 
+            reg.get('nome_adquirente') or 
+            'Flow'
+        )
+        nomes_adquirentes.add(nome)
+    
+    logger.info(f"🔍 Resolvendo {len(nomes_adquirentes)} adquirente(s) únicas...")
+    
+    # Resolver cada adquirente uma vez
+    for nome in nomes_adquirentes:
+        try:
+            adquirente = Adquirente.query.filter(
+                func.lower(Adquirente.nome) == nome.lower()
+            ).first()
+            
+            if not adquirente:
+                # Criar adquirente
+                adquirente = Adquirente(
+                    nome=nome[:100],
+                    codigo=nome[:20].upper().replace(' ', '_'),
+                    ativo=True
                 )
-                
-                # NSU
-                nsu = (
-                    reg.get('nsu') or 
-                    reg.get('id') or 
-                    reg.get('fitid') or 
-                    reg.get('transaction_id') or
-                    f"AUTO-{idx}-{empresa_id}"
-                )
-                
-                # ✅ CORREÇÃO: data_venda (não data_transacao)
-                data_venda_raw = (
-                    reg.get('data_venda') or 
-                    reg.get('data_transacao') or 
-                    reg.get('data') or 
-                    reg.get('date')
-                )
-                
-                # ✅ CORREÇÃO: valor_bruto (NOT NULL) e valor_liquido
-                valor_bruto_raw = (
-                    reg.get('valor_bruto') or 
-                    reg.get('valor') or 
-                    reg.get('amount') or 
-                    0
-                )
-                valor_liquido_raw = (
-                    reg.get('valor_liquido') or 
-                    valor_bruto_raw
-                )
-                desconto_raw = reg.get('desconto') or reg.get('taxa_cobrada') or 0
-                
-                # Outros campos
-                bandeira = reg.get('bandeira')
-                produto = reg.get('produto')
-                tipo_pagamento = reg.get('tipo_pagamento', 'cartao')
-                
-                # Validar tipo_pagamento (enum)
-                if tipo_pagamento not in ['cartao', 'pix', 'boleto', 'outros']:
-                    tipo_pagamento = 'cartao'
-                
-                observacoes = (
-                    reg.get('observacoes') or 
-                    reg.get('descricao') or 
-                    reg.get('memo') or 
-                    reg.get('description') or 
-                    ''
-                )
-                
-                # ============================================================
-                # CONVERSÃO DE VALORES
-                # ============================================================
-                
-                # Valor bruto (NOT NULL)
-                if not isinstance(valor_bruto_raw, Decimal):
-                    try:
-                        valor_bruto = Decimal(str(valor_bruto_raw))
-                    except:
-                        valor_bruto = Decimal("0")
-                else:
-                    valor_bruto = valor_bruto_raw
-                
-                # Valor líquido
-                if not isinstance(valor_liquido_raw, Decimal):
-                    try:
-                        valor_liquido = Decimal(str(valor_liquido_raw))
-                    except:
-                        valor_liquido = valor_bruto
-                else:
-                    valor_liquido = valor_liquido_raw
-                
-                # Desconto/taxa
-                if not isinstance(desconto_raw, Decimal):
-                    try:
-                        taxa_cobrada = Decimal(str(desconto_raw))
-                    except:
-                        taxa_cobrada = Decimal("0")
-                else:
-                    taxa_cobrada = desconto_raw
-                
-                # Validar valor_bruto > 0
-                if valor_bruto <= 0:
-                    logger.debug(f"⚠️ Valor bruto inválido ({valor_bruto_raw}), pulando registro {idx}")
-                    stats["falhas"] += 1
-                    continue
-                
-                # ============================================================
-                # RESOLVER ADQUIRENTE
-                # ============================================================
-                adquirente = None
+                db.session.add(adquirente)
+                db.session.flush()
+                stats["adquirente_criada"] = True
+                logger.info(f"✅ Adquirente criada: {nome} (id={adquirente.id})")
+            
+            adquirentes_cache[nome.lower()] = adquirente
+            stats["adquirentes_processadas"].add(nome)
+            
+        except Exception as e:
+            logger.error(f"❌ Erro ao resolver adquirente '{nome}': {str(e)}", exc_info=True)
+    
+    # ✅ OTIMIZAÇÃO 2: Processar em batches pequenos com commits frequentes
+    BATCH_SIZE = 20  # Salvar 20 registros por vez
+    total_batches = (len(registros) + BATCH_SIZE - 1) // BATCH_SIZE
+    
+    logger.info(f"📦 Processando em {total_batches} batches de {BATCH_SIZE} registros...")
+    
+    for batch_num in range(total_batches):
+        inicio_idx = batch_num * BATCH_SIZE
+        fim_idx = min((batch_num + 1) * BATCH_SIZE, len(registros))
+        batch = registros[inicio_idx:fim_idx]
+        
+        logger.info(f"📦 Batch {batch_num + 1}/{total_batches}: registros {inicio_idx + 1}-{fim_idx}")
+        
+        try:
+            # Iniciar transação para este batch
+            db.session.begin_nested()
+            
+            for reg in batch:
                 try:
-                    adquirente = Adquirente.query.filter(
-                        func.lower(Adquirente.nome) == adquirente_nome.lower()
-                    ).first()
+                    # ✅ Usar adquirente do cache (sem query!)
+                    adquirente_nome = (
+                        reg.get('adquirente') or 
+                        reg.get('nome_adquirente') or 
+                        'Flow'
+                    ).lower()
                     
-                    if adquirente:
-                        logger.debug(f"✅ Adquirente encontrada: {adquirente_nome} (id={adquirente.id})")
-                except Exception as e:
-                    logger.warning(f"⚠️ Erro ao buscar adquirente: {str(e)}")
-                
-                if not adquirente:
-                    # Criar adquirente automaticamente
-                    try:
-                        # ✅ CORREÇÃO: codigo é opcional, empresa_id é opcional
-                        nova_adquirente = Adquirente(
-                            nome=adquirente_nome[:100],
-                            codigo=adquirente_nome[:20].upper().replace(' ', '_'),
-                            ativo=True
-                        )
-                        db.session.add(nova_adquirente)
-                        db.session.flush()
-                        adquirente = nova_adquirente
-                        stats["adquirente_criada"] = True
-                        logger.info(f"✅ Adquirente criada: {adquirente_nome} (id={adquirente.id})")
-                    except Exception as e:
-                        logger.error(f"❌ Erro ao criar adquirente '{adquirente_nome}': {str(e)}", exc_info=True)
+                    adquirente = adquirentes_cache.get(adquirente_nome)
+                    if not adquirente:
+                        logger.warning(f"⚠️ Adquirente '{adquirente_nome}' não encontrada no cache, pulando")
                         stats["falhas"] += 1
                         continue
-                
-                stats["adquirentes_processadas"].add(adquirente_nome)
-                
-                # ============================================================
-                # VERIFICAR DUPLICATA PELO NSU
-                # ============================================================
-                if nsu:
+                    
+                    # Extrair dados
+                    nsu = (
+                        reg.get('nsu') or 
+                        reg.get('id') or 
+                        reg.get('fitid') or 
+                        f"AUTO-{stats['sucesso']}-{empresa_id}"
+                    )
+                    
+                    data_venda_raw = (
+                        reg.get('data_venda') or 
+                        reg.get('data_transacao') or 
+                        reg.get('data')
+                    )
+                    
+                    valor_bruto_raw = reg.get('valor_bruto') or reg.get('valor') or 0
+                    valor_liquido_raw = reg.get('valor_liquido') or valor_bruto_raw
+                    desconto_raw = reg.get('desconto') or reg.get('taxa_cobrada') or 0
+                    
+                    bandeira = reg.get('bandeira')
+                    produto = reg.get('produto')
+                    tipo_pagamento = reg.get('tipo_pagamento', 'cartao')
+                    
+                    if tipo_pagamento not in ['cartao', 'pix', 'boleto', 'outros']:
+                        tipo_pagamento = 'cartao'
+                    
+                    observacoes = (
+                        reg.get('observacoes') or 
+                        reg.get('descricao') or 
+                        ''
+                    )
+                    
+                    # Converter valores
                     try:
-                        duplicata = MovAdquirente.query.filter_by(
-                            empresa_id=empresa_id,
-                            nsu=nsu,
-                            ativo=True
-                        ).first()
-                        
-                        if duplicata:
-                            stats["duplicados"] += 1
-                            continue
-                    except Exception as e:
-                        logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
-                
-                # ============================================================
-                # PARSE DATA_VENDA
-                # ============================================================
-                data_venda = None
-                if data_venda_raw:
-                    if isinstance(data_venda_raw, (date, datetime)):
-                        data_venda = data_venda_raw if isinstance(data_venda_raw, date) else data_venda_raw.date()
-                    elif isinstance(data_venda_raw, str):
-                        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d', '%d-%m-%Y']:
-                            try:
-                                data_venda = datetime.strptime(data_venda_raw, fmt).date()
-                                break
-                            except:
+                        valor_bruto = Decimal(str(valor_bruto_raw))
+                        valor_liquido = Decimal(str(valor_liquido_raw))
+                        taxa_cobrada = Decimal(str(desconto_raw))
+                    except:
+                        valor_bruto = Decimal("0")
+                        valor_liquido = Decimal("0")
+                        taxa_cobrada = Decimal("0")
+                    
+                    if valor_bruto <= 0:
+                        stats["falhas"] += 1
+                        continue
+                    
+                    # Verificar duplicata
+                    if nsu:
+                        try:
+                            duplicata = MovAdquirente.query.filter_by(
+                                empresa_id=empresa_id,
+                                nsu=nsu,
+                                ativo=True
+                            ).first()
+                            
+                            if duplicata:
+                                stats["duplicados"] += 1
                                 continue
-                        if not data_venda:
+                        except:
+                            pass
+                    
+                    # Parse data
+                    data_venda = None
+                    if data_venda_raw:
+                        if isinstance(data_venda_raw, (date, datetime)):
+                            data_venda = data_venda_raw if isinstance(data_venda_raw, date) else data_venda_raw.date()
+                        elif isinstance(data_venda_raw, str):
+                            for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
+                                try:
+                                    data_venda = datetime.strptime(data_venda_raw, fmt).date()
+                                    break
+                                except:
+                                    continue
+                            if not data_venda:
+                                data_venda = date.today()
+                        else:
                             data_venda = date.today()
                     else:
                         data_venda = date.today()
-                else:
-                    data_venda = date.today()
-                
-                # ============================================================
-                # ✅ CORRIGIDO: Criar registro MovAdquirente com campos REAIS
-                # ============================================================
-                try:
+                    
+                    # Criar registro
                     mov = MovAdquirente(
                         empresa_id=empresa_id,
                         adquirente_id=adquirente.id,
-                        
-                        # ✅ CORREÇÃO: data_venda (não data_transacao)
                         data_venda=data_venda,
-                        
-                        # ✅ CORREÇÃO: valor_bruto (NOT NULL) e valor_liquido
                         valor_bruto=valor_bruto,
                         valor_liquido=valor_liquido,
                         taxa_cobrada=taxa_cobrada,
-                        
-                        # ✅ CORREÇÃO: arquivo_origem (varchar, não arquivo_id)
                         arquivo_origem=str(arquivo_id) if arquivo_id else None,
-                        
-                        # Demais campos
                         bandeira=bandeira[:50] if bandeira else None,
                         tipo_pagamento=tipo_pagamento,
                         produto=produto[:50] if produto else None,
                         nsu=nsu[:50] if nsu else None,
-                        
-                        # ✅ CORREÇÃO: status_conciliacao (não status)
                         status_conciliacao='pendente',
                         valor_conciliado=Decimal("0"),
-                        
-                        # ✅ CORREÇÃO: observacoes (não descricao)
                         observacoes=observacoes[:2000] if observacoes else None,
-                        
-                        # BaseMixin
                         ativo=True,
                         criado_em=datetime.now(timezone.utc)
                     )
@@ -364,48 +304,29 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     stats["total_valor_bruto"] += valor_bruto
                     stats["total_valor_liquido"] += valor_liquido
                     
-                    # ✅ Log do primeiro sucesso
-                    if stats["sucesso"] == 1:
-                        logger.info(f"✅ Primeira venda salva: NSU={nsu}, Bruto=R$ {valor_bruto}, Líquido=R$ {valor_liquido}")
-                    
                 except Exception as e:
-                    logger.error(f"❌ Erro ao criar MovAdquirente (registro {idx}): {str(e)}", exc_info=True)
+                    logger.error(f"❌ Erro ao processar registro: {str(e)}", exc_info=True)
                     stats["falhas"] += 1
                     continue
-                
-            except Exception as e:
-                logger.error(f"❌ Erro ao processar registro {idx}: {str(e)}", exc_info=True)
-                stats["falhas"] += 1
-                continue
-        
-        # ============================================================
-        # COMMIT FINAL
-        # ============================================================
-        try:
+            
+            # ✅ Commit deste batch
             db.session.commit()
-            logger.info(
-                f"✅ Vendas salvas: {stats['sucesso']} sucesso, "
-                f"{stats['falhas']} falhas, {stats['duplicados']} duplicados, "
-                f"bruto: R$ {stats['total_valor_bruto']:.2f}, "
-                f"líquido: R$ {stats['total_valor_liquido']:.2f}"
-            )
+            logger.info(f"✅ Batch {batch_num + 1}/{total_batches} salvo: {len(batch)} registros processados")
+            
         except Exception as e:
-            logger.error(f"❌ Erro no commit: {str(e)}", exc_info=True)
+            logger.error(f"❌ Erro no batch {batch_num + 1}: {str(e)}", exc_info=True)
             db.session.rollback()
-            stats["falhas"] += stats["sucesso"]
-            stats["sucesso"] = 0
-            stats["total_valor_bruto"] = Decimal("0")
-            stats["total_valor_liquido"] = Decimal("0")
-        
-        return stats
-        
-    except Exception as e:
-        logger.error(f"❌ Erro geral ao salvar vendas: {str(e)}", exc_info=True)
-        try:
-            db.session.rollback()
-        except:
-            pass
-        return stats
+            stats["falhas"] += len(batch)
+            continue
+    
+    logger.info(
+        f"✅ Vendas salvas: {stats['sucesso']} sucesso, "
+        f"{stats['falhas']} falhas, {stats['duplicados']} duplicados, "
+        f"bruto: R$ {stats['total_valor_bruto']:.2f}, "
+        f"líquido: R$ {stats['total_valor_liquido']:.2f}"
+    )
+    
+    return stats
 
 # ============================================================
 # SALVAR RECEBIMENTOS (MovBanco)
