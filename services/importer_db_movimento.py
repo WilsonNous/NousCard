@@ -352,6 +352,20 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         f"líquido: R$ {stats['total_valor_liquido']:.2f}"
     )
     
+    # ============================================================
+    # CONVERTER SETS EM LISTS PARA JSON SERIALIZABLE
+    # ============================================================
+    # Converter sets em lists para serialização JSON
+    if isinstance(stats.get("adquirentes_processadas"), set):
+        stats["adquirentes_processadas"] = list(stats["adquirentes_processadas"])
+    
+    logger.info(
+        f"✅ Vendas salvas: {stats['sucesso']} sucesso, "
+        f"{stats['falhas']} falhas, {stats['duplicados']} duplicados, "
+        f"bruto: R$ {stats['total_valor_bruto']:.2f}, "
+        f"líquido: R$ {stats['total_valor_liquido']:.2f}"
+    )
+    
     return stats
 
 # ============================================================
