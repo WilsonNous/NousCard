@@ -1,10 +1,14 @@
 # routes/normalizacao_routes.py
-# Rotas para gerenciar dados normalizados
+# Rotas para gerenciar e reprocessar normalizações
 
-from flask import Blueprint, render_template, request, jsonify, g
-from models import Normalizacao
+from flask import Blueprint, jsonify, g, request, render_template
+from models import db, Normalizacao  # ✅ Adicionado 'db' que faltava
+from flask import abort  # ✅ Adicionado 'abort' que faltava
 from utils.auth_middleware import login_required, empresa_required
 from sqlalchemy import func
+import logging
+
+logger = logging.getLogger(__name__)
 
 normalizacao_bp = Blueprint("normalizacao", __name__, url_prefix="/normalizacao")
 
@@ -92,17 +96,92 @@ def estatisticas_normalizacao():
     })
 
 
-@normalizacao_bp.route("/api/reprocessar", methods=["POST"])
+# ============================================================
+# 🔄 ROTAS DE REPROCESSAMENTO (ATUALIZADAS)
+# ============================================================
+
+@normalizacao_bp.route("/reprocessar", methods=["GET", "POST"])
 @login_required
 @empresa_required
-def reprocessar_normalizacoes():
-    """Reprocessa normalizações com erro ou pendentes"""
-    data = request.get_json()
-    ids = data.get("ids", [])
+def reprocessar():
+    """
+    Reprocessa todas as normalizações pendentes ou com erro.
+    Aceita GET (para testar no navegador) ou POST (para APIs).
+    """
+    empresa_id = g.user.empresa_id
     
-    from services.importer_normalizacao import ImportadorNormalizado
+    logger.info(f"🔄 Rota /normalizacao/reprocessar chamada pelo usuário {g.user.id}")
     
-    importador = ImportadorNormalizado(g.user.empresa_id, g.user.id)
-    importador.processar_para_tabelas_finais(ids)
+    try:
+        # ✅ Importa e chama a função correta que criamos no service
+        from services.processador_normalizacao import processar_normalizacoes
+        
+        # Processa tudo que não está com status 'processado'
+        stats = processar_normalizacoes(empresa_id, arquivo_id=None)
+        
+        # Resposta para API (POST)
+        if request.method == "POST":
+            return jsonify({
+                "ok": True,
+                "message": "Reprocessamento concluído com sucesso",
+                "stats": stats
+            })
+        
+        # Resposta Visual para Navegador (GET) - Útil para debug rápido
+        return f"""
+        <html>
+        <head>
+            <title>Reprocessamento Concluído</title>
+            <style>
+                body {{ font-family: sans-serif; padding: 2rem; background: #f4f6f9; }}
+                .container {{ background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }}
+                h2 {{ color: #28a745; margin-top: 0; }}
+                pre {{ background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; }}
+                .btn {{ display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem; }}
+                .btn:hover {{ background: #0056b3; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>✅ Reprocessamento Concluído!</h2>
+                <p>O sistema tentou processar os registros parados na tabela <strong>tous_normalizacao</strong>.</p>
+                
+                <h3>📊 Resultados:</h3>
+                <pre>{stats}</pre>
+                
+                <h3>🔍 Próximos Passos:</h3>
+                <ul>
+                    <li>Verifique se os dados aparecem no <strong>Dashboard</strong>.</li>
+                    <li>Confira a tabela <strong>mov_adquirente</strong> no banco.</li>
+                </ul>
+
+                <a href="/operacoes/importar" class="btn">← Voltar para Operações</a>
+            </div>
+        </body>
+        </html>
+        """
+        
+    except Exception as e:
+        logger.error(f"❌ Erro no reprocessamento: {str(e)}", exc_info=True)
+        return jsonify({
+            "ok": False,
+            "message": f"Erro ao reprocessar: {str(e)}"
+        }), 500
+
+
+@normalizacao_bp.route("/limpar", methods=["POST"])
+@login_required
+@empresa_required
+def limpar_normalizacoes():
+    """Limpa todas as normalizações da empresa (CUIDADO: deleta dados)"""
+    empresa_id = g.user.empresa_id
     
-    return jsonify({"ok": True, "message": "Reprocessamento iniciado"})
+    total = Normalizacao.query.filter_by(empresa_id=empresa_id).delete()
+    db.session.commit()
+    
+    logger.info(f"🗑️ {total} normalizações removidas da empresa {empresa_id}")
+    
+    return jsonify({
+        "ok": True,
+        "message": f"{total} registros removidos com sucesso"
+    })
