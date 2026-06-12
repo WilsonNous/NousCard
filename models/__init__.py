@@ -11,6 +11,7 @@ from .arquivo_importado import ArquivoImportado
 from .log_auditoria import LogAuditoria
 from .lead import Lead
 from .contrato import Contrato
+from .normalizacao import Normalizacao
 
 __all__ = [
     'db',
