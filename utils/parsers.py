@@ -672,8 +672,7 @@ def is_flow_csv(filename: str, sample_content: str) -> bool:
 # ============================================================
 def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
     """
-    Parser para CSV do Flow no formato REAL (sem headers).
-    Formato: ESTABELECIMENTO;DATA;BANDEIRA;PRODUTO;QTD;VALOR_BRUTO;DESCONTO;VALOR_LIQUIDO
+    Parser para CSV do Flow com logs de progresso.
     """
     inicio = time.time()
     logger.info(f"📄 Início parse Flow CSV: {filename}")
@@ -695,43 +694,38 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         if not lines:
             raise ValueError("Arquivo Flow CSV vazio")
         
-        # ✅ Detectar qual linha começar (pular headers se existirem)
+        # Detectar linha de início
         start_line = 0
         estabelecimento_principal = None
         
         for i, line in enumerate(lines):
             parts = line.split(';')
             if len(parts) == 8:
-                # Verificar se é uma linha de dados válida
                 if (len(parts[0]) >= 5 and 
                     '/' in parts[1] and 
                     parts[2].strip() in ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard', 'Alelo', 'VR', 'Débito', 'Crédito']):
                     start_line = i
                     estabelecimento_principal = parts[0].strip()
                     break
-            elif 'Estabelecimento' in line or 'relatório' in line.lower():
-                # Linha de header, pular
-                continue
         
-        logger.info(f"🏢 Estabelecimento detectado: {estabelecimento_principal}, iniciando na linha {start_line}")
+        logger.info(f"🏢 Estabelecimento: {estabelecimento_principal}, iniciando na linha {start_line}")
         
         # Resolver empresa_id
         empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento_principal, default_empresa_id)
         if not empresa_id:
-            if not default_empresa_id:
-                logger.error(f"❌ Estabelecimento não encontrado: {estabelecimento_principal}")
-                return []
             empresa_id = default_empresa_id
         
         logger.info(f"🏢 empresa_id: {empresa_id}")
         
-        # Processar linhas de dados
+        # Processar linhas
         registros = []
         nsu_counter = 0
+        total_linhas = len(lines) - start_line
+        
+        logger.info(f"📊 Processando {total_linhas} linhas de dados...")
         
         for row_num, line in enumerate(lines[start_line:], start=start_line):
             try:
-                # Pular linha "Total" ou linhas vazias
                 if line.lower().startswith('total') or not line.strip():
                     continue
                 
@@ -739,7 +733,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 if len(parts) != 8:
                     continue
                 
-                # Extrair campos
                 estabelecimento = parts[0].strip()
                 data_str = parts[1].strip()
                 bandeira = parts[2].strip()
@@ -749,12 +742,10 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 desconto_str = parts[6].strip()
                 valor_liquido_str = parts[7].strip()
                 
-                # Parse data
                 data_venda = parse_data(data_str)
                 if not data_venda:
                     continue
                 
-                # Parse valores
                 valor_bruto = parse_valor(valor_bruto_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 if not valor_bruto or valor_bruto <= 0:
                     continue
@@ -762,11 +753,9 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 desconto = parse_valor(desconto_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 valor_liquido = parse_valor(valor_liquido_str.replace('R$', '').replace('.', '').replace(',', '.'))
                 
-                # Gerar NSU único
                 nsu_counter += 1
                 nsu = f"FLOW-{estabelecimento or 'UNK'}-{data_venda.strftime('%Y%m%d')}-{nsu_counter:04d}"
                 
-                # Normalizar bandeira
                 bandeira_map = {
                     'mastercard': 'Mastercard',
                     'visa': 'Visa',
@@ -776,7 +765,6 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 }
                 bandeira_final = bandeira_map.get(bandeira.lower().strip(), bandeira)
                 
-                # Normalizar produto
                 produto_lower = produto.lower().strip()
                 if 'pix' in produto_lower:
                     tipo_pagamento = 'pix'
@@ -791,13 +779,11 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     tipo_pagamento = 'cartao'
                     produto_final = produto or 'Desconhecido'
                 
-                # Quantidade
                 try:
                     quantidade = int(quantidade_str)
                 except:
                     quantidade = 1
                 
-                # Gerar registro no formato correto para MovAdquirente
                 registro = {
                     'adquirente': 'Flow',
                     'nsu': nsu,
@@ -815,6 +801,10 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                 
                 registros.append(registro)
                 
+                # ✅ Log de progresso a cada 50 registros
+                if len(registros) % 50 == 0:
+                    logger.info(f"📊 Progresso: {len(registros)}/{total_linhas} registros processados")
+                
             except Exception as e:
                 logger.error(f"❌ Erro linha {row_num}: {str(e)}", exc_info=True)
                 continue
@@ -823,7 +813,7 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
         logger.info(f"✅ Parse Flow CSV: {len(registros)} registros em {tempo:.2f}s")
         
         if registros:
-            logger.info(f"📋 Exemplo de registro gerado: {registros[0]}")
+            logger.info(f"📋 Exemplo: {registros[0]}")
         
         return registros
         
