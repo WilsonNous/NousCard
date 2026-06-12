@@ -140,9 +140,12 @@ class ImportadorNormalizado:
         adquirente_nome = (
             dados.get("adquirente") or 
             dados.get("nome_adquirente") or 
-            "Flow" if tipo_origem == "csv_flow" else None
+            "Flow" 
         )
-        
+        # ✅ Garantir que nunca seja None para vendas
+        if tipo_movimento == "venda" and not adquirente_nome:
+            adquirente_nome = "Flow"
+    
         # NSU
         nsu = (
             dados.get("nsu") or 
