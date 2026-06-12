@@ -1,4 +1,4 @@
-# services/importer.py - VERSÃO FINAL COM PROCESSAMENTO SEQUENCIAL E PAUSAS
+# services/importer.py - VERSÃO FINAL COM PROCESSAMENTO SEQUENCIAL E LOGS DETALHADOS
 
 import os
 import hashlib
@@ -43,16 +43,24 @@ def process_file(file_storage, default_empresa_id=None):
     Processa um arquivo com divisão automática e processamento sequencial com pausas.
     Totalmente transparente para o cliente.
     """
+    inicio_total = time.time()
     nome = file_storage.filename.lower()
+    logger.info(f"🚀 ════════════════════════════════════════════════════════════")
+    logger.info(f"🚀 INÍCIO PROCESSAMENTO: {nome}")
+    logger.info(f"🚀 ════════════════════════════════════════════════════════════")
     
     valido, size = validar_tamanho_arquivo(file_storage)
     if not valido:
+        logger.error(f"❌ Arquivo excede {MAX_FILE_SIZE/1024/1024}MB: {nome}")
         return {"ok": False, "arquivo": nome, "erro": f"Arquivo excede {MAX_FILE_SIZE/1024/1024}MB"}
+    
+    logger.info(f"📏 Tamanho do arquivo: {size/1024:.2f} KB")
     
     file_storage.seek(0)
     conteudo = file_storage.read()
     file_storage.seek(0)
     hash_arquivo = hashlib.sha256(conteudo).hexdigest()
+    logger.info(f"🔐 Hash do arquivo: {hash_arquivo[:16]}...")
     
     dados_conta = None
     dividido_automaticamente = False
@@ -66,16 +74,19 @@ def process_file(file_storage, default_empresa_id=None):
         # CSV FLOW (relatório de vendas)
         # ============================================================
         if nome.endswith(('.csv', '.txt')) and is_flow_csv(nome, sample):
-            logger.info(f"📄 Detectado CSV Flow: {nome}")
+            logger.info(f"📄 ✅ Detectado CSV Flow: {nome}")
+            inicio_parse = time.time()
             file_storage.seek(0)
             registros = parse_flow_csv(file_storage, nome, default_empresa_id=default_empresa_id)
+            tempo_parse = time.time() - inicio_parse
+            logger.info(f"⏱️ Parse Flow CSV concluído: {len(registros)} registros em {tempo_parse:.2f}s")
             tipo = "venda"
             
         # ============================================================
         # CSV GENÉRICO (pode ser grande)
         # ============================================================
         elif nome.endswith(".csv") or nome.endswith(".txt"):
-            logger.info(f"📄 Detectado CSV: {nome}")
+            logger.info(f"📄 ✅ Detectado CSV Genérico: {nome}")
             
             # ✅ Verificar tamanho do CSV
             content_text = conteudo.decode('utf-8', errors='replace')
@@ -88,9 +99,11 @@ def process_file(file_storage, default_empresa_id=None):
                 logger.info(f"🔧 CSV grande ({total_linhas} linhas). Dividindo em lotes de {MAX_TRANSACOES_POR_LOTE}...")
                 
                 # Dividir CSV em partes
+                inicio_divisao = time.time()
                 partes = dividir_csv_em_partes(content_text, MAX_TRANSACOES_POR_LOTE)
                 num_partes = len(partes)
-                logger.info(f"✅ CSV dividido em {num_partes} partes")
+                tempo_divisao = time.time() - inicio_divisao
+                logger.info(f"✅ CSV dividido em {num_partes} partes em {tempo_divisao:.2f}s")
                 
                 # ✅ Processar cada parte SEQUENCIALMENTE com pausas
                 todos_registros = []
@@ -113,25 +126,33 @@ def process_file(file_storage, default_empresa_id=None):
                 registros = todos_registros
                 logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
             else:
+                inicio_parse = time.time()
                 file_storage.seek(0)
                 registros = parse_csv_generic(file_storage)
+                tempo_parse = time.time() - inicio_parse
+                logger.info(f"⏱️ Parse CSV concluído: {len(registros)} registros em {tempo_parse:.2f}s")
             
             tipo = identificar_tipo_por_conteudo(registros, nome)
+            logger.info(f"🏷️ Tipo identificado: {tipo}")
             
         # ============================================================
         # EXCEL
         # ============================================================
         elif nome.endswith(".xlsx") or nome.endswith(".xls"):
-            logger.info(f"📊 Detectado Excel: {nome}")
+            logger.info(f"📊 ✅ Detectado Excel: {nome}")
+            inicio_parse = time.time()
             file_storage.seek(0)
             registros = parse_excel_generic(file_storage)
+            tempo_parse = time.time() - inicio_parse
+            logger.info(f"⏱️ Parse Excel concluído: {len(registros)} registros em {tempo_parse:.2f}s")
             tipo = identificar_tipo_por_conteudo(registros, nome)
+            logger.info(f"🏷️ Tipo identificado: {tipo}")
             
         # ============================================================
         # OFX (extrato bancário - pode ser grande)
         # ============================================================
         elif nome.endswith(".ofx"):
-            logger.info(f"🏦 Detectado OFX: {nome}")
+            logger.info(f"🏦 ✅ Detectado OFX: {nome}")
             
             # 1. Extrair dados da conta
             try:
@@ -180,22 +201,33 @@ def process_file(file_storage, default_empresa_id=None):
                 logger.info(f"✅ Total consolidado: {len(registros)} registros de {num_partes} partes")
             else:
                 logger.info(f"ℹ️ OFX pequeno ({total_transacoes_original} transações), processando normalmente")
+                inicio_parse = time.time()
                 file_storage.seek(0)
                 registros = parse_ofx_generic(file_storage)
+                tempo_parse = time.time() - inicio_parse
+                logger.info(f"⏱️ Parse OFX concluído: {len(registros)} registros em {tempo_parse:.2f}s")
             
             tipo = "recebimento"
+            logger.info(f"🏷️ Tipo identificado: {tipo}")
             
         else:
+            logger.error(f"❌ Formato não suportado: {nome}")
             return {"ok": False, "arquivo": nome, "erro": "Formato não suportado"}
         
     except Exception as e:
-        logger.error(f"Erro ao parsear {nome}: {str(e)}", exc_info=True)
+        logger.error(f"❌ Erro ao parsear {nome}: {str(e)}", exc_info=True)
         return {"ok": False, "arquivo": nome, "erro": f"Erro ao processar: {str(e)}"}
     
     # Inferir tipo e categoria
     for reg in registros:
         if default_empresa_id and ('empresa_id' not in reg or not reg['empresa_id']):
             reg['empresa_id'] = default_empresa_id
+    
+    tempo_total = time.time() - inicio_total
+    logger.info(f"✅ ════════════════════════════════════════════════════════════")
+    logger.info(f"✅ FIM PROCESSAMENTO: {nome}")
+    logger.info(f"✅ Registros: {len(registros)} | Tipo: {tipo} | Tempo: {tempo_total:.2f}s")
+    logger.info(f"✅ ════════════════════════════════════════════════════════════")
     
     return {
         "ok": True,
@@ -212,40 +244,62 @@ def process_file(file_storage, default_empresa_id=None):
 
 
 # ============================================================
-# 📦 PROCESSAR MÚLTIPLOS ARQUIVOS
+# 📦 PROCESSAR MÚLTIPLOS ARQUIVOS (COM ARQUITETURA DE NORMALIZAÇÃO)
 # ============================================================
-
-# services/importer.py - ATUALIZAR process_uploaded_files
 def process_uploaded_files(files, empresa_id, usuario_id):
     """
     Processa arquivos usando a nova arquitetura de normalização.
+    Fluxo: Parse → Normalização → Processamento Final
     """
     inicio_total = time.time()
-    logger.info(f"🚀 INÍCIO UPLOAD (NORMALIZADO): usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
+    logger.info(f"🚀 ╔═══════════════════════════════════════════════════════════╗")
+    logger.info(f"🚀 ║ INÍCIO UPLOAD (NORMALIZADO)                              ║")
+    logger.info(f"🚀 ╚═══════════════════════════════════════════════════════════╝")
+    logger.info(f"🚀 Usuário: {usuario_id} | Empresa: {empresa_id} | Arquivos: {len(files)}")
     
     resultados = []
     
     for i, file_storage in enumerate(files, 1):
         inicio_arquivo = time.time()
         nome = file_storage.filename.lower()
+        logger.info(f"")
+        logger.info(f"📄 [{i}/{len(files)}] ═══════════════════════════════════════════════")
         logger.info(f"📄 [{i}/{len(files)}] Processando: {nome}")
+        logger.info(f"📄 [{i}/{len(files)}] ═══════════════════════════════════════════════")
         
         try:
-            # 1. Parsear arquivo
+            # ============================================================
+            # ETAPA 1: PARSEAR ARQUIVO
+            # ============================================================
+            logger.info(f"🔍 [ETAPA 1/4] Parseando arquivo...")
             inicio_parse = time.time()
             resultado = process_file(file_storage, default_empresa_id=empresa_id)
-            logger.info(f"⏱️ Parse de {nome}: {time.time() - inicio_parse:.2f}s")
+            tempo_parse = time.time() - inicio_parse
             
             if not resultado["ok"]:
+                logger.error(f"❌ [ETAPA 1/4] Falha no parse: {resultado.get('erro')}")
                 resultados.append(resultado)
                 continue
             
-            # 2. Verificar duplicata do arquivo
+            logger.info(f"✅ [ETAPA 1/4] Parse concluído em {tempo_parse:.2f}s")
+            logger.info(f"   📊 Registros: {resultado['linhas']} | Tipo: {resultado['tipo']}")
+            
+            # ============================================================
+            # ETAPA 2: VERIFICAR DUPLICATA
+            # ============================================================
+            logger.info(f"🔍 [ETAPA 2/4] Verificando duplicata...")
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
+                logger.warning(f"⚠️ [ETAPA 2/4] Arquivo já importado anteriormente")
                 resultados.append({"ok": False, "arquivo": nome, "erro": "Arquivo já importado anteriormente"})
                 continue
             
-            # 3. Salvar arquivo no banco
+            logger.info(f"✅ [ETAPA 2/4] Arquivo não é duplicado")
+            
+            # ============================================================
+            # ETAPA 3: SALVAR ARQUIVO NO BANCO
+            # ============================================================
+            logger.info(f"💾 [ETAPA 3/4] Salvando arquivo no banco...")
+            inicio_save = time.time()
             arquivo_id = salvar_arquivo_importado(
                 empresa_id=empresa_id,
                 usuario_id=usuario_id,
@@ -254,21 +308,63 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 hash_arquivo=resultado["hash"],
                 registros=resultado["registros"]
             )
+            tempo_save = time.time() - inicio_save
+            logger.info(f"✅ [ETAPA 3/4] Arquivo salvo (ID: {arquivo_id}) em {tempo_save:.2f}s")
             
-            # 4. ✅ NOVO: Normalizar dados
-            from services.importer_normalizacao import ImportadorNormalizado
+            # ============================================================
+            # ETAPA 4: NORMALIZAR DADOS
+            # ============================================================
+            logger.info(f"🔄 [ETAPA 4/5] Normalizando dados...")
+            inicio_norm = time.time()
+            
+            tipo_origem = _determinar_tipo_origem(resultado, nome)
+            logger.info(f"   🏷️ Tipo origem: {tipo_origem} | Tipo movimento: {resultado['tipo']}")
             
             importador = ImportadorNormalizado(empresa_id, usuario_id)
             stats_normalizacao = importador.importar_arquivo(
                 arquivo_id=arquivo_id,
                 registros=resultado["registros"],
-                tipo_origem=_determinar_tipo_origem(resultado, nome),
+                tipo_origem=tipo_origem,
                 tipo_movimento=resultado["tipo"]
             )
             
-            # 5. Processar para tabelas finais
+            tempo_norm = time.time() - inicio_norm
+            logger.info(f"✅ [ETAPA 4/5] Normalização concluída em {tempo_norm:.2f}s")
+            logger.info(f"   📊 Sucesso: {stats_normalizacao.get('sucesso', 0)}")
+            logger.info(f"   📊 Falhas: {stats_normalizacao.get('falhas', 0)}")
+            logger.info(f"   📊 Duplicados: {stats_normalizacao.get('duplicados', 0)}")
+            
+            # ============================================================
+            # ETAPA 5: PROCESSAR PARA TABELAS FINAIS
+            # ============================================================
+            logger.info(f"🔄 [ETAPA 5/5] Processando para tabelas finais...")
+            inicio_final = time.time()
+            
             from services.processador_normalizacao import processar_normalizacoes
             stats_final = processar_normalizacoes(empresa_id, arquivo_id)
+            
+            tempo_final = time.time() - inicio_final
+            logger.info(f"✅ [ETAPA 5/5] Processamento final concluído em {tempo_final:.2f}s")
+            
+            # Log detalhado das estatísticas finais
+            if stats_final:
+                vendas = stats_final.get('vendas', {})
+                recebimentos = stats_final.get('recebimentos', {})
+                
+                if vendas:
+                    logger.info(f"   💳 Vendas: {vendas.get('sucesso', 0)} sucesso, {vendas.get('falhas', 0)} falhas")
+                    if vendas.get('total_valor_bruto'):
+                        logger.info(f"   💰 Valor bruto: R$ {vendas.get('total_valor_bruto', 0):.2f}")
+                    if vendas.get('total_valor_liquido'):
+                        logger.info(f"   💰 Valor líquido: R$ {vendas.get('total_valor_liquido', 0):.2f}")
+                
+                if recebimentos:
+                    logger.info(f"   🏦 Recebimentos: {recebimentos.get('sucesso', 0)} sucesso, {recebimentos.get('falhas', 0)} falhas")
+            
+            # ============================================================
+            # RESULTADO FINAL
+            # ============================================================
+            tempo_arquivo = time.time() - inicio_arquivo
             
             resultado_final = {
                 "ok": True,
@@ -280,27 +376,61 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             }
             
             resultados.append(resultado_final)
-            logger.info(f"✅ [{i}/{len(files)}] {nome}: {time.time() - inicio_arquivo:.2f}s")
+            
+            logger.info(f"")
+            logger.info(f"✅ [{i}/{len(files)}] ═══════════════════════════════════════════════")
+            logger.info(f"✅ [{i}/{len(files)}] CONCLUÍDO: {nome}")
+            logger.info(f"✅ [{i}/{len(files)}] Tempo total: {tempo_arquivo:.2f}s")
+            logger.info(f"✅ [{i}/{len(files)}] ═══════════════════════════════════════════════")
+            logger.info(f"")
             
         except Exception as e:
-            logger.error(f"❌ Erro ao importar {nome}: {str(e)}", exc_info=True)
+            tempo_arquivo = time.time() - inicio_arquivo
+            logger.error(f"❌ [{i}/{len(files)}] Erro ao importar {nome}: {str(e)}", exc_info=True)
+            logger.error(f"❌ [{i}/{len(files)}] Tempo até o erro: {tempo_arquivo:.2f}s")
             resultados.append({"ok": False, "arquivo": nome, "erro": f"Erro interno: {str(e)}"})
     
-    logger.info(f"🏁 FIM UPLOAD: {time.time() - inicio_total:.2f}s total")
+    tempo_total = time.time() - inicio_total
+    
+    logger.info(f"")
+    logger.info(f"🏁 ╔═══════════════════════════════════════════════════════════╗")
+    logger.info(f"🏁 ║ FIM UPLOAD (NORMALIZADO)                                 ║")
+    logger.info(f"🏁 ╚═══════════════════════════════════════════════════════════╝")
+    logger.info(f"🏁 Arquivos processados: {len(files)}")
+    logger.info(f"🏁 Sucessos: {sum(1 for r in resultados if r.get('ok'))}")
+    logger.info(f"🏁 Falhas: {sum(1 for r in resultados if not r.get('ok'))}")
+    logger.info(f"🏁 Tempo total: {tempo_total:.2f}s")
+    logger.info(f"🏁 ════════════════════════════════════════════════════════════")
+    
     return resultados
 
 
+# ============================================================
+# 🏷️ DETERMINAR TIPO DE ORIGEM
+# ============================================================
 def _determinar_tipo_origem(resultado: dict, nome_arquivo: str) -> str:
     """Determina o tipo de origem do arquivo"""
-    if resultado.get("tipo") == "venda":
-        if "flow" in nome_arquivo.lower():
+    tipo = resultado.get("tipo")
+    nome_lower = nome_arquivo.lower()
+    
+    if tipo == "venda":
+        if "flow" in nome_lower:
             return "csv_flow"
+        elif "cielo" in nome_lower:
+            return "csv_cielo"
+        elif "rede" in nome_lower:
+            return "csv_rede"
+        elif "stone" in nome_lower:
+            return "csv_stone"
         return "csv_adquirente"
-    elif resultado.get("tipo") == "recebimento":
-        if nome_arquivo.endswith(".ofx"):
+    
+    elif tipo == "recebimento":
+        if nome_lower.endswith(".ofx"):
             return "ofx_banco"
         return "csv_banco"
+    
     return "desconhecido"
+
 
 # ============================================================
 # 🧰 UTILITÁRIOS
@@ -311,6 +441,7 @@ def validar_tamanho_arquivo(file_storage):
     file_storage.seek(0)
     return size <= MAX_FILE_SIZE, size
 
+
 def identificar_tipo_por_conteudo(registros, nome_arquivo):
     nome = nome_arquivo.lower()
     if any(kw in nome for kw in ['receb', 'extrato', 'ofx', 'banco', 'credito', 'deposito', 'movimento']):
@@ -318,6 +449,7 @@ def identificar_tipo_por_conteudo(registros, nome_arquivo):
     if any(kw in nome for kw in ['venda', 'transacao', 'adquirente', 'cielo', 'rede', 'stone', 'pagseguro', 'getnet', 'maquininha']):
         return "venda"
     return "desconhecido"
+
 
 def listar_importados(empresa_id: int):
     from services.importer_db import listar_arquivos_importados
