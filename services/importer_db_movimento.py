@@ -103,12 +103,12 @@ def resolver_adquirente_id(valor, empresa_id=None):
     return None
 
 # ============================================================
-# SALVAR VENDAS (MovAdquirente) - VERSÃO OTIMIZADA COM BATCHES
+# SALVAR VENDAS (MovAdquirente) - VERSÃO FINAL SEM NESTED TRANSACTIONS
 # ============================================================
 def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> dict:
     """
-    Salva registros de vendas (MovAdquirente) em batches pequenos com commits frequentes.
-    Otimizado para evitar timeout do Gunicorn.
+    Salva registros de vendas (MovAdquirente) em batches com commits independentes.
+    Sem nested transactions para evitar PendingRollbackError.
     """
     from models import MovAdquirente, Adquirente
     
@@ -158,7 +158,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     ativo=True
                 )
                 db.session.add(adquirente)
-                db.session.flush()
+                db.session.commit()  # ✅ Commit imediato
                 stats["adquirente_criada"] = True
                 logger.info(f"✅ Adquirente criada: {nome} (id={adquirente.id})")
             
@@ -167,8 +167,9 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
             
         except Exception as e:
             logger.error(f"❌ Erro ao resolver adquirente '{nome}': {str(e)}", exc_info=True)
+            db.session.rollback()  # ✅ Rollback em caso de erro
     
-    # ✅ OTIMIZAÇÃO 2: Processar em batches pequenos com commits frequentes
+    # ✅ OTIMIZAÇÃO 2: Processar em batches pequenos com commits independentes
     BATCH_SIZE = 20  # Salvar 20 registros por vez
     total_batches = (len(registros) + BATCH_SIZE - 1) // BATCH_SIZE
     
@@ -181,11 +182,13 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         
         logger.info(f"📦 Batch {batch_num + 1}/{total_batches}: registros {inicio_idx + 1}-{fim_idx}")
         
+        batch_sucesso = 0
+        batch_falhas = 0
+        batch_duplicados = 0
+        
         try:
-            # Iniciar transação para este batch
-            db.session.begin_nested()
-            
-            for reg in batch:
+            # ✅ SEM begin_nested() - usar apenas commit direto
+            for idx, reg in enumerate(batch):
                 try:
                     # ✅ Usar adquirente do cache (sem query!)
                     adquirente_nome = (
@@ -197,7 +200,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     adquirente = adquirentes_cache.get(adquirente_nome)
                     if not adquirente:
                         logger.warning(f"⚠️ Adquirente '{adquirente_nome}' não encontrada no cache, pulando")
-                        stats["falhas"] += 1
+                        batch_falhas += 1
                         continue
                     
                     # Extrair dados
@@ -205,7 +208,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                         reg.get('nsu') or 
                         reg.get('id') or 
                         reg.get('fitid') or 
-                        f"AUTO-{stats['sucesso']}-{empresa_id}"
+                        f"AUTO-{stats['sucesso'] + batch_sucesso}-{empresa_id}"
                     )
                     
                     data_venda_raw = (
@@ -242,7 +245,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                         taxa_cobrada = Decimal("0")
                     
                     if valor_bruto <= 0:
-                        stats["falhas"] += 1
+                        batch_falhas += 1
                         continue
                     
                     # Verificar duplicata
@@ -255,10 +258,10 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                             ).first()
                             
                             if duplicata:
-                                stats["duplicados"] += 1
+                                batch_duplicados += 1
                                 continue
-                        except:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
                     
                     # Parse data
                     data_venda = None
@@ -300,22 +303,45 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     )
                     
                     db.session.add(mov)
-                    stats["sucesso"] += 1
-                    stats["total_valor_bruto"] += valor_bruto
-                    stats["total_valor_liquido"] += valor_liquido
+                    batch_sucesso += 1
                     
                 except Exception as e:
-                    logger.error(f"❌ Erro ao processar registro: {str(e)}", exc_info=True)
-                    stats["falhas"] += 1
+                    logger.error(f"❌ Erro ao processar registro {inicio_idx + idx + 1}: {str(e)}", exc_info=True)
+                    batch_falhas += 1
                     continue
             
-            # ✅ Commit deste batch
-            db.session.commit()
-            logger.info(f"✅ Batch {batch_num + 1}/{total_batches} salvo: {len(batch)} registros processados")
+            # ✅ Commit deste batch (SEM begin_nested)
+            if batch_sucesso > 0:
+                db.session.commit()
+                logger.info(f"✅ Batch {batch_num + 1}/{total_batches} salvo: {batch_sucesso} sucesso, {batch_falhas} falhas, {batch_duplicados} duplicados")
+            else:
+                logger.warning(f"⚠️ Batch {batch_num + 1}/{total_batches} sem registros válidos")
+            
+            # Atualizar estatísticas globais
+            stats["sucesso"] += batch_sucesso
+            stats["falhas"] += batch_falhas
+            stats["duplicados"] += batch_duplicados
+            
+            # Calcular valores do batch
+            for reg in batch:
+                try:
+                    valor_bruto = Decimal(str(reg.get('valor_bruto') or reg.get('valor') or 0))
+                    valor_liquido = Decimal(str(reg.get('valor_liquido') or valor_bruto))
+                    if valor_bruto > 0:
+                        stats["total_valor_bruto"] += valor_bruto
+                        stats["total_valor_liquido"] += valor_liquido
+                except:
+                    pass
             
         except Exception as e:
             logger.error(f"❌ Erro no batch {batch_num + 1}: {str(e)}", exc_info=True)
-            db.session.rollback()
+            # ✅ Rollback explícito antes de continuar
+            try:
+                db.session.rollback()
+                logger.info(f"🔄 Rollback executado após erro no batch {batch_num + 1}")
+            except Exception as rollback_error:
+                logger.error(f"❌ Erro ao fazer rollback: {str(rollback_error)}")
+            
             stats["falhas"] += len(batch)
             continue
     
