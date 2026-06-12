@@ -147,9 +147,11 @@ class Normalizacao(db.Model, BaseMixin):
         if not self.tipo_movimento:
             erros.append("tipo_movimento é obrigatório")
         
+        # ✅ CORREÇÃO: Se for venda e não tiver adquirente, usar "Flow"
         if self.tipo_movimento == "venda":
             if not self.adquirente_nome and not self.adquirente_id:
-                erros.append("venda requer adquirente")
+                self.adquirente_nome = "Flow"  # ✅ Auto-preencher
+                logger.info(f"⚠️ Registro {self.id} sem adquirente, usando 'Flow' como padrão")
         
         if erros:
             return False, "; ".join(erros)
