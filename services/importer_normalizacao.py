@@ -10,6 +10,33 @@ import json
 logger = logging.getLogger(__name__)
 
 
+# ============================================================
+# ✅ FUNÇÃO AUXILIAR: Converter tipos não-serializáveis para JSON
+# ============================================================
+def _preparar_para_json(obj):
+    """
+    Converte recursivamente objetos não-serializáveis (date, datetime, Decimal)
+    para tipos compatíveis com JSON.
+    """
+    if obj is None:
+        return None
+    
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    
+    if isinstance(obj, Decimal):
+        return float(obj)
+    
+    if isinstance(obj, dict):
+        return {k: _preparar_para_json(v) for k, v in obj.items()}
+    
+    if isinstance(obj, (list, tuple)):
+        return [_preparar_para_json(item) for item in obj]
+    
+    # Se já é tipo primitivo (str, int, float, bool), retorna como está
+    return obj
+
+
 class ImportadorNormalizado:
     """Serviço centralizado para importação e normalização de dados"""
     
@@ -43,8 +70,19 @@ class ImportadorNormalizado:
             
             logger.info(f"📦 Batch {batch_num + 1}/{total_batches}: registros {inicio_idx + 1}-{fim_idx}")
             
+            batch_sucesso = 0
+            batch_falhas = 0
+            batch_duplicados = 0
+            
             for idx, reg in enumerate(batch):
                 try:
+                    # ✅ Garantir rollback se sessão estiver em estado inválido
+                    try:
+                        db.session.execute(db.text("SELECT 1"))
+                    except Exception:
+                        db.session.rollback()
+                        logger.warning(f"🔄 Rollback executado antes do registro {inicio_idx + idx + 1}")
+                    
                     # Criar registro de normalização
                     normalizacao = self._criar_normalizacao(
                         arquivo_id=arquivo_id,
@@ -53,12 +91,17 @@ class ImportadorNormalizado:
                         tipo_movimento=tipo_movimento
                     )
                     
+                    # ✅ CORREÇÃO: Auto-preencher adquirente para vendas
+                    if normalizacao.tipo_movimento == "venda" and not normalizacao.adquirente_nome:
+                        normalizacao.adquirente_nome = "Flow"
+                    
                     # Validar
                     valido, erro = normalizacao.validar()
                     if not valido:
                         normalizacao.status = "erro"
                         normalizacao.erro_mensagem = erro
                         self.stats["falhas"] += 1
+                        batch_falhas += 1
                         self.stats["erros"].append({
                             "linha": inicio_idx + idx + 1,
                             "erro": erro
@@ -71,34 +114,50 @@ class ImportadorNormalizado:
                         normalizacao.status = "duplicado"
                         normalizacao.erro_mensagem = "Registro duplicado"
                         self.stats["duplicados"] += 1
+                        batch_duplicados += 1
                         db.session.add(normalizacao)
                         continue
                     
-                    # Enriquecer dados
-                    normalizacao.enriquecer()
-                    normalizacao.status = "validado"
+                    # Enriquecer dados (resolver adquirente, categorizar)
+                    try:
+                        normalizacao.enriquecer()
+                        normalizacao.status = "validado"
+                    except Exception as e:
+                        logger.warning(f"⚠️ Erro ao enriquecer registro {inicio_idx + idx + 1}: {str(e)}")
+                        normalizacao.status = "validado"  # Continua mesmo sem enriquecimento completo
                     
                     # Salvar
                     db.session.add(normalizacao)
                     self.stats["sucesso"] += 1
+                    batch_sucesso += 1
                     
                 except Exception as e:
                     logger.error(f"❌ Erro ao normalizar registro {inicio_idx + idx + 1}: {str(e)}", exc_info=True)
                     self.stats["falhas"] += 1
+                    batch_falhas += 1
                     self.stats["erros"].append({
                         "linha": inicio_idx + idx + 1,
                         "erro": str(e)
                     })
+                    # ✅ Rollback para não contaminar próximos registros
+                    try:
+                        db.session.rollback()
+                    except:
+                        pass
                     continue
             
             # Commit do batch
             try:
                 db.session.commit()
-                logger.info(f"✅ Batch {batch_num + 1}/{total_batches} salvo")
+                logger.info(f"✅ Batch {batch_num + 1}/{total_batches} salvo: {batch_sucesso} sucesso, {batch_falhas} falhas, {batch_duplicados} duplicados")
             except Exception as e:
-                logger.error(f"❌ Erro no commit do batch {batch_num + 1}: {str(e)}")
+                logger.error(f"❌ Erro no commit do batch {batch_num + 1}: {str(e)}", exc_info=True)
                 db.session.rollback()
                 continue
+        
+        # ✅ Converter set em list para serialização JSON
+        if isinstance(self.stats.get("erros"), list):
+            pass  # já é lista
         
         logger.info(
             f"✅ Normalização concluída: "
@@ -131,21 +190,34 @@ class ImportadorNormalizado:
             else:
                 data_movimento = date.today()
         
+        # Data venda (pode ser diferente da data movimento)
+        data_venda_raw = dados.get("data_venda")
+        data_venda = None
+        if data_venda_raw:
+            if isinstance(data_venda_raw, str):
+                for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
+                    try:
+                        data_venda = datetime.strptime(data_venda_raw, fmt).date()
+                        break
+                    except:
+                        continue
+        
         # Valores
         valor_bruto = self._parse_decimal(dados.get("valor_bruto") or dados.get("valor") or 0)
         valor_liquido = self._parse_decimal(dados.get("valor_liquido") or valor_bruto)
         valor_taxa = self._parse_decimal(dados.get("taxa") or dados.get("desconto") or 0)
         
-        # Adquirente
+        # Adquirente - ✅ CORREÇÃO: Sempre definir um nome para vendas
         adquirente_nome = (
             dados.get("adquirente") or 
             dados.get("nome_adquirente") or 
-            "Flow" 
+            dados.get("estabelecimento")
         )
-        # ✅ Garantir que nunca seja None para vendas
+        
+        # Se for venda e não tem adquirente, usar "Flow"
         if tipo_movimento == "venda" and not adquirente_nome:
             adquirente_nome = "Flow"
-    
+        
         # NSU
         nsu = (
             dados.get("nsu") or 
@@ -161,6 +233,17 @@ class ImportadorNormalizado:
             ""
         )
         
+        # ✅ CORREÇÃO CRÍTICA: Preparar dados crus para JSON
+        dados_crus_preparados = _preparar_para_json(dados)
+        
+        # Metadados
+        metadados = {
+            "importado_em": datetime.now(timezone.utc).isoformat(),
+            "usuario_id": self.usuario_id,
+            "tipo_origem": tipo_origem,
+            "nome_arquivo": dados.get("nome_arquivo", "")
+        }
+        
         normalizacao = Normalizacao(
             empresa_id=self.empresa_id,
             arquivo_origem_id=arquivo_id,
@@ -174,7 +257,7 @@ class ImportadorNormalizado:
             
             # Datas
             data_movimento=data_movimento if isinstance(data_movimento, date) else date.today(),
-            data_venda=dados.get("data_venda"),
+            data_venda=data_venda,
             
             # Valores
             valor_bruto=valor_bruto,
@@ -192,13 +275,9 @@ class ImportadorNormalizado:
             descricao=descricao[:2000] if descricao else None,
             estabelecimento=dados.get("estabelecimento"),
             
-            # Dados crus
-            dados_crus=dados,
-            metadados={
-                "importado_em": datetime.now(timezone.utc).isoformat(),
-                "usuario_id": self.usuario_id,
-                "tipo_origem": tipo_origem
-            },
+            # ✅ CORREÇÃO: Dados crus preparados para JSON
+            dados_crus=dados_crus_preparados,
+            metadados=metadados,
             
             status="importado"
         )
@@ -221,10 +300,14 @@ class ImportadorNormalizado:
         if not normalizacao.nsu:
             return False
         
-        duplicata = Normalizacao.query.filter_by(
-            empresa_id=self.empresa_id,
-            nsu=normalizacao.nsu,
-            data_movimento=normalizacao.data_movimento
-        ).first()
-        
-        return duplicata is not None
+        try:
+            duplicata = Normalizacao.query.filter_by(
+                empresa_id=self.empresa_id,
+                nsu=normalizacao.nsu,
+                data_movimento=normalizacao.data_movimento
+            ).first()
+            
+            return duplicata is not None
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
+            return False
