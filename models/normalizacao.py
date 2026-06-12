@@ -2,38 +2,9 @@
 # Layout proprietário NousCard para normalização de dados importados
 
 from .base import db, BaseMixin
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from decimal import Decimal
-from enum import Enum as PythonEnum
-
-
-class TipoOrigemEnum(PythonEnum):
-    """Tipos de origem dos dados"""
-    OFX_BANCO = "ofx_banco"
-    CSV_BANCO = "csv_banco"
-    CSV_ADQUIRENTE = "csv_adquirente"
-    EXCEL_ADQUIRENTE = "excel_adquirente"
-    API = "api"
-
-
-class TipoMovimentoEnum(PythonEnum):
-    """Tipos de movimento"""
-    VENDA = "venda"
-    RECEBIMENTO = "recebimento"
-    PAGAMENTO = "pagamento"
-    TRANSFERENCIA = "transferencia"
-    TARIFA = "tarifa"
-    OUTRO = "outro"
-
-
-class StatusNormalizacaoEnum(PythonEnum):
-    """Status do processo de normalização"""
-    IMPORTADO = "importado"  # Dados brutos importados
-    VALIDADO = "validado"    # Validação passou
-    ENRIQUECIDO = "enriquecido"  # Dados enriquecidos (adquirente, categoria, etc)
-    PROCESSADO = "processado"  # Gravado nas tabelas finais
-    ERRO = "erro"  # Erro na validação/processamento
-    CANCELADO = "cancelado"  # Cancelado pelo usuário
+from sqlalchemy import JSON
 
 
 class Normalizacao(db.Model, BaseMixin):
@@ -49,11 +20,11 @@ class Normalizacao(db.Model, BaseMixin):
     # IDENTIFICAÇÃO
     # ============================================================
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False, index=True)
-    arquivo_origem_id = db.Column(db.Integer, db.ForeignKey("arquivos_importados.id"), nullable=True)
+    arquivo_origem_id = db.Column(db.Integer, db.ForeignKey("arquivos_importados.id"), nullable=True, index=True)
     
     # Tipo e origem
-    tipo_origem = db.Column(db.String(50), nullable=False)  # ofx_banco, csv_adquirente, etc
-    tipo_movimento = db.Column(db.String(50), nullable=False)  # venda, recebimento, etc
+    tipo_origem = db.Column(db.String(50), nullable=False, index=True)  # ofx_banco, csv_adquirente, csv_flow, etc
+    tipo_movimento = db.Column(db.String(50), nullable=False, index=True)  # venda, recebimento, pagamento, etc
     
     # ============================================================
     # DADOS DA TRANSAÇÃO (CAMPOS PADRONIZADOS)
@@ -66,69 +37,70 @@ class Normalizacao(db.Model, BaseMixin):
     
     # Datas
     data_movimento = db.Column(db.Date, nullable=False, index=True)  # Data do movimento
-    data_venda = db.Column(db.Date, nullable=True)  # Data da venda (pode ser diferente)
+    data_venda = db.Column(db.Date, nullable=True, index=True)  # Data da venda (pode ser diferente)
     data_prevista_pagamento = db.Column(db.Date, nullable=True)  # Previsão de recebimento
     
     # Valores monetários
-    valor_bruto = db.Column(db.Numeric(12, 2), nullable=False)  # Valor bruto
-    valor_liquido = db.Column(db.Numeric(12, 2), nullable=True)  # Valor líquido (após taxas)
-    valor_taxa = db.Column(db.Numeric(10, 4), nullable=True)  # Valor da taxa cobrada
-    valor_desconto = db.Column(db.Numeric(10, 2), nullable=True)  # Descontos
-    valor_acrescimo = db.Column(db.Numeric(10, 2), nullable=True)  # Acréscimos
+    valor_bruto = db.Column(db.Numeric(12, 2), nullable=False, default=Decimal("0"))
+    valor_liquido = db.Column(db.Numeric(12, 2), nullable=True)
+    valor_taxa = db.Column(db.Numeric(10, 4), nullable=True, default=Decimal("0"))
+    valor_desconto = db.Column(db.Numeric(10, 2), nullable=True, default=Decimal("0"))
+    valor_acrescimo = db.Column(db.Numeric(10, 2), nullable=True, default=Decimal("0"))
     
     # ============================================================
     # CLASSIFICAÇÃO
     # ============================================================
     
     # Adquirente/Meio de pagamento
-    adquirente_nome = db.Column(db.String(100), nullable=True)  # Nome da adquirente (Flow, Cielo, etc)
+    adquirente_nome = db.Column(db.String(100), nullable=True, index=True)
     adquirente_id = db.Column(db.Integer, db.ForeignKey("adquirentes.id"), nullable=True)
-    bandeira = db.Column(db.String(50), nullable=True)  # Visa, Mastercard, Elo, etc
+    bandeira = db.Column(db.String(50), nullable=True, index=True)
     produto = db.Column(db.String(50), nullable=True)  # Crédito, Débito, PIX, etc
-    tipo_pagamento = db.Column(db.String(50), nullable=True)  # cartao, pix, boleto
+    tipo_pagamento = db.Column(db.String(50), nullable=True, index=True)  # cartao, pix, boleto
     
     # Parcelamento
-    parcela = db.Column(db.Integer, nullable=True)  # Número da parcela
-    total_parcelas = db.Column(db.Integer, nullable=True)  # Total de parcelas
+    parcela = db.Column(db.Integer, nullable=True)
+    total_parcelas = db.Column(db.Integer, nullable=True)
     
     # Conta bancária (para recebimentos/pagamentos)
     conta_bancaria_id = db.Column(db.Integer, db.ForeignKey("contas_bancarias.id"), nullable=True)
-    banco_codigo = db.Column(db.String(10), nullable=True)  # Código do banco
+    banco_codigo = db.Column(db.String(10), nullable=True)
     agencia = db.Column(db.String(20), nullable=True)
     conta = db.Column(db.String(30), nullable=True)
     
     # ============================================================
     # DESCRIÇÃO E DETALHES
     # ============================================================
-    descricao = db.Column(db.Text, nullable=True)  # Descrição completa
-    historico = db.Column(db.Text, nullable=True)  # Histórico complementar
-    favorecido = db.Column(db.String(200), nullable=True)  # Nome do favorecido/pagador
-    estabelecimento = db.Column(db.String(200), nullable=True)  # Estabelecimento comercial
+    descricao = db.Column(db.Text, nullable=True)
+    historico = db.Column(db.Text, nullable=True)
+    favorecido = db.Column(db.String(200), nullable=True)
+    estabelecimento = db.Column(db.String(200), nullable=True)
+    quantidade = db.Column(db.Integer, nullable=True)
     
     # ============================================================
     # CATEGORIZAÇÃO
     # ============================================================
-    categoria = db.Column(db.String(100), nullable=True)  # Categoria automática
-    subcategoria = db.Column(db.String(100), nullable=True)  # Subcategoria
-    tags = db.Column(db.String(500), nullable=True)  # Tags separadas por vírgula
+    categoria = db.Column(db.String(100), nullable=True, index=True)
+    subcategoria = db.Column(db.String(100), nullable=True)
+    tags = db.Column(db.String(500), nullable=True)
     
     # ============================================================
     # CONTROLE E STATUS
     # ============================================================
     status = db.Column(db.String(30), nullable=False, default="importado", index=True)
-    erro_mensagem = db.Column(db.Text, nullable=True)  # Mensagem de erro se houver
+    erro_mensagem = db.Column(db.Text, nullable=True)
     
     # Dados crus (JSON) para auditoria e reprocessamento
-    dados_crus = db.Column(db.JSON, nullable=True)
-    metadados = db.Column(db.JSON, nullable=True)  # Metadados da importação
+    dados_crus = db.Column(JSON, nullable=True)
+    metadados = db.Column(JSON, nullable=True)
     
     # ============================================================
     # RELACIONAMENTOS
     # ============================================================
-    empresa = db.relationship("Empresa", backref="normalizacoes")
-    arquivo_origem = db.relationship("ArquivoImportado", backref="normalizacoes")
-    adquirente = db.relationship("Adquirente", backref="normalizacoes")
-    conta_bancaria = db.relationship("ContaBancaria", backref="normalizacoes")
+    empresa = db.relationship("Empresa", backref=db.backref("normalizacoes", lazy="dynamic"))
+    arquivo_origem = db.relationship("ArquivoImportado", backref=db.backref("normalizacoes", lazy="dynamic"))
+    adquirente = db.relationship("Adquirente", backref=db.backref("normalizacoes", lazy="dynamic"))
+    conta_bancaria = db.relationship("ContaBancaria", backref=db.backref("normalizacoes", lazy="dynamic"))
     
     # ============================================================
     # MÉTODOS AUXILIARES
@@ -137,7 +109,7 @@ class Normalizacao(db.Model, BaseMixin):
         return f"<Normalizacao {self.id} - {self.tipo_movimento} - {self.data_movimento}>"
     
     def to_dict(self):
-        """Converte para dicionário (útil para APIs e debug)"""
+        """Converte para dicionário"""
         return {
             "id": self.id,
             "empresa_id": self.empresa_id,
@@ -146,24 +118,23 @@ class Normalizacao(db.Model, BaseMixin):
             "nsu": self.nsu,
             "data_movimento": self.data_movimento.isoformat() if self.data_movimento else None,
             "data_venda": self.data_venda.isoformat() if self.data_venda else None,
-            "valor_bruto": float(self.valor_bruto) if self.valor_bruto else None,
+            "valor_bruto": float(self.valor_bruto) if self.valor_bruto else 0,
             "valor_liquido": float(self.valor_liquido) if self.valor_liquido else None,
+            "valor_taxa": float(self.valor_taxa) if self.valor_taxa else None,
             "adquirente_nome": self.adquirente_nome,
             "bandeira": self.bandeira,
             "produto": self.produto,
+            "tipo_pagamento": self.tipo_pagamento,
             "status": self.status,
             "categoria": self.categoria,
             "descricao": self.descricao,
+            "criado_em": self.criado_em.isoformat() if self.criado_em else None
         }
     
     def validar(self):
-        """
-        Valida os dados antes do processamento.
-        Retorna tuple (bool, str): (valido, mensagem_erro)
-        """
+        """Valida os dados antes do processamento"""
         erros = []
         
-        # Validações obrigatórias
         if not self.empresa_id:
             erros.append("empresa_id é obrigatório")
         
@@ -176,7 +147,6 @@ class Normalizacao(db.Model, BaseMixin):
         if not self.tipo_movimento:
             erros.append("tipo_movimento é obrigatório")
         
-        # Validações específicas por tipo
         if self.tipo_movimento == "venda":
             if not self.adquirente_nome and not self.adquirente_id:
                 erros.append("venda requer adquirente")
@@ -187,13 +157,10 @@ class Normalizacao(db.Model, BaseMixin):
         return True, None
     
     def enriquecer(self):
-        """
-        Enriquece os dados com informações adicionais.
-        Ex: Resolver adquirente por nome, categorizar automaticamente, etc.
-        """
+        """Enriquece os dados com informações adicionais"""
         from models import Adquirente
         
-        # Resolver adquirente por nome se tiver
+        # Resolver adquirente por nome
         if self.adquirente_nome and not self.adquirente_id:
             adquirente = Adquirente.query.filter(
                 db.func.lower(Adquirente.nome) == self.adquirente_nome.lower()
@@ -212,7 +179,7 @@ class Normalizacao(db.Model, BaseMixin):
                 db.session.flush()
                 self.adquirente_id = nova_adquirente.id
         
-        # Categorização automática baseada em descrição/histórico
+        # Categorização automática
         if not self.categoria and self.descricao:
             self.categoria = self._categorizar_automatico()
         
