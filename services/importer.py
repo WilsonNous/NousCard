@@ -214,16 +214,14 @@ def process_file(file_storage, default_empresa_id=None):
 # ============================================================
 # 📦 PROCESSAR MÚLTIPLOS ARQUIVOS
 # ============================================================
+
+# services/importer.py - ATUALIZAR process_uploaded_files
 def process_uploaded_files(files, empresa_id, usuario_id):
+    """
+    Processa arquivos usando a nova arquitetura de normalização.
+    """
     inicio_total = time.time()
-    logger.info(f"🚀 INÍCIO UPLOAD: usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
-    
-    total_size = sum(f.seek(0, 2) for f in files)
-    for f in files:
-        f.seek(0)
-    
-    if total_size > MAX_TOTAL_SIZE:
-        return [{"ok": False, "erro": f"Total excede {MAX_TOTAL_SIZE/1024/1024}MB"}]
+    logger.info(f"🚀 INÍCIO UPLOAD (NORMALIZADO): usuario={usuario_id}, empresa={empresa_id}, arquivos={len(files)}")
     
     resultados = []
     
@@ -233,6 +231,7 @@ def process_uploaded_files(files, empresa_id, usuario_id):
         logger.info(f"📄 [{i}/{len(files)}] Processando: {nome}")
         
         try:
+            # 1. Parsear arquivo
             inicio_parse = time.time()
             resultado = process_file(file_storage, default_empresa_id=empresa_id)
             logger.info(f"⏱️ Parse de {nome}: {time.time() - inicio_parse:.2f}s")
@@ -241,19 +240,12 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 resultados.append(resultado)
                 continue
             
-            dados_conta = resultado.get("dados_conta")
-            
-            # Mensagem especial se foi dividido
-            if resultado.get("dividido_automaticamente"):
-                logger.info(f"🔧 Arquivo dividido automaticamente: {resultado.get('total_transacoes_original')} transações em {resultado.get('num_partes')} partes")
-            
-            inicio_duplicata = time.time()
+            # 2. Verificar duplicata do arquivo
             if verificar_arquivo_duplicado(empresa_id, resultado["hash"]):
                 resultados.append({"ok": False, "arquivo": nome, "erro": "Arquivo já importado anteriormente"})
                 continue
             
-            db.session.begin_nested()
-            
+            # 3. Salvar arquivo no banco
             arquivo_id = salvar_arquivo_importado(
                 empresa_id=empresa_id,
                 usuario_id=usuario_id,
@@ -263,107 +255,52 @@ def process_uploaded_files(files, empresa_id, usuario_id):
                 registros=resultado["registros"]
             )
             
-            stats = None
-            if resultado["tipo"] == "venda":
-                stats = salvar_vendas(resultado["registros"], empresa_id, arquivo_id)
-            elif resultado["tipo"] == "recebimento":
-                stats = salvar_recebimentos(
-                    resultado["registros"], 
-                    empresa_id, 
-                    arquivo_id,
-                    dados_conta=dados_conta
-                )
+            # 4. ✅ NOVO: Normalizar dados
+            from services.importer_normalizacao import ImportadorNormalizado
             
-            db.session.commit()
+            importador = ImportadorNormalizado(empresa_id, usuario_id)
+            stats_normalizacao = importador.importar_arquivo(
+                arquivo_id=arquivo_id,
+                registros=resultado["registros"],
+                tipo_origem=_determinar_tipo_origem(resultado, nome),
+                tipo_movimento=resultado["tipo"]
+            )
+            
+            # 5. Processar para tabelas finais
+            from services.processador_normalizacao import processar_normalizacoes
+            stats_final = processar_normalizacoes(empresa_id, arquivo_id)
             
             resultado_final = {
                 "ok": True,
                 "arquivo": nome,
                 "tipo": resultado["tipo"],
                 "linhas": resultado["linhas"],
-                "hash": resultado["hash"],
-                "estatisticas": stats,
-                "dividido_automaticamente": resultado.get("dividido_automaticamente", False),
-                "total_transacoes_original": resultado.get("total_transacoes_original"),
-                "num_partes": resultado.get("num_partes")
+                "stats_normalizacao": stats_normalizacao,
+                "stats_final": stats_final
             }
             
-            mensagens = []
-            
-            # Mensagem especial se foi dividido
-            if resultado.get("dividido_automaticamente"):
-                mensagens.append(
-                    f"🔧 Arquivo grande detectado: {resultado.get('total_transacoes_original')} transações "
-                    f"divididas automaticamente em {resultado.get('num_partes')} partes para processamento."
-                )
-            
-            if stats:
-                if stats.get("conta_criada"):
-                    nome_conta = dados_conta.get("nome", "Conta OFX") if dados_conta else "Conta OFX"
-                    mensagens.append(f"✅ Conta bancária identificada/criada: {nome_conta}")
-                
-                if stats.get("falhas", 0) > 0:
-                    mensagens.append(f"⚠️ {stats['falhas']} registros ignorados.")
-                
-                if stats.get("sucesso", 0) == 0:
-                    resultado_final["ok"] = False
-                    resultado_final["erro"] = "Nenhum registro foi importado."
-                    mensagens.append("❌ Nenhum registro foi importado.")
-                
-                if mensagens:
-                    resultado_final["mensagens"] = mensagens
-            
             resultados.append(resultado_final)
-            logger.info(f"✅ [{i}/{len(files)}] {nome}: {resultado['linhas']} registros em {time.time() - inicio_arquivo:.2f}s")
+            logger.info(f"✅ [{i}/{len(files)}] {nome}: {time.time() - inicio_arquivo:.2f}s")
             
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            logger.error(f"❌ Erro de banco ao importar {nome}: {str(e)}")
-            resultados.append({"ok": False, "arquivo": nome, "erro": f"Erro ao salvar dados: {str(e)}"})
         except Exception as e:
-            db.session.rollback()
-            logger.error(f"❌ Erro desconhecido ao importar {nome}: {str(e)}", exc_info=True)
+            logger.error(f"❌ Erro ao importar {nome}: {str(e)}", exc_info=True)
             resultados.append({"ok": False, "arquivo": nome, "erro": f"Erro interno: {str(e)}"})
     
     logger.info(f"🏁 FIM UPLOAD: {time.time() - inicio_total:.2f}s total")
     return resultados
 
-def process_uploaded_files_novo(files, empresa_id, usuario_id):
-    """
-    NOVA ABORDAGEM: Importa arquivos usando camada de normalização.
-    """
-    resultados = []
-    
-    for file_storage in files:
-        # 1. Parsear arquivo (usar parsers existentes)
-        resultado_parse = process_file(file_storage, default_empresa_id=empresa_id)
-        
-        if not resultado_parse["ok"]:
-            resultados.append(resultado_parse)
-            continue
-        
-        # 2. Salvar arquivo no banco
-        arquivo_id = salvar_arquivo_importado(...)
-        
-        # 3. Normalizar dados
-        importador = ImportadorNormalizado(empresa_id, usuario_id)
-        stats_normalizacao = importador.importar_arquivo(
-            arquivo_id=arquivo_id,
-            registros=resultado_parse["registros"],
-            tipo_origem=_determinar_tipo_origem(resultado_parse),
-            tipo_movimento=resultado_parse["tipo"]
-        )
-        
-        # 4. Processar para tabelas finais (opcional - pode ser assíncrono)
-        importador.processar_para_tabelas_finais()
-        
-        resultados.append({
-            "ok": True,
-            "arquivo": file_storage.filename,
-            "stats_normalizacao": stats_normalizacao
-        })
-    
-    return resultados
+
+def _determinar_tipo_origem(resultado: dict, nome_arquivo: str) -> str:
+    """Determina o tipo de origem do arquivo"""
+    if resultado.get("tipo") == "venda":
+        if "flow" in nome_arquivo.lower():
+            return "csv_flow"
+        return "csv_adquirente"
+    elif resultado.get("tipo") == "recebimento":
+        if nome_arquivo.endswith(".ofx"):
+            return "ofx_banco"
+        return "csv_banco"
+    return "desconhecido"
 
 # ============================================================
 # 🧰 UTILITÁRIOS
