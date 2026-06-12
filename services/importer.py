@@ -22,6 +22,7 @@ from utils.helpers import gerar_hash_arquivo
 from services.importer_db import salvar_arquivo_importado, verificar_arquivo_duplicado
 from services.importer_db_movimento import salvar_vendas, salvar_recebimentos
 from models import db
+from services.importer_normalizacao import ImportadorNormalizado
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +328,42 @@ def process_uploaded_files(files, empresa_id, usuario_id):
     logger.info(f"🏁 FIM UPLOAD: {time.time() - inicio_total:.2f}s total")
     return resultados
 
+def process_uploaded_files_novo(files, empresa_id, usuario_id):
+    """
+    NOVA ABORDAGEM: Importa arquivos usando camada de normalização.
+    """
+    resultados = []
+    
+    for file_storage in files:
+        # 1. Parsear arquivo (usar parsers existentes)
+        resultado_parse = process_file(file_storage, default_empresa_id=empresa_id)
+        
+        if not resultado_parse["ok"]:
+            resultados.append(resultado_parse)
+            continue
+        
+        # 2. Salvar arquivo no banco
+        arquivo_id = salvar_arquivo_importado(...)
+        
+        # 3. Normalizar dados
+        importador = ImportadorNormalizado(empresa_id, usuario_id)
+        stats_normalizacao = importador.importar_arquivo(
+            arquivo_id=arquivo_id,
+            registros=resultado_parse["registros"],
+            tipo_origem=_determinar_tipo_origem(resultado_parse),
+            tipo_movimento=resultado_parse["tipo"]
+        )
+        
+        # 4. Processar para tabelas finais (opcional - pode ser assíncrono)
+        importador.processar_para_tabelas_finais()
+        
+        resultados.append({
+            "ok": True,
+            "arquivo": file_storage.filename,
+            "stats_normalizacao": stats_normalizacao
+        })
+    
+    return resultados
 
 # ============================================================
 # 🧰 UTILITÁRIOS
