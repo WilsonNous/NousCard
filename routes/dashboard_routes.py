@@ -17,6 +17,53 @@ logger = logging.getLogger(__name__)
 # ============================================================
 dashboard_bp = Blueprint("dashboard", __name__)
 
+# Mapeamento de categorias técnicas para nomes amigáveis
+CATEGORIAS_NOME = {
+    # Receitas
+    'vendas_cartao': 'Vendas no Cartão',
+    'vendas_mastercard': 'Vendas - Mastercard',
+    'vendas_visa': 'Vendas - Visa',
+    'vendas_elo': 'Vendas - Elo',
+    'vendas_pix': 'Vendas via PIX',
+    'vendas_boleto': 'Vendas via Boleto',
+    'transferencia_recebida': 'Transferências Recebidas',
+    'outras_receitas': 'Outras Receitas',
+    
+    # Despesas
+    'fornecedores_mercadoria': 'Fornecedores - Mercadorias',
+    'fornecedores_servicos': 'Fornecedores - Serviços',
+    'impostos_tributos': 'Impostos e Tributos',
+    'tarifas_bancarias': 'Tarifas Bancárias',
+    'aluguel_condominio': 'Aluguel e Condomínio',
+    'energia_agua_telecom': 'Energia, Água e Telecom',
+    'marketing_publicidade': 'Marketing e Publicidade',
+    'salarios_encargos': 'Salários e Encargos',
+    'transporte_combustivel': 'Transporte e Combustível',
+    'equipamentos_manutencao': 'Equipamentos e Manutenção',
+    'seguros': 'Seguros',
+    'saude_bem_estar': 'Saúde e Bem-estar',
+    'viagens_hospedagem': 'Viagens e Hospedagem',
+    'doacoes_patrocinios': 'Doações e Patrocínios',
+    'outras_despesas': 'Outras Despesas',
+}
+
+CATEGORIAS_DESC = {
+    'vendas_cartao': 'Recebimentos via maquininha de cartão',
+    'vendas_pix': 'Recebimentos via PIX de clientes',
+    'fornecedores_mercadoria': 'Compra de produtos para revenda ou estoque',
+    'fornecedores_servicos': 'Serviços terceirizados e manutenção',
+    'impostos_tributos': 'DAS, INSS, IR, taxas governamentais',
+    'tarifas_bancarias': 'Tarifas de conta, TED, manutenção bancária',
+    'outras_despesas': 'Transações não classificadas automaticamente',
+}
+
+PERIODOS_LABEL = {
+    'mes': 'Este Mês',
+    'trimestre': 'Último Trimestre',
+    'ano': 'Este Ano',
+    '12meses': 'Últimos 12 Meses',
+}
+
 # ============================================================
 # ✅ ROTA RAIZ INTELIGENTE (MOVIDA PARA CÁ!)
 # ============================================================
