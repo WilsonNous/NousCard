@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}DRE - Demonstrativo de Resultado{% endblock %}
+{% block title %}DRE - Demonstrativo de Resultado - {{ empresa_nome }}{% endblock %}
 
 {% block extra_head %}
 <style>
+    /* ============================================================
+       DRE - DEMONSTRATIVO DE RESULTADO
+       ============================================================ */
     .dre-container {
         background: var(--white);
         border-radius: 12px;
@@ -19,11 +22,20 @@
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
         border-bottom: 1px solid var(--gray-border);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .dre-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--text);
     }
     
     .dre-period-selector {
         display: flex;
         gap: 0.5rem;
+        flex-wrap: wrap;
     }
     
     .dre-period-btn {
@@ -32,7 +44,13 @@
         background: var(--white);
         border-radius: 6px;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
+        color: var(--text);
+        transition: all 0.2s;
+    }
+    
+    .dre-period-btn:hover {
+        background: var(--gray-light);
     }
     
     .dre-period-btn.active {
@@ -46,18 +64,20 @@
     }
     
     .dre-section-title {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 700;
         color: var(--text);
         margin-bottom: 1rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--gray-border);
     }
     
-    .dre-section-title.receitas { color: var(--success); }
-    .dre-section-title.despesas { color: var(--error); }
-    .dre-section-title.resultado { color: var(--primary); }
+    .dre-section-title.receitas { color: var(--success); border-bottom-color: var(--success); }
+    .dre-section-title.despesas { color: var(--error); border-bottom-color: var(--error); }
+    .dre-section-title.resultado { color: var(--primary); border-bottom-color: var(--primary); }
     
     .dre-item {
         display: flex;
@@ -78,21 +98,25 @@
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
+        flex: 1;
     }
     
     .dre-item-name {
         font-weight: 600;
         color: var(--text);
+        font-size: 0.95rem;
     }
     
     .dre-item-sub {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: var(--text-muted);
     }
     
     .dre-item-value {
         font-weight: 700;
         font-size: 1.1rem;
+        min-width: 120px;
+        text-align: right;
     }
     
     .dre-item-value.positive { color: var(--success); }
@@ -129,6 +153,8 @@
         border-radius: 4px;
         overflow: hidden;
         margin-top: 0.5rem;
+        width: 100%;
+        max-width: 200px;
     }
     
     .dre-progress-bar {
@@ -151,6 +177,7 @@
         cursor: pointer;
         font-weight: 600;
         font-size: 0.9rem;
+        transition: background 0.2s;
     }
     
     .dre-refine-btn:hover {
@@ -165,12 +192,19 @@
         border-left: 4px solid var(--warning);
     }
     
+    .dre-suggestions h4 {
+        margin: 0 0 0.75rem 0;
+        color: var(--warning-dark);
+        font-size: 0.95rem;
+    }
+    
     .dre-suggestion-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 0.5rem 0;
         border-bottom: 1px solid var(--gray-border);
+        font-size: 0.9rem;
     }
     
     .dre-suggestion-item:last-child {
@@ -185,6 +219,47 @@
         border-radius: 4px;
         cursor: pointer;
         font-size: 0.8rem;
+        transition: background 0.2s;
+    }
+    
+    .dre-accept-btn:hover {
+        background: var(--success-dark);
+    }
+    
+    .dre-empty {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+    }
+    
+    .dre-empty-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Responsivo */
+    @media (max-width: 768px) {
+        .dre-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .dre-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .dre-item-value {
+            text-align: left;
+            min-width: auto;
+        }
+        
+        .dre-total {
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: center;
+        }
     }
 </style>
 {% endblock %}
@@ -196,9 +271,9 @@
         <!-- Header -->
         <div class="dre-header">
             <div>
-                <h2 style="margin: 0;">📊 DRE - Demonstrativo de Resultado</h2>
+                <h2>📊 DRE - Demonstrativo de Resultado</h2>
                 <p style="margin: 0.25rem 0 0 0; color: var(--text-muted);">
-                    {{ empresa.nome }} • {{ periodo_label }}
+                    {{ empresa_nome }} • {{ periodo_label }}
                 </p>
             </div>
             <div class="dre-period-selector">
@@ -215,15 +290,25 @@
                 📈 RECEITAS BRUTAS
             </div>
             
-            {% for item in receitas %}
-            <div class="dre-item">
-                <div class="dre-item-info">
-                    <span class="dre-item-name">{{ item.nome }}</span>
-                    <span class="dre-item-sub">{{ item.descricao }}</span>
+            {% if receitas %}
+                {% for item in receitas %}
+                <div class="dre-item">
+                    <div class="dre-item-info">
+                        <span class="dre-item-name">{{ item.nome }}</span>
+                        <span class="dre-item-sub">{{ item.descricao }}</span>
+                    </div>
+                    <span class="dre-item-value positive">+ R$ {{ item.valor|format_brl }}</span>
                 </div>
-                <span class="dre-item-value positive">+ R$ {{ item.valor|format_brl }}</span>
-            </div>
-            {% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="dre-empty">
+                    <div class="dre-empty-icon">📭</div>
+                    <p>Nenhuma receita encontrada para este período.</p>
+                    <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+                        <a href="{{ url_for('operacoes.importar_page') }}">Importar extrato ou vendas</a> para visualizar seus dados.
+                    </p>
+                </div>
+            {% endif %}
             
             <div class="dre-total">
                 <span class="dre-total-label">Total de Receitas</span>
@@ -237,27 +322,37 @@
                 📉 DESPESAS OPERACIONAIS
             </div>
             
-            {% for item in despesas %}
-            <div class="dre-item">
-                <div class="dre-item-info">
-                    <span class="dre-item-name">{{ item.nome }}</span>
-                    <span class="dre-item-sub">{{ item.descricao }} • {{ item.percentual }}%</span>
-                    <div class="dre-progress">
-                        <div class="dre-progress-bar despesa" style="width: {{ item.percentual }}%"></div>
+            {% if despesas %}
+                {% for item in despesas %}
+                <div class="dre-item">
+                    <div class="dre-item-info">
+                        <span class="dre-item-name">{{ item.nome }}</span>
+                        <span class="dre-item-sub">{{ item.descricao }} • {{ item.percentual }}%</span>
+                        <div class="dre-progress">
+                            <div class="dre-progress-bar despesa" style="width: {{ item.percentual }}%"></div>
+                        </div>
                     </div>
+                    <span class="dre-item-value negative">- R$ {{ item.valor|format_brl }}</span>
                 </div>
-                <span class="dre-item-value negative">- R$ {{ item.valor|format_brl }}</span>
-            </div>
-            {% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="dre-empty">
+                    <div class="dre-empty-icon">📭</div>
+                    <p>Nenhuma despesa encontrada para este período.</p>
+                </div>
+            {% endif %}
             
             <!-- Sugestões de refinamento -->
             {% if sugestoes_refinamento %}
             <div class="dre-suggestions">
-                <strong>💡 Sugestões de categorização:</strong>
+                <h4>💡 Sugestões de categorização</h4>
                 {% for sug in sugestoes_refinamento[:5] %}
                 <div class="dre-suggestion-item">
-                    <span style="font-size: 0.9rem;">
-                        "{{ sug.descricao }}" → <strong>{{ sug.sugestao }}</strong>
+                    <span>
+                        <strong>"{{ sug.descricao[:50] }}{% if sug.descricao|length > 50 %}...{% endif %}"</strong><br>
+                        <small style="color: var(--text-muted);">
+                            {{ sug.categoria_atual }} → <strong style="color: var(--success);">{{ sug.sugestao }}</strong>
+                        </small>
                     </span>
                     <button class="dre-accept-btn" onclick="aceitarSugestao({{ sug.id }}, '{{ sug.sugestao }}')">
                         ✅ Aceitar
@@ -304,7 +399,7 @@
                 </div>
                 <div class="dre-progress">
                     <div class="dre-progress-bar {% if margem >= 0 %}receita{% else %}despesa{% endif %}" 
-                         style="width: {{ margem|abs|round|int }}%"></div>
+                         style="width: {{ margem|abs|round|int if margem|abs < 100 else 100 }}%"></div>
                 </div>
             </div>
             {% endif %}
@@ -315,20 +410,47 @@
             🎯 Refinar Categorização Automaticamente
         </button>
         
+        <!-- Link de Volta -->
+        <div style="margin-top: 1.5rem; text-align: center;">
+            <a href="{{ url_for('dashboard.dashboard') }}" style="color: var(--primary); text-decoration: none; font-weight: 500;">
+                ← Voltar para o Dashboard
+            </a>
+        </div>
+        
     </div>
 </section>
 
 <script>
+// Função para mudar período
 function mudarPeriodo(periodo) {
-    window.location.href = `/dashboard/dre?periodo=${periodo}`;
+    // Mostrar loading
+    const container = document.querySelector('.dre-container');
+    if (container) {
+        container.style.opacity = '0.6';
+        container.style.pointerEvents = 'none';
+    }
+    
+    // Redirecionar
+    window.location.href = `/dre?periodo=${periodo}`;
 }
 
+// Função para aceitar sugestão de categoria
 function aceitarSugestao(id, categoria) {
+    if (!confirm(`Deseja alterar a categoria desta transação para "${categoria}"?`)) {
+        return;
+    }
+    
+    // Mostrar loading no botão
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '⏳';
+    btn.disabled = true;
+    
     fetch('/api/categorizacao/refinar', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': '{{ csrf_token }}'
+            'X-CSRF-Token': getCsrfToken()
         },
         body: JSON.stringify({
             normalizacao_id: id,
@@ -338,43 +460,65 @@ function aceitarSugestao(id, categoria) {
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            alert('✅ Categoria atualizada!');
+            alert('✅ Categoria atualizada! Recarregando página...');
             location.reload();
         } else {
-            alert('❌ Erro: ' + data.message);
+            alert('❌ Erro: ' + (data.message || 'Erro ao atualizar categoria'));
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     })
     .catch(err => {
         console.error(err);
         alert('❌ Erro de conexão');
+        btn.textContent = originalText;
+        btn.disabled = false;
     });
 }
 
+// Função para refinar categorias automaticamente
 function refinarCategorias() {
     if (!confirm('Deseja que o sistema tente refinar automaticamente as categorias das transações não classificadas?')) {
         return;
     }
     
+    // Mostrar loading
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Processando...';
+    btn.disabled = true;
+    
     fetch('/api/categorizacao/auto-refinar', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': '{{ csrf_token }}'
+            'X-CSRF-Token': getCsrfToken()
         }
     })
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            alert(`✅ ${data.atualizados} categorias refinadas!`);
+            alert(`✅ ${data.atualizados || 0} categorias refinadas! Recarregando...`);
             location.reload();
         } else {
-            alert('❌ Erro: ' + data.message);
+            alert('❌ Erro: ' + (data.message || 'Erro ao refinar categorias'));
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     })
     .catch(err => {
         console.error(err);
         alert('❌ Erro de conexão');
+        btn.textContent = originalText;
+        btn.disabled = false;
     });
+}
+
+// Helper para CSRF token
+function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || 
+           document.querySelector('input[name="csrf_token"]')?.value || 
+           '';
 }
 </script>
 {% endblock %}
