@@ -21,6 +21,7 @@ from logging.handlers import RotatingFileHandler
 import os
 import sys
 import secrets
+from decimal import Decimal
 
 # Sentry (import condicional)
 try:
@@ -139,13 +140,7 @@ def create_app(config_class=Config):
     except Exception as e:
         app.logger.error(f"❌ Error registering filters: {str(e)}")
 
-    # ✅ NOVO: FILTROS DE HORÁRIO BRASILEIRO (UTC-3)
-    # ============================================================
-    # Disponibiliza filtros em todos os templates:
-    #   {{ data | hora_brasil }}         → "09/06/2026 19:30"
-    #   {{ data | hora_brasil('%H:%M') }} → "19:30"
-    #   {{ data | hora_brasil_full }}     → "Segunda, 09/06/2026 às 19:30"
-    # ============================================================
+    # ✅ FILTROS DE HORÁRIO BRASILEIRO (UTC-3)
     try:
         @app.template_filter('hora_brasil')
         def filter_hora_brasil(dt, fmt="%d/%m/%Y %H:%M"):
@@ -161,6 +156,12 @@ def create_app(config_class=Config):
     except Exception as e:
         app.logger.error(f"❌ Erro ao registrar filtros de horário: {str(e)}")
 
+    # ✅ FILTROS FINANCEIROS PARA TEMPLATES (BRL + COMPARAÇÕES)
+    # ============================================================
+    # Disponibiliza em todos os templates:
+    #   {{ valor|format_brl }}      → "R$ 1.234,56"
+    #   {{ valor|safe_float }}      → 1234.56 (para comparações)
+    # ============================================================
     try:
         @app.template_filter('format_brl')
         def filter_format_brl(value):
@@ -171,8 +172,6 @@ def create_app(config_class=Config):
                 1234567.89 → "1.234.567,89"
                 "R$ 1.234,56" → "1.234,56"
             """
-            from decimal import Decimal
-            
             if value is None:
                 return "0,00"
             try:
@@ -196,14 +195,6 @@ def create_app(config_class=Config):
                     num = float(value)
                 
                 # Formatar: 1234567.89 → "1.234.567,89"
-                # Passo 1: formatar com separador de milhar US (vírgula) e decimal US (ponto)
-                # Ex: f"{1234567.89:,.2f}" → "1,234,567.89"
-                # Passo 2: trocar vírgula por X temporariamente
-                # Ex: "1,234,567.89" → "1X234X567.89"
-                # Passo 3: trocar ponto por vírgula (decimal BR)
-                # Ex: "1X234X567.89" → "1X234X567,89"
-                # Passo 4: trocar X por ponto (milhar BR)
-                # Ex: "1X234X567,89" → "1.234.567,89" ✅
                 formatted = f"{num:,.2f}"
                 return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
                 
@@ -217,8 +208,6 @@ def create_app(config_class=Config):
             Converte valor para float de forma segura para comparações no template.
             Exemplo: "R$ 1.234,56" → 1234.56
             """
-            from decimal import Decimal
-            
             if value is None:
                 return 0.0
             try:
@@ -264,8 +253,6 @@ def create_app(config_class=Config):
         }
 
     # ✅ NOVO: CONTEXT PROCESSOR DE HORÁRIO BRASILEIRO
-    # Disponibiliza 'agora_brasil' em TODOS os templates
-    # Uso: {{ agora_brasil | hora_brasil }}
     @app.context_processor
     def inject_agora_brasil():
         """Injeta horário atual de Brasília em todos os templates"""
