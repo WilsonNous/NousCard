@@ -12,43 +12,92 @@ from cryptography.fernet import Fernet
 logger = logging.getLogger(__name__)
 
 # ============================================================
-# CRIPTOGRAFIA
+# CRIPTOGRAFIA - VERSÃO COM LOGS DETALHADOS
 # ============================================================
 def criptografar_conteudo(registros):
     """Criptografa registros JSON antes de salvar"""
     try:
         encryption_key = os.getenv("ENCRYPTION_KEY")
+        
         if not encryption_key:
-            logger.warning("ENCRYPTION_KEY não configurada, salvando sem criptografia")
+            logger.warning("⚠️ ENCRYPTION_KEY não configurada, salvando sem criptografia (JSON puro)")
             return json.dumps(registros, ensure_ascii=False, default=str)
         
-        # Remover aspas se existirem (compatibilidade)
-        encryption_key = encryption_key.strip('"')
+        # ✅ CORREÇÃO: Remover aspas extras que podem vir do Render/Heroku
+        encryption_key = encryption_key.strip().strip('"').strip("'")
+        
+        if len(encryption_key) < 32:
+            logger.error(f"❌ ENCRYPTION_KEY muito curta ({len(encryption_key)} chars), precisa de 32+ caracteres")
+            return json.dumps(registros, ensure_ascii=False, default=str)
         
         f = Fernet(encryption_key.encode())
         conteudo = json.dumps(registros, ensure_ascii=False, default=str)
-        return f.encrypt(conteudo.encode()).decode()
+        encrypted = f.encrypt(conteudo.encode()).decode()
+        logger.debug(f"✅ Conteúdo criptografado: {len(conteudo)} bytes → {len(encrypted)} bytes")
+        return encrypted
+        
     except Exception as e:
-        logger.error(f"Erro ao criptografar: {str(e)}")
+        logger.error(f"❌ Erro CRÍTICO ao criptografar: {type(e).__name__}: {str(e)}", exc_info=True)
+        # Fallback: salvar como JSON puro para não perder dados
         return json.dumps(registros, ensure_ascii=False, default=str)
 
+
 def descriptografar_conteudo(conteudo_criptografado):
-    """Descriptografa registros JSON do banco"""
+    """Descriptografa registros JSON do banco com logs detalhados"""
     if not conteudo_criptografado:
+        logger.debug("ℹ️ Conteúdo vazio, retornando lista vazia")
         return []
+    
+    # ✅ Verificar se já é JSON puro (fallback de versões antigas)
+    if isinstance(conteudo_criptografado, str) and conteudo_criptografado.strip().startswith('['):
+        try:
+            logger.debug("🔓 Detectado JSON puro (não criptografado), carregando direto")
+            return json.loads(conteudo_criptografado)
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠️ JSON puro inválido: {str(e)[:100]}...")
+            return []
     
     try:
         encryption_key = os.getenv("ENCRYPTION_KEY")
-        if not encryption_key:
-            return json.loads(conteudo_criptografado)
         
-        encryption_key = encryption_key.strip('"')
+        if not encryption_key:
+            logger.error("❌ ENCRYPTION_KEY não configurada, não é possível descriptografar")
+            return []
+        
+        # ✅ CORREÇÃO: Remover aspas extras
+        encryption_key = encryption_key.strip().strip('"').strip("'")
+        
+        if len(encryption_key) < 32:
+            logger.error(f"❌ ENCRYPTION_KEY inválida ({len(encryption_key)} chars), precisa de 32+")
+            return []
+        
         f = Fernet(encryption_key.encode())
-        conteudo = f.decrypt(conteudo_criptografado.encode()).decode()
-        return json.loads(conteudo)
+        
+        # Tentar descriptografar
+        decrypted_bytes = f.decrypt(conteudo_criptografado.encode())
+        conteudo = decrypted_bytes.decode('utf-8')
+        
+        # Parse JSON
+        registros = json.loads(conteudo)
+        logger.info(f"✅ Conteúdo descriptografado com sucesso: {len(registros)} registros")
+        return registros
+        
     except Exception as e:
-        logger.error(f"Erro ao descriptografar: {str(e)}")
-        return []
+        # ✅ LOG COMPLETO DO ERRO (antes estava vazio!)
+        logger.error(f"❌ ════════════════════════════════════════════════════════════")
+        logger.error(f"❌ ERRO AO DESCRIPTOGRAFAR: {type(e).__name__}: {str(e)}")
+        logger.error(f"❌ Conteúdo (primeiros 200 chars): {str(conteudo_criptografado)[:200]}...")
+        logger.error(f"❌ ENCRYPTION_KEY configurada: {'✅ Sim' if os.getenv('ENCRYPTION_KEY') else '❌ Não'}")
+        logger.error(f"❌ Traceback:", exc_info=True)
+        logger.error(f"❌ ════════════════════════════════════════════════════════════")
+        
+        # Fallback: tentar como JSON puro
+        try:
+            logger.warning("🔄 Tentando fallback como JSON puro...")
+            return json.loads(conteudo_criptografado)
+        except:
+            logger.warning("⚠️ Fallback JSON puro também falhou")
+            return []
 
 # ============================================================
 # UTILITÁRIOS DE CONVERSÃO
