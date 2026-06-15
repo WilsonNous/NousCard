@@ -2,7 +2,7 @@
 # Dashboard HTML + API de Dashboard Financeiro Inteligente
 
 from flask import Blueprint, jsonify, request, g, render_template, make_response, redirect, url_for, session, abort
-from models import db, MovBanco, MovAdquirente, Empresa, ArquivoImportado, LogAuditoria, Usuario
+from models import db, MovBanco, MovAdquirente, Empresa, ArquivoImportado, LogAuditoria, Usuario, Normalizacao
 from sqlalchemy import func, extract, and_, or_
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -12,7 +12,10 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# routes/dashboard_routes.py - Adicionar após os imports
+# ============================================================
+# ✅ BLUEPRINT 1: Dashboard HTML (página visual)
+# ============================================================
+dashboard_bp = Blueprint("dashboard", __name__)
 
 # ============================================================
 # ✅ HELPER: Padronizar categorias para o dashboard
@@ -78,22 +81,59 @@ def _padronizar_categoria(categoria: str) -> str:
     
     return mapeamento.get(categoria_lower, categoria_lower)
 
+# Mapeamento de categorias técnicas para nomes amigáveis
+CATEGORIAS_NOME = {
+    # Receitas
+    'vendas_cartao': 'Vendas no Cartão',
+    'vendas_mastercard': 'Vendas - Mastercard',
+    'vendas_visa': 'Vendas - Visa',
+    'vendas_elo': 'Vendas - Elo',
+    'vendas_pix': 'Vendas via PIX',
+    'vendas_boleto': 'Vendas via Boleto',
+    'transferencia_recebida': 'Transferências Recebidas',
+    'outras_receitas': 'Outras Receitas',
+    
+    # Despesas
+    'fornecedores_mercadoria': 'Fornecedores - Mercadorias',
+    'fornecedores_servicos': 'Fornecedores - Serviços',
+    'impostos_tributos': 'Impostos e Tributos',
+    'tarifas_bancarias': 'Tarifas Bancárias',
+    'aluguel_condominio': 'Aluguel e Condomínio',
+    'energia_agua_telecom': 'Energia, Água e Telecom',
+    'marketing_publicidade': 'Marketing e Publicidade',
+    'salarios_encargos': 'Salários e Encargos',
+    'transporte_combustivel': 'Transporte e Combustível',
+    'equipamentos_manutencao': 'Equipamentos e Manutenção',
+    'seguros': 'Seguros',
+    'saude_bem_estar': 'Saúde e Bem-estar',
+    'viagens_hospedagem': 'Viagens e Hospedagem',
+    'doacoes_patrocinios': 'Doações e Patrocínios',
+    'outras_despesas': 'Outras Despesas',
+}
+
+CATEGORIAS_DESC = {
+    'vendas_cartao': 'Recebimentos via maquininha de cartão',
+    'vendas_pix': 'Recebimentos via PIX de clientes',
+    'fornecedores_mercadoria': 'Compra de produtos para revenda ou estoque',
+    'fornecedores_servicos': 'Serviços terceirizados e manutenção',
+    'impostos_tributos': 'DAS, INSS, IR, taxas governamentais',
+    'tarifas_bancarias': 'Tarifas de conta, TED, manutenção bancária',
+    'outras_despesas': 'Transações não classificadas automaticamente',
+}
+
+PERIODOS_LABEL = {
+    'mes': 'Este Mês',
+    'trimestre': 'Último Trimestre',
+    'ano': 'Este Ano',
+    '12meses': 'Últimos 12 Meses',
+}
+
 # ============================================================
-# ✅ ROTA RAIZ INTELIGENTE (MOVIDA PARA CÁ!)
+# ✅ ROTA RAIZ INTELIGENTE
 # ============================================================
 @dashboard_bp.route("/")
 def raiz_inteligente():
-    """
-    Rota raiz inteligente do NousCard.
-    
-    Comportamento:
-    - Usuário logado → redireciona para /dashboard
-    - Usuário NÃO logado → redireciona para /auth/login
-    
-    Isso garante que nouscard.com.br sempre mostre a página
-    correta baseada no estado de autenticação.
-    """
-    # Verificar se tem usuário logado
+    """Rota raiz inteligente do NousCard"""
     usuario = getattr(g, 'user', None)
     
     if usuario and getattr(usuario, 'id', None):
@@ -145,16 +185,13 @@ def dashboard():
         
     empresa_id = getattr(usuario, 'empresa_id', None)
     
-    # Rate limiting
     if not check_dashboard_rate_limit(str(usuario.id)):
         logger.warning(f"Rate limit aproximado: usuario={usuario.id}")
     
-    # Verificação robusta de empresa_id
     if not empresa_id:
         logger.error(f"❌ Usuário {usuario.id} não tem empresa_id vinculado")
         return redirect(url_for('operacoes.importar_page'))
     
-    # Verificar se empresa está ativa
     try:
         empresa = Empresa.query.filter_by(id=empresa_id, ativo=True).first()
         if not empresa:
@@ -165,7 +202,6 @@ def dashboard():
         logger.error(f"❌ Erro ao verificar empresa: {str(e)}")
         return redirect(url_for('auth.logout'))
     
-    # Log de auditoria
     try:
         log = LogAuditoria(
             usuario_id=usuario.id,
@@ -180,26 +216,16 @@ def dashboard():
     except Exception as e:
         logger.debug(f"⚠️ Erro ao logar acesso ao dashboard (não crítico): {str(e)}")
     
-    # Onboarding com queries separadas
     try:
-        tem_vendas = MovAdquirente.query.filter_by(
-            empresa_id=empresa_id
-        ).limit(1).count() > 0
-        
-        tem_arquivos = ArquivoImportado.query.filter_by(
-            empresa_id=empresa_id
-        ).limit(1).count() > 0
-        
-        logger.debug(f"🔍 Onboarding: empresa={empresa_id}, tem_vendas={tem_vendas}, tem_arquivos={tem_arquivos}")
+        tem_vendas = MovAdquirente.query.filter_by(empresa_id=empresa_id).limit(1).count() > 0
+        tem_arquivos = ArquivoImportado.query.filter_by(empresa_id=empresa_id).limit(1).count() > 0
         
         if not tem_vendas and not tem_arquivos:
             logger.info(f"🔄 Onboarding: empresa {empresa_id} sem dados, redirecionando para importar")
             return redirect(url_for('operacoes.importar_page'))
-            
     except Exception as e:
         logger.debug(f"⚠️ Não foi possível verificar dados para onboarding: {str(e)}")
     
-    # Preparar contexto completo para o template
     contexto = {
         "usuario": usuario,
         "empresa_id": empresa_id,
@@ -213,23 +239,16 @@ def dashboard():
         "tipos_pagamento_disponiveis": ["todos", "cartao", "pix", "boleto", "outros"],
     }
     
-    # Renderizar com cache control
     try:
         html = render_template("dashboard.html", **contexto)
         response = make_response(html)
-        
-        # Prevenir cache de página sensível
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
-        
-        # Security headers
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
-        
         return response
-        
     except Exception as e:
         logger.error(f"❌ Erro ao renderizar dashboard: {str(e)}", exc_info=True)
         abort(500)
@@ -242,60 +261,37 @@ dashboard_api_bp = Blueprint("dashboard_api", __name__)
 
 
 def get_periodo_datas(periodo):
-    """
-    Retorna data_inicio e data_fim baseado no período selecionado.
-    
-    Períodos suportados:
-    - geral: todos os dados (sem filtro de data)
-    - atual: este mês
-    - anterior: mês anterior
-    - 3meses: últimos 3 meses
-    - 6meses: últimos 6 meses
-    - 12meses: últimos 12 meses
-    - ano: este ano
-    - anoanterior: ano anterior
-    """
+    """Retorna data_inicio e data_fim baseado no período selecionado"""
     hoje = datetime.now().date()
     
     if periodo == 'geral':
-        # Sem filtro de data - retorna None para indicar "todos"
         return None, hoje
-    
-    elif periodo == 'atual':  # Este mês
+    elif periodo == 'atual':
         data_inicio = hoje.replace(day=1)
         data_fim = hoje
-    
-    elif periodo == 'anterior':  # Mês anterior
+    elif periodo == 'anterior':
         if hoje.month == 1:
             data_inicio = hoje.replace(year=hoje.year-1, month=12, day=1)
             data_fim = hoje.replace(year=hoje.year-1, month=12, day=31)
         else:
             data_inicio = hoje.replace(month=hoje.month-1, day=1)
-            # Último dia do mês anterior
             data_fim = hoje.replace(day=1) - timedelta(days=1)
-    
-    elif periodo == '3meses':  # Últimos 3 meses
+    elif periodo == '3meses':
         data_fim = hoje
         data_inicio = hoje - timedelta(days=90)
-    
-    elif periodo == '6meses':  # Últimos 6 meses
+    elif periodo == '6meses':
         data_fim = hoje
         data_inicio = hoje - timedelta(days=180)
-    
-    elif periodo == '12meses':  # Últimos 12 meses
+    elif periodo == '12meses':
         data_fim = hoje
         data_inicio = hoje - timedelta(days=365)
-    
-    elif periodo == 'ano':  # Este ano
+    elif periodo == 'ano':
         data_inicio = hoje.replace(month=1, day=1)
         data_fim = hoje
-    
-    elif periodo == 'anoanterior':  # Ano anterior
+    elif periodo == 'anoanterior':
         data_inicio = hoje.replace(year=hoje.year-1, month=1, day=1)
         data_fim = hoje.replace(year=hoje.year-1, month=12, day=31)
-    
     else:
-        # Padrão: este mês
         data_inicio = hoje.replace(day=1)
         data_fim = hoje
     
@@ -304,12 +300,8 @@ def get_periodo_datas(periodo):
 
 def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     """
-    Calcula todos os KPIs financeiros.
-    
-    ✅ ESTRATÉGIA: Busca em 3 fontes, na ordem:
-    1. MovBanco (tabela final de extrato)
-    2. MovAdquirente (tabela final de vendas)
-    3. tous_normalizacao (fallback se não processado)
+    Calcula todos os KPIs financeiros baseados em MovBanco E MovAdquirente.
+    ✅ CORREÇÃO: Busca saídas por CATEGORIA, não por valor negativo
     """
     from models import MovAdquirente, MovBanco, Normalizacao
     from sqlalchemy import or_, and_
@@ -387,7 +379,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         'seguros', 'saude_bem_estar', 'viagens_hospedagem', 'doacoes_patrocinios'
     ]
     
-    # 1. Saídas de MovBanco (por categoria OU valor negativo)
+    # 1. Saídas de MovBanco
     query_banco_saidas = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.ativo == True,
@@ -433,15 +425,15 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     saldo = total_entradas - total_saidas
     
     # ============================================================
-    # DETALHAMENTO POR CATEGORIA (com fallback)
+    # DETALHAMENTO POR CATEGORIA (com fallback e padronização)
     # ============================================================
     
     def _somar_por_categoria(tabela, campo_valor, campo_data, categorias, data_inicio, data_fim):
         """Helper para somar valores por lista de categorias"""
         query = tabela.query.filter(
             tabela.empresa_id == empresa_id,
-            tabela.ativo == True,
-            tabela.categoria.in_(categorias)
+            tabela.ativo == True if hasattr(tabela, 'ativo') else True,
+            getattr(tabela, 'categoria').in_(categorias)
         )
         if data_inicio is not None:
             query = query.filter(
@@ -555,33 +547,28 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
 
 
 def gerar_insight_inteligente(kpis, periodo):
-    """Gera insights automáticos baseados nos dados financeiros."""
+    """Gera insights automáticos baseados nos dados financeiros"""
     insights = []
     
-    # Insight sobre vendas no cartão
     if kpis['vendas_cartao'] > 0:
         percentual_cartao = (kpis['vendas_cartao'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
         if percentual_cartao > 30:
             insights.append(f"Você recebeu R$ {kpis['vendas_cartao']:,.2f} via maquininha este período ({percentual_cartao:.1f}% das receitas). Verifique se as taxas da adquirente estão competitivas!")
     
-    # Insight sobre PIX
     if kpis['receitas']['pix'] > 0:
         percentual_pix = (kpis['receitas']['pix'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
         insights.append(f"PIX representa {percentual_pix:.1f}% das suas receitas - ótima alternativa às taxas de cartão!")
     
-    # Insight sobre fornecedores recorrentes
     if kpis['despesas']['fornecedores'] > kpis['entradas'] * 0.5:
         percentual_forn = (kpis['despesas']['fornecedores'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
         insights.append(f"Atenção: {percentual_forn:.1f}% da receita vai para fornecedores. Revise contratos!")
     
-    # Insight sobre saldo
     if kpis['saldo'] < 0:
         insights.append("⚠️ Fluxo de caixa negativo neste período. Considere revisar despesas ou acelerar recebimentos.")
     elif kpis['entradas'] > 0 and kpis['saldo'] > kpis['entradas'] * 0.2:
         percentual_margem = (kpis['saldo'] / kpis['entradas'] * 100) if kpis['entradas'] > 0 else 0
         insights.append(f"✅ Excelente gestão! Você manteve {percentual_margem:.1f}% de margem positiva.")
     
-    # Insight sobre impostos
     if kpis['despesas']['impostos'] > 0:
         insights.append(f"Você pagou R$ {kpis['despesas']['impostos']:,.2f} em impostos. Mantenha a regularidade fiscal!")
     
@@ -591,7 +578,7 @@ def gerar_insight_inteligente(kpis, periodo):
 @dashboard_api_bp.route('/api/v1/dashboard/kpis', methods=['GET'])
 @login_required
 def get_dashboard_kpis():
-    """API principal do dashboard com KPIs de vendas por bandeira."""
+    """API principal do dashboard com KPIs de vendas por bandeira"""
     try:
         periodo = request.args.get('periodo', 'atual')
         
@@ -607,7 +594,7 @@ def get_dashboard_kpis():
         kpis = calcular_kpis_financeiros(empresa_id, data_inicio, data_fim)
         insight = gerar_insight_inteligente(kpis, periodo)
         
-        # ✅ NOVO: Calcular vendas por bandeira
+        # Calcular vendas por bandeira
         vendas_por_bandeira = calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim)
         
         response = {
@@ -631,7 +618,7 @@ def get_dashboard_kpis():
                 'impostos': round(kpis['despesas']['impostos'], 2),
                 'outras': round(kpis['despesas']['outras'], 2)
             },
-            'vendas_por_bandeira': vendas_por_bandeira,  # ✅ NOVO
+            'vendas_por_bandeira': vendas_por_bandeira,
             'insight': insight,
             'total_registros': kpis['total_registros']
         }
@@ -648,10 +635,7 @@ def get_dashboard_kpis():
 
 
 def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
-    """
-    Calcula vendas por bandeira (Mastercard, Visa, Elo, etc.)
-    ✅ CORREÇÃO: Usa campo 'bandeira' que existe em MovAdquirente
-    """
+    """Calcula vendas por bandeira (Mastercard, Visa, Elo, etc.)"""
     from models import MovAdquirente
     
     query = db.session.query(
@@ -665,7 +649,6 @@ def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
         MovAdquirente.bandeira != ''
     )
     
-    # Aplicar filtro de data apenas se data_inicio não for None
     if data_inicio is not None:
         query = query.filter(
             MovAdquirente.data_venda >= data_inicio,
@@ -677,7 +660,6 @@ def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
     vendas_por_bandeira = {}
     for bandeira, total in resultados:
         if bandeira:
-            # Normalizar nome da bandeira
             nome = bandeira.strip().title()
             vendas_por_bandeira[nome] = float(total or 0)
     
@@ -687,23 +669,17 @@ def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
 @dashboard_api_bp.route('/api/v1/dashboard/resumo-mensal', methods=['GET'])
 @login_required
 def get_resumo_mensal():
-    """
-    API para gráfico de evolução mensal.
-    Suporta período "geral" (últimos 12 meses).
-    """
+    """API para gráfico de evolução mensal"""
     try:
         if not hasattr(g, 'user') or not g.user:
             return jsonify({'error': 'Usuário não autenticado'}), 401
         
         empresa_id = g.user.empresa_id
         hoje = datetime.now().date()
-        
-        # Para período "geral", mostrar últimos 12 meses
         num_meses = 12
         
         meses = []
         for i in range(num_meses - 1, -1, -1):
-            # Calcular mês e ano
             mes_atual = hoje.month - i
             ano_atual = hoje.year
             
@@ -711,29 +687,23 @@ def get_resumo_mensal():
                 mes_atual += 12
                 ano_atual -= 1
             
-            # Primeiro e último dia do mês
             data_inicio = datetime(ano_atual, mes_atual, 1).date()
             if mes_atual == 12:
                 data_fim = datetime(ano_atual, 12, 31).date()
             else:
                 data_fim = datetime(ano_atual, mes_atual + 1, 1).date() - timedelta(days=1)
             
-            # Calcular saldo do mês (MovBanco + MovAdquirente)
             saldo_banco = MovBanco.query.filter(
                 MovBanco.empresa_id == empresa_id,
                 MovBanco.data_movimento >= data_inicio,
                 MovBanco.data_movimento <= data_fim
-            ).with_entities(
-                func.sum(MovBanco.valor)
-            ).scalar() or Decimal('0')
+            ).with_entities(func.sum(MovBanco.valor)).scalar() or Decimal('0')
             
             saldo_adq = MovAdquirente.query.filter(
                 MovAdquirente.empresa_id == empresa_id,
                 MovAdquirente.data_venda >= data_inicio,
                 MovAdquirente.data_venda <= data_fim
-            ).with_entities(
-                func.sum(MovAdquirente.valor_bruto)
-            ).scalar() or Decimal('0')
+            ).with_entities(func.sum(MovAdquirente.valor_bruto)).scalar() or Decimal('0')
             
             saldo_total = saldo_banco + saldo_adq
             
@@ -757,26 +727,30 @@ def dre_resumo():
     empresa_id = g.user.empresa_id
     periodo = request.args.get('periodo', '12meses')
     
-    # Calcular período de datas
     data_inicio, data_fim = get_periodo_datas(periodo)
     
-    # Buscar receitas (créditos) - da tabela Normalizacao
-    from models import Normalizacao
-    
+    # Buscar receitas
     receitas_query = db.session.query(
         Normalizacao.categoria,
         func.sum(Normalizacao.valor_bruto).label('total')
     ).filter(
         Normalizacao.empresa_id == empresa_id,
-        Normalizacao.data_movimento.between(data_inicio, data_fim) if data_inicio else True,
-        Normalizacao.valor_bruto > 0,
-        Normalizacao.status == 'processado'
-    ).group_by(Normalizacao.categoria).all()
+        Normalizacao.status == 'processado',
+        Normalizacao.valor_bruto > 0
+    )
+    
+    if data_inicio is not None:
+        receitas_query = receitas_query.filter(
+            Normalizacao.data_movimento.between(data_inicio, data_fim)
+        )
+    
+    receitas_query = receitas_query.group_by(Normalizacao.categoria)
+    receitas_result = receitas_query.all()
     
     receitas = []
     total_receitas = Decimal('0')
     
-    for cat, total in receitas_query:
+    for cat, total in receitas_result:
         receitas.append({
             'nome': CATEGORIAS_NOME.get(cat, cat),
             'descricao': CATEGORIAS_DESC.get(cat, ''),
@@ -785,28 +759,37 @@ def dre_resumo():
         })
         total_receitas += total
     
-    # Buscar despesas (débitos) - da tabela Normalizacao
+    # Buscar despesas
     despesas_query = db.session.query(
         Normalizacao.categoria,
         func.sum(Normalizacao.valor_bruto).label('total')
     ).filter(
         Normalizacao.empresa_id == empresa_id,
-        Normalizacao.data_movimento.between(data_inicio, data_fim) if data_inicio else True,
-        Normalizacao.valor_bruto < 0,
-        Normalizacao.status == 'processado'
-    ).group_by(Normalizacao.categoria).all()
+        Normalizacao.status == 'processado',
+        Normalizacao.valor_bruto < 0
+    )
+    
+    if data_inicio is not None:
+        despesas_query = despesas_query.filter(
+            Normalizacao.data_movimento.between(data_inicio, data_fim)
+        )
+    
+    despesas_query = despesas_query.group_by(Normalizacao.categoria)
+    despesas_result = despesas_query.all()
     
     despesas = []
     total_despesas = Decimal('0')
     
-    for cat, total in despesas_query:
+    for cat, total in despesas_result:
+        # ✅ Padronizar categoria antes de agregar
+        cat_padronizada = _padronizar_categoria(cat)
         percentual = (abs(total) / total_receitas * 100) if total_receitas > 0 else 0
         despesas.append({
-            'nome': CATEGORIAS_NOME.get(cat, cat),
-            'descricao': CATEGORIAS_DESC.get(cat, ''),
+            'nome': CATEGORIAS_NOME.get(cat_padronizada, cat_padronizada),
+            'descricao': CATEGORIAS_DESC.get(cat_padronizada, ''),
             'valor': float(abs(total)),
             'percentual': round(percentual, 1),
-            'categoria': cat
+            'categoria': cat_padronizada
         })
         total_despesas += abs(total)
     
