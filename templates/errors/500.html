@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Erro 500 - NousCard{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <div style="text-align: center; padding: 4rem 2rem; background: var(--white); border-radius: 12px; box-shadow: var(--shadow-sm);">
+        
+        <div style="font-size: 4rem; margin-bottom: 1rem;">⚠️</div>
+        
+        <h2 style="color: var(--error); margin-bottom: 1rem;">Erro Interno do Servidor</h2>
+        
+        <p style="color: var(--text-muted); margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+            Ocorreu um erro inesperado ao processar sua solicitação. 
+            Nossa equipe foi notificada e está trabalhando na correção.
+        </p>
+        
+        {% if error_message %}
+        <div style="background: var(--error-bg); color: var(--error); padding: 1rem; border-radius: 8px; margin-bottom: 2rem; font-family: monospace; font-size: 0.9rem;">
+            <strong>Detalhes:</strong><br>
+            {{ error_message }}
+        </div>
+        {% endif %}
+        
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="javascript:history.back()" class="nc-btn nc-btn-outline">
+                ← Voltar
+            </a>
+            <a href="{{ url_for('dashboard.dashboard') }}" class="nc-btn nc-btn-primary">
+                🏠 Ir para Dashboard
+            </a>
+            <a href="{{ url_for('operacoes.importar_page') }}" class="nc-btn nc-btn-secondary">
+                📤 Nova Importação
+            </a>
+        </div>
+        
+        <p style="margin-top: 2rem; font-size: 0.85rem; color: var(--text-muted);">
+            Se o problema persistir, entre em contato com o suporte.
+        </p>
+        
+    </div>
+</section>
+{% endblock %}
