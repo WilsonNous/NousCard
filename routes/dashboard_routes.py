@@ -12,57 +12,71 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# ✅ BLUEPRINT 1: Dashboard HTML (página visual)
-# ============================================================
-dashboard_bp = Blueprint("dashboard", __name__)
+# routes/dashboard_routes.py - Adicionar após os imports
 
-# Mapeamento de categorias técnicas para nomes amigáveis
-CATEGORIAS_NOME = {
-    # Receitas
-    'vendas_cartao': 'Vendas no Cartão',
-    'vendas_mastercard': 'Vendas - Mastercard',
-    'vendas_visa': 'Vendas - Visa',
-    'vendas_elo': 'Vendas - Elo',
-    'vendas_pix': 'Vendas via PIX',
-    'vendas_boleto': 'Vendas via Boleto',
-    'transferencia_recebida': 'Transferências Recebidas',
-    'outras_receitas': 'Outras Receitas',
+# ============================================================
+# ✅ HELPER: Padronizar categorias para o dashboard
+# ============================================================
+def _padronizar_categoria(categoria: str) -> str:
+    """
+    Mapeia categorias variantes para as padronizadas do dashboard.
+    Ex: 'transferencia_enviada_outros' → 'fornecedores_servicos'
+    """
+    if not categoria:
+        return 'outras_despesas'
     
-    # Despesas
-    'fornecedores_mercadoria': 'Fornecedores - Mercadorias',
-    'fornecedores_servicos': 'Fornecedores - Serviços',
-    'impostos_tributos': 'Impostos e Tributos',
-    'tarifas_bancarias': 'Tarifas Bancárias',
-    'aluguel_condominio': 'Aluguel e Condomínio',
-    'energia_agua_telecom': 'Energia, Água e Telecom',
-    'marketing_publicidade': 'Marketing e Publicidade',
-    'salarios_encargos': 'Salários e Encargos',
-    'transporte_combustivel': 'Transporte e Combustível',
-    'equipamentos_manutencao': 'Equipamentos e Manutenção',
-    'seguros': 'Seguros',
-    'saude_bem_estar': 'Saúde e Bem-estar',
-    'viagens_hospedagem': 'Viagens e Hospedagem',
-    'doacoes_patrocinios': 'Doações e Patrocínios',
-    'outras_despesas': 'Outras Despesas',
-}
-
-CATEGORIAS_DESC = {
-    'vendas_cartao': 'Recebimentos via maquininha de cartão',
-    'vendas_pix': 'Recebimentos via PIX de clientes',
-    'fornecedores_mercadoria': 'Compra de produtos para revenda ou estoque',
-    'fornecedores_servicos': 'Serviços terceirizados e manutenção',
-    'impostos_tributos': 'DAS, INSS, IR, taxas governamentais',
-    'tarifas_bancarias': 'Tarifas de conta, TED, manutenção bancária',
-    'outras_despesas': 'Transações não classificadas automaticamente',
-}
-
-PERIODOS_LABEL = {
-    'mes': 'Este Mês',
-    'trimestre': 'Último Trimestre',
-    'ano': 'Este Ano',
-    '12meses': 'Últimos 12 Meses',
-}
+    categoria_lower = categoria.lower().strip()
+    
+    # Mapeamento direto
+    mapeamento = {
+        # Transporte
+        'combustivel': 'transporte_combustivel',
+        'posto': 'transporte_combustivel',
+        'gasolina': 'transporte_combustivel',
+        'uber': 'transporte_combustivel',
+        '99': 'transporte_combustivel',
+        'taxi': 'transporte_combustivel',
+        'estacionamento': 'transporte_combustivel',
+        'pedagio': 'transporte_combustivel',
+        'frete': 'transporte_combustivel',
+        
+        # Transferências → Fornecedores
+        'transferencia_enviada_outros': 'fornecedores_servicos',
+        'pix_emitido': 'fornecedores_servicos',
+        'pix_fornecedores': 'fornecedores_servicos',
+        'boleto_pago_outros': 'fornecedores_servicos',
+        
+        # Energia/Telecom
+        'energia': 'energia_agua_telecom',
+        'agua': 'energia_agua_telecom',
+        'esgoto': 'energia_agua_telecom',
+        'telefone': 'energia_agua_telecom',
+        'celular': 'energia_agua_telecom',
+        'internet': 'energia_agua_telecom',
+        'netflix': 'energia_agua_telecom',
+        'claro': 'energia_agua_telecom',
+        'vivo': 'energia_agua_telecom',
+        
+        # Impostos
+        'tributos': 'impostos_tributos',
+        'das': 'impostos_tributos',
+        'darf': 'impostos_tributos',
+        'simples': 'impostos_tributos',
+        'rfb': 'impostos_tributos',
+        'iptu': 'impostos_tributos',
+        'iss': 'impostos_tributos',
+        
+        # Tarifas
+        'tarifa_bancaria': 'tarifas_bancarias',
+        'tarifa': 'tarifas_bancarias',
+        'manutencao': 'tarifas_bancarias',
+        'pacote': 'tarifas_bancarias',
+        'ted': 'tarifas_bancarias',
+        'doc': 'tarifas_bancarias',
+        'iof': 'tarifas_bancarias',
+    }
+    
+    return mapeamento.get(categoria_lower, categoria_lower)
 
 # ============================================================
 # ✅ ROTA RAIZ INTELIGENTE (MOVIDA PARA CÁ!)
