@@ -9,13 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
-    """
-    Processa normalizações e salva nas tabelas finais.
-    Aceita registros com status 'importado' OU 'validado'.
-    """
+    """Processa normalizações e salva nas tabelas finais"""
     logger.info(f"🔄 Processando normalizações para empresa {empresa_id}, arquivo {arquivo_id}")
     
-    # ✅ CORREÇÃO: Buscar registros com status 'importado' OU 'validado'
     query = Normalizacao.query.filter(
         Normalizacao.empresa_id == empresa_id,
         Normalizacao.status.in_(["importado", "validado"])
@@ -32,7 +28,6 @@ def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
     
     logger.info(f"📦 {len(normalizacoes)} normalizações para processar")
     
-    # Separar por tipo
     vendas = []
     recebimentos = []
     
@@ -89,11 +84,7 @@ def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
     
     db.session.commit()
     
-    logger.info(
-        f"✅ Processamento concluído: "
-        f"{stats_vendas.get('sucesso', 0)} vendas, "
-        f"{stats_recebimentos.get('sucesso', 0)} recebimentos"
-    )
+    logger.info(f"✅ Processamento concluído: {stats_vendas.get('sucesso', 0)} vendas, {stats_recebimentos.get('sucesso', 0)} recebimentos")
     
     return {
         "vendas": stats_vendas,
@@ -104,7 +95,6 @@ def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
 def _converter_para_venda(norm: Normalizacao) -> dict:
     """Converte Normalizacao para formato de venda"""
     try:
-        # Validar campos obrigatórios
         if not norm.valor_bruto or norm.valor_bruto <= 0:
             logger.warning(f"⚠️ Normalizacao {norm.id} sem valor_bruto válido")
             return None
@@ -132,11 +122,24 @@ def _converter_para_venda(norm: Normalizacao) -> dict:
 
 
 def _converter_para_recebimento(norm: Normalizacao) -> dict:
-    """Converte Normalizacao para formato de recebimento"""
+    """Converte Normalizacao para formato de recebimento com fallback de categoria"""
     try:
         if not norm.valor_bruto:
             logger.warning(f"⚠️ Normalizacao {norm.id} sem valor_bruto")
             return None
+        
+        # ✅ FALLBACK: Se não tem categoria, gerar agora
+        categoria = norm.categoria
+        if not categoria or categoria in ['outros', '']:
+            from utils.parsers import categorizar_transacao
+            trntype = 'DEBIT' if norm.valor_bruto < 0 else 'CREDIT'
+            categoria = categorizar_transacao(
+                descricao=norm.descricao or '',
+                name=norm.estabelecimento or '',
+                valor=norm.valor_bruto,
+                trntype=trntype
+            )
+            logger.debug(f"🏷️ Categoria gerada para recebimento {norm.id}: {categoria}")
         
         return {
             "data": norm.data_movimento,
@@ -144,7 +147,7 @@ def _converter_para_recebimento(norm: Normalizacao) -> dict:
             "descricao": norm.descricao,
             "nsu": norm.nsu,
             "tipo_pagamento": norm.tipo_pagamento,
-            "categoria": norm.categoria,
+            "categoria": categoria,  # ✅ Usa categoria garantida
             "empresa_id": norm.empresa_id,
         }
     except Exception as e:
