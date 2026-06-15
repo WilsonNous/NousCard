@@ -290,94 +290,241 @@ def get_periodo_datas(periodo):
 
 def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     """
-    Calcula todos os KPIs financeiros baseados em MovBanco.
+    Calcula todos os KPIs financeiros baseados em MovBanco E MovAdquirente.
     Suporta data_inicio=None para período "geral".
     """
-    # Construir query base
-    query_base = MovBanco.query.filter(
-        MovBanco.empresa_id == empresa_id,
-        MovBanco.ativo == True
-    )
+    from models import MovAdquirente
     
-    # Aplicar filtro de data apenas se data_inicio não for None
+    # ============================================================
+    # RECEITAS: Somar de ambas as tabelas
+    # ============================================================
+    
+    # 1. Receitas de MovBanco (extrato bancário)
+    query_banco_entradas = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.ativo == True,
+        MovBanco.valor > 0
+    )
     if data_inicio is not None:
-        query_base = query_base.filter(
+        query_banco_entradas = query_banco_entradas.filter(
             MovBanco.data_movimento >= data_inicio,
             MovBanco.data_movimento <= data_fim
         )
-    
-    # Total de entradas (valores positivos)
-    total_entradas = query_base.filter(MovBanco.valor > 0).with_entities(
+    total_entradas_banco = query_banco_entradas.with_entities(
         func.sum(MovBanco.valor)
     ).scalar() or Decimal('0')
     
-    # Total de saídas (valores negativos - valor absoluto)
-    total_saidas = query_base.filter(MovBanco.valor < 0).with_entities(
+    # 2. Receitas de MovAdquirente (vendas via maquininha)
+    query_adq_entradas = MovAdquirente.query.filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.ativo == True,
+        MovAdquirente.valor_bruto > 0
+    )
+    if data_inicio is not None:
+        query_adq_entradas = query_adq_entradas.filter(
+            MovAdquirente.data_venda >= data_inicio,
+            MovAdquirente.data_venda <= data_fim
+        )
+    total_entradas_adquirente = query_adq_entradas.with_entities(
+        func.sum(MovAdquirente.valor_bruto)
+    ).scalar() or Decimal('0')
+    
+    # Total de entradas = banco + adquirente
+    total_entradas = total_entradas_banco + total_entradas_adquirente
+    
+    # ============================================================
+    # SAÍDAS: Somar de ambas as tabelas
+    # ============================================================
+    
+    # Saídas de MovBanco
+    query_banco_saidas = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.ativo == True,
+        MovBanco.valor < 0
+    )
+    if data_inicio is not None:
+        query_banco_saidas = query_banco_saidas.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    total_saidas_banco = query_banco_saidas.with_entities(
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
+    
+    # Saídas de MovAdquirente (raro, mas possível em estornos)
+    query_adq_saidas = MovAdquirente.query.filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.ativo == True,
+        MovAdquirente.valor_bruto < 0
+    )
+    if data_inicio is not None:
+        query_adq_saidas = query_adq_saidas.filter(
+            MovAdquirente.data_venda >= data_inicio,
+            MovAdquirente.data_venda <= data_fim
+        )
+    total_saidas_adquirente = query_adq_saidas.with_entities(
+        func.sum(func.abs(MovAdquirente.valor_bruto))
+    ).scalar() or Decimal('0')
+    
+    # Total de saídas
+    total_saidas = total_saidas_banco + total_saidas_adquirente
     
     # Saldo do período
     saldo = total_entradas - total_saidas
     
-    # Vendas no cartão (SIPAG/Adquirente)
-    vendas_cartao = query_base.filter(
-        MovBanco.categoria.in_(['vendas_cartao', 'vendas_mastercard', 'vendas_visa', 'vendas_maestro', 'vendas_visa_electron'])
-    ).with_entities(
+    # ============================================================
+    # DETALHAMENTO POR CATEGORIA/TIPO
+    # ============================================================
+    
+    # Vendas no cartão (SIPAG/Adquirente) - busca em MovAdquirente
+    vendas_cartao = MovAdquirente.query.filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.ativo == True,
+        MovAdquirente.valor_bruto > 0
+    )
+    if data_inicio is not None:
+        vendas_cartao = vendas_cartao.filter(
+            MovAdquirente.data_venda >= data_inicio,
+            MovAdquirente.data_venda <= data_fim
+        )
+    vendas_cartao_total = vendas_cartao.with_entities(
+        func.sum(MovAdquirente.valor_bruto)
+    ).scalar() or Decimal('0')
+    
+    # PIX Recebido - pode estar em ambas as tabelas
+    pix_banco = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.categoria == 'pix_recebido',
+        MovBanco.ativo == True,
+        MovBanco.valor > 0
+    )
+    if data_inicio is not None:
+        pix_banco = pix_banco.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    pix_recebido_banco = pix_banco.with_entities(
         func.sum(MovBanco.valor)
     ).scalar() or Decimal('0')
     
-    # PIX Recebido
-    pix_recebido = query_base.filter(
-        MovBanco.categoria == 'pix_recebido'
-    ).with_entities(
-        func.sum(MovBanco.valor)
+    pix_adq = MovAdquirente.query.filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.categoria == 'vendas_pix',
+        MovAdquirente.ativo == True,
+        MovAdquirente.valor_bruto > 0
+    )
+    if data_inicio is not None:
+        pix_adq = pix_adq.filter(
+            MovAdquirente.data_venda >= data_inicio,
+            MovAdquirente.data_venda <= data_fim
+        )
+    pix_recebido_adq = pix_adq.with_entities(
+        func.sum(MovAdquirente.valor_bruto)
     ).scalar() or Decimal('0')
+    
+    pix_recebido = pix_recebido_banco + pix_recebido_adq
     
     # Transferências Recebidas
-    transferencias_recebidas = query_base.filter(
-        MovBanco.categoria == 'transferencia_recebida'
-    ).with_entities(
+    transferencias = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.categoria == 'transferencia_recebida',
+        MovBanco.ativo == True,
+        MovBanco.valor > 0
+    )
+    if data_inicio is not None:
+        transferencias = transferencias.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    transferencias_recebidas = transferencias.with_entities(
         func.sum(MovBanco.valor)
     ).scalar() or Decimal('0')
     
-    # Fornecedores (PIX emitido + boletos)
-    fornecedores = query_base.filter(
-        MovBanco.categoria.in_(['pix_fornecedores', 'boleto'])
-    ).with_entities(
+    # Fornecedores (PIX emitido + boletos) - MovBanco
+    fornecedores = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.categoria.in_(['pix_fornecedores', 'boleto', 'fornecedores_mercadoria', 'fornecedores_servicos']),
+        MovBanco.ativo == True,
+        MovBanco.valor < 0
+    )
+    if data_inicio is not None:
+        fornecedores = fornecedores.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    fornecedores_total = fornecedores.with_entities(
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
     
     # Impostos e Tributos
-    impostos = query_base.filter(
-        MovBanco.categoria == 'tributos'
-    ).with_entities(
+    impostos = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.categoria.in_(['tributos', 'impostos_tributos']),
+        MovBanco.ativo == True,
+        MovBanco.valor < 0
+    )
+    if data_inicio is not None:
+        impostos = impostos.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    impostos_total = impostos.with_entities(
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
     
-    # Outras despesas (tarifas, empréstimos, etc.)
-    outras_despesas = query_base.filter(
-        MovBanco.categoria.in_(['tarifa_bancaria', 'emprestimo', 'aplicacao_investimento', 'seguro', 'outras_despesas'])
-    ).with_entities(
+    # Outras despesas
+    outras = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.categoria.in_(['tarifa_bancaria', 'emprestimo', 'aplicacao_investimento', 'seguro', 'outras_despesas']),
+        MovBanco.ativo == True,
+        MovBanco.valor < 0
+    )
+    if data_inicio is not None:
+        outras = outras.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    outras_total = outras.with_entities(
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
     
-    # Total de registros
-    total_registros = query_base.count()
+    # Total de registros (ambas as tabelas)
+    total_registros_banco = MovBanco.query.filter(
+        MovBanco.empresa_id == empresa_id,
+        MovBanco.ativo == True
+    )
+    if data_inicio is not None:
+        total_registros_banco = total_registros_banco.filter(
+            MovBanco.data_movimento >= data_inicio,
+            MovBanco.data_movimento <= data_fim
+        )
+    
+    total_registros_adq = MovAdquirente.query.filter(
+        MovAdquirente.empresa_id == empresa_id,
+        MovAdquirente.ativo == True
+    )
+    if data_inicio is not None:
+        total_registros_adq = total_registros_adq.filter(
+            MovAdquirente.data_venda >= data_inicio,
+            MovAdquirente.data_venda <= data_fim
+        )
+    
+    total_registros = total_registros_banco.count() + total_registros_adq.count()
     
     return {
         'saldo': float(saldo),
         'entradas': float(total_entradas),
         'saidas': float(total_saidas),
-        'vendas_cartao': float(vendas_cartao),
+        'vendas_cartao': float(vendas_cartao_total),
         'receitas': {
-            'cartao': float(vendas_cartao),
+            'cartao': float(vendas_cartao_total),
             'pix': float(pix_recebido),
             'transferencias': float(transferencias_recebidas)
         },
         'despesas': {
-            'fornecedores': float(fornecedores),
-            'impostos': float(impostos),
-            'outras': float(outras_despesas)
+            'fornecedores': float(fornecedores_total),
+            'impostos': float(impostos_total),
+            'outras': float(outras_total)
         },
         'total_registros': total_registros
     }
@@ -482,21 +629,30 @@ def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
     """
     from models import MovAdquirente
     
-    # Query para somar valor_bruto agrupado por bandeira
-    resultados = db.session.query(
+    query = db.session.query(
         MovAdquirente.bandeira,
         func.sum(MovAdquirente.valor_bruto).label('total')
     ).filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.data_venda >= data_inicio,
-        MovAdquirente.data_venda <= data_fim,
-        MovAdquirente.ativo == True
-    ).group_by(MovAdquirente.bandeira).all()
+        MovAdquirente.ativo == True,
+        MovAdquirente.valor_bruto > 0
+    )
+    
+    # Aplicar filtro de data apenas se data_inicio não for None
+    if data_inicio is not None:
+        query = query.filter(
+            MovAdquirente.data_venda >= data_inicio,
+            MovAdquirente.data_venda <= data_fim
+        )
+    
+    resultados = query.group_by(MovAdquirente.bandeira).all()
     
     vendas_por_bandeira = {}
     for bandeira, total in resultados:
         if bandeira:
-            vendas_por_bandeira[bandeira.lower()] = float(total or 0)
+            # Normalizar nome da bandeira
+            nome = bandeira.strip().title()
+            vendas_por_bandeira[nome] = float(total or 0)
     
     return vendas_por_bandeira
 
