@@ -161,6 +161,66 @@ def create_app(config_class=Config):
     except Exception as e:
         app.logger.error(f"❌ Erro ao registrar filtros de horário: {str(e)}")
 
+    # ✅ FILTROS FINANCEIROS PARA TEMPLATES (BRL + COMPARAÇÕES)
+    # ============================================================
+    # Disponibiliza em todos os templates:
+    #   {{ valor|format_brl }}      → "R$ 1.234,56"
+    #   {{ valor|safe_float }}      → 1234.56 (para comparações)
+    # ============================================================
+    try:
+        @app.template_filter('format_brl')
+        def filter_format_brl(value):
+            """
+            Formata valor para BRL no template.
+            Aceita: str, int, float, Decimal, None
+            Exemplo: 1234.56 → "1.234,56"
+            """
+            from decimal import Decimal
+            
+            if value is None:
+                return "0,00"
+            try:
+                # Converte para float se for string
+                if isinstance(value, str):
+                    # Remove R$, espaços e converte vírgula para ponto
+                    value = value.replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
+                    num = float(value)
+                elif isinstance(value, Decimal):
+                    num = float(value)
+                else:
+                    num = float(value)
+                
+                # Formata para padrão brasileiro: 1234.56 → "1.234,56"
+                return f"{num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            except Exception as e:
+                app.logger.debug(f"⚠️ format_brl fallback: {str(e)}")
+                return "0,00"
+
+        @app.template_filter('safe_float')
+        def filter_safe_float(value):
+            """
+            Converte valor para float de forma segura para comparações no template.
+            Exemplo: "R$ 1.234,56" → 1234.56
+            """
+            from decimal import Decimal
+            
+            if value is None:
+                return 0.0
+            try:
+                if isinstance(value, str):
+                    # Remove formatação BRL e converte
+                    value = value.replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
+                if isinstance(value, Decimal):
+                    return float(value)
+                return float(value)
+            except Exception as e:
+                app.logger.debug(f"⚠️ safe_float fallback: {str(e)}")
+                return 0.0
+
+        app.logger.info("✅ Filtros financeiros registrados (format_brl, safe_float)")
+    except Exception as e:
+        app.logger.error(f"❌ Erro ao registrar filtros financeiros: {str(e)}")
+
     # ✅ Blueprint de Usuários (Gestão pelo Master)
     from routes.usuarios_routes import usuarios_bp
     app.register_blueprint(usuarios_bp)
