@@ -126,6 +126,16 @@
                             ✔️ Conciliação
                         </a>
                     </li>
+                    
+                    {# ✅ NOVO: Link do DRE - Demonstrativo de Resultado #}
+                    <li>
+                        <a href="{{ url_for('dashboard.dre_resumo') }}" 
+                           class="nc-topbar-item {% if request.endpoint == 'dashboard.dre_resumo' %}active{% endif %}"
+                           aria-label="Ver DRE - Demonstrativo de Resultado"
+                           {% if request.endpoint == 'dashboard.dre_resumo' %}aria-current="page"{% endif %}>
+                            📈 DRE
+                        </a>
+                    </li>
                 {% endif %}
                 
                 {# ============================================================
