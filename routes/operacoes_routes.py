@@ -190,28 +190,51 @@ def arquivos_importados_page():
 @empresa_required
 def arquivo_detalhe_page(arquivo_id):
     """Página de detalhes de um arquivo importado"""
+    logger.info(f"🔍 ════════════════════════════════════════════════════════════")
+    logger.info(f"🔍 Acessando arquivo_id={arquivo_id} por usuario_id={g.user.id}, empresa_id={g.user.empresa_id}")
+    logger.info(f"🔍 ════════════════════════════════════════════════════════════")
+    
     try:
         empresa_id = g.user.empresa_id
-        logger.info(f"🔍 Acessando arquivo {arquivo_id} para empresa {empresa_id}")
         
+        # ✅ Buscar arquivo com tratamento para objeto SQLAlchemy
+        logger.info(f"🔍 Buscando arquivo {arquivo_id} no banco...")
         arquivo = buscar_arquivo_por_id(arquivo_id, empresa_id)
+        
         if not arquivo:
-            logger.warning(f"❌ Arquivo {arquivo_id} não encontrado para empresa {empresa_id}")
+            logger.warning(f"❌ Arquivo {arquivo_id} NÃO ENCONTRADO para empresa {empresa_id}")
             abort(404)
         
-        logger.info(f"✅ Arquivo encontrado: {arquivo.get('nome_arquivo')}")
+        # ✅ Normalizar acesso a atributos (objeto SQLAlchemy ou dict)
+        logger.info(f"✅ Arquivo encontrado")
         
-        # Descriptografar conteúdo
+        # Helper para acessar atributos de forma segura
+        def get_attr(obj, key, default=None):
+            """Acessa atributo de objeto SQLAlchemy ou chave de dict"""
+            if hasattr(obj, 'get'):
+                return obj.get(key, default)  # É um dict
+            return getattr(obj, key, default)  # É um objeto SQLAlchemy
+        
+        nome_arquivo = get_attr(arquivo, 'nome_arquivo', 'Desconhecido')
+        tipo_arquivo = get_attr(arquivo, 'tipo', 'desconhecido')
+        status_arquivo = get_attr(arquivo, 'status', 'unknown')
+        conteudo_json = get_attr(arquivo, 'conteudo_json')
+        total_registros = get_attr(arquivo, 'total_registros', 0)
+        total_valor = get_attr(arquivo, 'total_valor', 0)
+        
+        logger.info(f"📄 Arquivo: {nome_arquivo} | Tipo: {tipo_arquivo} | Status: {status_arquivo}")
+        
+        # ✅ Descriptografar conteúdo com tratamento de erro
         registros = []
-        conteudo_json = arquivo.get("conteudo_json")
-        
         if conteudo_json:
             try:
+                logger.info(f"🔐 Tentando descriptografar conteúdo...")
                 from services.importer_db import descriptografar_conteudo
                 registros = descriptografar_conteudo(conteudo_json)
                 logger.info(f"✅ Conteúdo descriptografado: {len(registros)} registros")
             except Exception as e:
                 logger.error(f"❌ Erro ao descriptografar: {str(e)}", exc_info=True)
+                flash("⚠️ Não foi possível carregar o conteúdo do arquivo.", "warning")
                 registros = []
         else:
             logger.warning(f"⚠️ Arquivo {arquivo_id} não tem conteudo_json")
@@ -219,7 +242,6 @@ def arquivo_detalhe_page(arquivo_id):
         # ✅ Calcular totais para o template
         total_entradas = Decimal("0")
         total_saidas = Decimal("0")
-        total_registros = len(registros)
         
         for reg in registros:
             try:
@@ -228,8 +250,9 @@ def arquivo_detalhe_page(arquivo_id):
                     total_entradas += valor
                 else:
                     total_saidas += abs(valor)
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"⚠️ Erro ao processar registro: {str(e)}")
+                continue
         
         # ✅ Calcular totais por categoria
         categorias = {}
@@ -241,7 +264,7 @@ def arquivo_detalhe_page(arquivo_id):
                     categorias[cat] = Decimal("0")
                 categorias[cat] += valor
             except:
-                pass
+                continue
         
         # ✅ Calcular totais por tipo_pagamento
         tipos_pagamento = {}
@@ -253,22 +276,42 @@ def arquivo_detalhe_page(arquivo_id):
                     tipos_pagamento[tipo] = Decimal("0")
                 tipos_pagamento[tipo] += valor
             except:
-                pass
+                continue
+        
+        logger.info(f"✅ Dados calculados: {len(registros)} registros, R$ {total_entradas + total_saidas} total")
+        
+        # ✅ Verificar se template existe antes de renderizar
+        template_name = "arquivo_detalhe.html"
+        if not current_app.jinja_loader.get_source(current_app, template_name):
+            logger.error(f"❌ Template {template_name} NÃO ENCONTRADO")
+            return f"Erro: Template '{template_name}' não encontrado", 500
+        
+        logger.info(f"🎨 Renderizando template {template_name}")
         
         return render_template(
-            "arquivo_detalhe.html", 
-            arquivo=arquivo, 
+            template_name, 
+            arquivo=arquivo,
+            arquivo_nome=nome_arquivo,
+            arquivo_tipo=tipo_arquivo,
+            arquivo_status=status_arquivo,
             registros=registros,
             total_entradas=total_entradas,
             total_saidas=total_saidas,
-            total_registros=total_registros,
+            total_registros=len(registros),
             categorias=categorias,
             tipos_pagamento=tipos_pagamento
         )
         
     except Exception as e:
-        logger.error(f"❌ Erro ao acessar arquivo {arquivo_id}: {str(e)}", exc_info=True)
-        return f"Erro ao carregar arquivo: {str(e)}", 500
+        logger.error(f"❌ ════════════════════════════════════════════════════════════")
+        logger.error(f"❌ ERRO CRÍTICO ao acessar arquivo {arquivo_id}: {type(e).__name__}: {str(e)}")
+        logger.error(f"❌ Traceback:", exc_info=True)
+        logger.error(f"❌ ════════════════════════════════════════════════════════════")
+        
+        # Em produção, não mostrar detalhes do erro
+        if current_app.debug:
+            raise
+        return render_template("errors/500.html", error_message="Erro ao carregar arquivo"), 500
 
 @operacoes_bp.route("/api/ultimos-uploads", methods=["GET"])
 @login_required
