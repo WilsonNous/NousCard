@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}DRE - Demonstrativo de Resultado{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dre-container {
+        background: var(--white);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .dre-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--gray-border);
+    }
+    
+    .dre-period-selector {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .dre-period-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--gray-border);
+        background: var(--white);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    
+    .dre-period-btn.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+    
+    .dre-section {
+        margin-bottom: 2rem;
+    }
+    
+    .dre-section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .dre-section-title.receitas { color: var(--success); }
+    .dre-section-title.despesas { color: var(--error); }
+    .dre-section-title.resultado { color: var(--primary); }
+    
+    .dre-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        background: var(--gray-light);
+        transition: background 0.2s;
+    }
+    
+    .dre-item:hover {
+        background: var(--gray-border);
+    }
+    
+    .dre-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .dre-item-name {
+        font-weight: 600;
+        color: var(--text);
+    }
+    
+    .dre-item-sub {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+    
+    .dre-item-value {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .dre-item-value.positive { color: var(--success); }
+    .dre-item-value.negative { color: var(--error); }
+    
+    .dre-total {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: linear-gradient(135deg, var(--primary-light), var(--white));
+        border-radius: 8px;
+        border-left: 4px solid var(--primary);
+        margin-top: 1rem;
+    }
+    
+    .dre-total-label {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text);
+    }
+    
+    .dre-total-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+    }
+    
+    .dre-total-value.positive { color: var(--success); }
+    .dre-total-value.negative { color: var(--error); }
+    
+    .dre-progress {
+        height: 8px;
+        background: var(--gray-border);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    
+    .dre-progress-bar {
+        height: 100%;
+        background: var(--primary);
+        border-radius: 4px;
+        transition: width 0.3s;
+    }
+    
+    .dre-progress-bar.receita { background: var(--success); }
+    .dre-progress-bar.despesa { background: var(--error); }
+    
+    .dre-refine-btn {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .dre-refine-btn:hover {
+        background: var(--primary-dark);
+    }
+    
+    .dre-suggestions {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--warning-bg);
+        border-radius: 8px;
+        border-left: 4px solid var(--warning);
+    }
+    
+    .dre-suggestion-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--gray-border);
+    }
+    
+    .dre-suggestion-item:last-child {
+        border-bottom: none;
+    }
+    
+    .dre-accept-btn {
+        padding: 0.25rem 0.75rem;
+        background: var(--success);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <div class="dre-container">
+        
+        <!-- Header -->
+        <div class="dre-header">
+            <div>
+                <h2 style="margin: 0;">📊 DRE - Demonstrativo de Resultado</h2>
+                <p style="margin: 0.25rem 0 0 0; color: var(--text-muted);">
+                    {{ empresa.nome }} • {{ periodo_label }}
+                </p>
+            </div>
+            <div class="dre-period-selector">
+                <button class="dre-period-btn {% if periodo == 'mes' %}active{% endif %}" onclick="mudarPeriodo('mes')">Mês</button>
+                <button class="dre-period-btn {% if periodo == 'trimestre' %}active{% endif %}" onclick="mudarPeriodo('trimestre')">Trimestre</button>
+                <button class="dre-period-btn {% if periodo == 'ano' %}active{% endif %}" onclick="mudarPeriodo('ano')">Ano</button>
+                <button class="dre-period-btn {% if periodo == '12meses' %}active{% endif %}" onclick="mudarPeriodo('12meses')">12 Meses</button>
+            </div>
+        </div>
+        
+        <!-- RECEITAS -->
+        <div class="dre-section">
+            <div class="dre-section-title receitas">
+                📈 RECEITAS BRUTAS
+            </div>
+            
+            {% for item in receitas %}
+            <div class="dre-item">
+                <div class="dre-item-info">
+                    <span class="dre-item-name">{{ item.nome }}</span>
+                    <span class="dre-item-sub">{{ item.descricao }}</span>
+                </div>
+                <span class="dre-item-value positive">+ R$ {{ item.valor|format_brl }}</span>
+            </div>
+            {% endfor %}
+            
+            <div class="dre-total">
+                <span class="dre-total-label">Total de Receitas</span>
+                <span class="dre-total-value positive">+ R$ {{ total_receitas|format_brl }}</span>
+            </div>
+        </div>
+        
+        <!-- DESPESAS -->
+        <div class="dre-section">
+            <div class="dre-section-title despesas">
+                📉 DESPESAS OPERACIONAIS
+            </div>
+            
+            {% for item in despesas %}
+            <div class="dre-item">
+                <div class="dre-item-info">
+                    <span class="dre-item-name">{{ item.nome }}</span>
+                    <span class="dre-item-sub">{{ item.descricao }} • {{ item.percentual }}%</span>
+                    <div class="dre-progress">
+                        <div class="dre-progress-bar despesa" style="width: {{ item.percentual }}%"></div>
+                    </div>
+                </div>
+                <span class="dre-item-value negative">- R$ {{ item.valor|format_brl }}</span>
+            </div>
+            {% endfor %}
+            
+            <!-- Sugestões de refinamento -->
+            {% if sugestoes_refinamento %}
+            <div class="dre-suggestions">
+                <strong>💡 Sugestões de categorização:</strong>
+                {% for sug in sugestoes_refinamento[:5] %}
+                <div class="dre-suggestion-item">
+                    <span style="font-size: 0.9rem;">
+                        "{{ sug.descricao }}" → <strong>{{ sug.sugestao }}</strong>
+                    </span>
+                    <button class="dre-accept-btn" onclick="aceitarSugestao({{ sug.id }}, '{{ sug.sugestao }}')">
+                        ✅ Aceitar
+                    </button>
+                </div>
+                {% endfor %}
+                {% if sugestoes_refinamento|length > 5 %}
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                    + {{ sugestoes_refinamento|length - 5 }} mais sugestões disponíveis
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div class="dre-total">
+                <span class="dre-total-label">Total de Despesas</span>
+                <span class="dre-total-value negative">- R$ {{ total_despesas|format_brl }}</span>
+            </div>
+        </div>
+        
+        <!-- RESULTADO -->
+        <div class="dre-section">
+            <div class="dre-section-title resultado">
+                💰 RESULTADO DO PERÍODO
+            </div>
+            
+            <div class="dre-total" style="background: {% if saldo >= 0 %}linear-gradient(135deg, #d4edda, #c3e6cb){% else %}linear-gradient(135deg, #f8d7da, #f5c6cb){% endif %}; border-left-color: {% if saldo >= 0 %}var(--success){% else %}var(--error){% endif %};">
+                <span class="dre-total-label">
+                    {% if saldo >= 0 %}✅ Lucro Líquido{% else %}❌ Prejuízo Líquido{% endif %}
+                </span>
+                <span class="dre-total-value {% if saldo >= 0 %}positive{% else %}negative{% endif %}">
+                    {% if saldo >= 0 %}+{% endif %} R$ {{ saldo|format_brl }}
+                </span>
+            </div>
+            
+            <!-- Margem de Lucro -->
+            {% if total_receitas > 0 %}
+            <div style="margin-top: 1rem; padding: 1rem; background: var(--gray-light); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600;">Margem de Lucro</span>
+                    <span style="font-weight: 700; color: {% if margem >= 0 %}var(--success){% else %}var(--error){% endif %};">
+                        {{ margem|round(1) }}%
+                    </span>
+                </div>
+                <div class="dre-progress">
+                    <div class="dre-progress-bar {% if margem >= 0 %}receita{% else %}despesa{% endif %}" 
+                         style="width: {{ margem|abs|round|int }}%"></div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Botão de Refinamento -->
+        <button class="dre-refine-btn" onclick="refinarCategorias()">
+            🎯 Refinar Categorização Automaticamente
+        </button>
+        
+    </div>
+</section>
+
+<script>
+function mudarPeriodo(periodo) {
+    window.location.href = `/dashboard/dre?periodo=${periodo}`;
+}
+
+function aceitarSugestao(id, categoria) {
+    fetch('/api/categorizacao/refinar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            normalizacao_id: id,
+            nova_categoria: categoria
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            alert('✅ Categoria atualizada!');
+            location.reload();
+        } else {
+            alert('❌ Erro: ' + data.message);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('❌ Erro de conexão');
+    });
+}
+
+function refinarCategorias() {
+    if (!confirm('Deseja que o sistema tente refinar automaticamente as categorias das transações não classificadas?')) {
+        return;
+    }
+    
+    fetch('/api/categorizacao/auto-refinar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': '{{ csrf_token }}'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            alert(`✅ ${data.atualizados} categorias refinadas!`);
+            location.reload();
+        } else {
+            alert('❌ Erro: ' + data.message);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('❌ Erro de conexão');
+    });
+}
+</script>
+{% endblock %}
