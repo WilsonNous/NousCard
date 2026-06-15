@@ -508,3 +508,84 @@ def get_resumo_mensal():
     except Exception as e:
         logger.error(f"Erro ao calcular resumo mensal: {str(e)}", exc_info=True)
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+@dashboard_bp.route("/dre")
+@login_required
+@empresa_required
+def dre_resumo():
+    """Exibe o DRE - Demonstrativo de Resultado"""
+    empresa_id = g.user.empresa_id
+    periodo = request.args.get('periodo', '12meses')
+    
+    # Calcular período de datas
+    data_inicio, data_fim = get_periodo_datas(periodo)
+    
+    # Buscar receitas (créditos)
+    receitas_query = db.session.query(
+        Normalizacao.categoria,
+        func.sum(Normalizacao.valor_bruto).label('total')
+    ).filter(
+        Normalizacao.empresa_id == empresa_id,
+        Normalizacao.data_movimento.between(data_inicio, data_fim),
+        Normalizacao.valor_bruto > 0,
+        Normalizacao.status == 'processado'
+    ).group_by(Normalizacao.categoria).all()
+    
+    receitas = []
+    total_receitas = Decimal('0')
+    
+    for cat, total in receitas_query:
+        receitas.append({
+            'nome': CATEGORIAS_NOME.get(cat, cat),
+            'descricao': CATEGORIAS_DESC.get(cat, ''),
+            'valor': float(total),
+            'categoria': cat
+        })
+        total_receitas += total
+    
+    # Buscar despesas (débitos)
+    despesas_query = db.session.query(
+        Normalizacao.categoria,
+        func.sum(Normalizacao.valor_bruto).label('total')
+    ).filter(
+        Normalizacao.empresa_id == empresa_id,
+        Normalizacao.data_movimento.between(data_inicio, data_fim),
+        Normalizacao.valor_bruto < 0,
+        Normalizacao.status == 'processado'
+    ).group_by(Normalizacao.categoria).all()
+    
+    despesas = []
+    total_despesas = Decimal('0')
+    
+    for cat, total in despesas_query:
+        percentual = (abs(total) / total_receitas * 100) if total_receitas > 0 else 0
+        despesas.append({
+            'nome': CATEGORIAS_NOME.get(cat, cat),
+            'descricao': CATEGORIAS_DESC.get(cat, ''),
+            'valor': float(abs(total)),
+            'percentual': round(percentual, 1),
+            'categoria': cat
+        })
+        total_despesas += abs(total)
+    
+    # Calcular resultado
+    saldo = total_receitas - total_despesas
+    margem = (saldo / total_receitas * 100) if total_receitas > 0 else 0
+    
+    # Buscar sugestões de refinamento
+    from services.categorizacao_service import sugerir_categorias
+    sugestoes = sugerir_categorias(empresa_id, limite=10)
+    
+    return render_template(
+        'dashboard/dre_resumo.html',
+        empresa=g.user.empresa,
+        periodo=periodo,
+        periodo_label=PERIODOS_LABEL.get(periodo, 'Período'),
+        receitas=receitas,
+        despesas=despesas,
+        total_receitas=float(total_receitas),
+        total_despesas=float(total_despesas),
+        saldo=float(saldo),
+        margem=margem,
+        sugestoes_refinamento=sugestoes
+    )
