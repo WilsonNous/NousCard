@@ -7,6 +7,9 @@ from decimal import Decimal
 import logging
 import json
 
+# ✅ IMPORTAR FUNÇÃO DE CATEGORIZAÇÃO
+from utils.parsers import categorizar_transacao
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +36,6 @@ def _preparar_para_json(obj):
     if isinstance(obj, (list, tuple)):
         return [_preparar_para_json(item) for item in obj]
     
-    # Se já é tipo primitivo (str, int, float, bool), retorna como está
     return obj
 
 
@@ -52,14 +54,10 @@ class ImportadorNormalizado:
         }
     
     def importar_arquivo(self, arquivo_id: int, registros: list, tipo_origem: str, tipo_movimento: str):
-        """
-        Importa registros de um arquivo e salva na tabela de normalização.
-        """
+        """Importa registros e salva na tabela de normalização"""
         logger.info(f"📥 Iniciando normalização: {len(registros)} registros, tipo={tipo_origem}")
         
         self.stats["total_registros"] = len(registros)
-        
-        # Processar em batches para evitar timeout
         BATCH_SIZE = 50
         total_batches = (len(registros) + BATCH_SIZE - 1) // BATCH_SIZE
         
@@ -76,7 +74,7 @@ class ImportadorNormalizado:
             
             for idx, reg in enumerate(batch):
                 try:
-                    # ✅ Garantir rollback se sessão estiver em estado inválido
+                    # Garantir rollback se sessão estiver inválida
                     try:
                         db.session.execute(db.text("SELECT 1"))
                     except Exception:
@@ -91,7 +89,7 @@ class ImportadorNormalizado:
                         tipo_movimento=tipo_movimento
                     )
                     
-                    # ✅ CORREÇÃO: Auto-preencher adquirente para vendas
+                    # Auto-preencher adquirente para vendas
                     if normalizacao.tipo_movimento == "venda" and not normalizacao.adquirente_nome:
                         normalizacao.adquirente_nome = "Flow"
                     
@@ -102,10 +100,7 @@ class ImportadorNormalizado:
                         normalizacao.erro_mensagem = erro
                         self.stats["falhas"] += 1
                         batch_falhas += 1
-                        self.stats["erros"].append({
-                            "linha": inicio_idx + idx + 1,
-                            "erro": erro
-                        })
+                        self.stats["erros"].append({"linha": inicio_idx + idx + 1, "erro": erro})
                         db.session.add(normalizacao)
                         continue
                     
@@ -118,13 +113,13 @@ class ImportadorNormalizado:
                         db.session.add(normalizacao)
                         continue
                     
-                    # Enriquecer dados (resolver adquirente, categorizar)
+                    # Enriquecer dados
                     try:
                         normalizacao.enriquecer()
                         normalizacao.status = "validado"
                     except Exception as e:
                         logger.warning(f"⚠️ Erro ao enriquecer registro {inicio_idx + idx + 1}: {str(e)}")
-                        normalizacao.status = "validado"  # Continua mesmo sem enriquecimento completo
+                        normalizacao.status = "validado"
                     
                     # Salvar
                     db.session.add(normalizacao)
@@ -135,11 +130,7 @@ class ImportadorNormalizado:
                     logger.error(f"❌ Erro ao normalizar registro {inicio_idx + idx + 1}: {str(e)}", exc_info=True)
                     self.stats["falhas"] += 1
                     batch_falhas += 1
-                    self.stats["erros"].append({
-                        "linha": inicio_idx + idx + 1,
-                        "erro": str(e)
-                    })
-                    # ✅ Rollback para não contaminar próximos registros
+                    self.stats["erros"].append({"linha": inicio_idx + idx + 1, "erro": str(e)})
                     try:
                         db.session.rollback()
                     except:
@@ -155,17 +146,7 @@ class ImportadorNormalizado:
                 db.session.rollback()
                 continue
         
-        # ✅ Converter set em list para serialização JSON
-        if isinstance(self.stats.get("erros"), list):
-            pass  # já é lista
-        
-        logger.info(
-            f"✅ Normalização concluída: "
-            f"{self.stats['sucesso']} sucesso, "
-            f"{self.stats['falhas']} falhas, "
-            f"{self.stats['duplicados']} duplicados"
-        )
-        
+        logger.info(f"✅ Normalização concluída: {self.stats['sucesso']} sucesso, {self.stats['falhas']} falhas, {self.stats['duplicados']} duplicados")
         return self.stats
     
     def _criar_normalizacao(self, arquivo_id: int, dados: dict, tipo_origem: str, tipo_movimento: str):
@@ -190,40 +171,33 @@ class ImportadorNormalizado:
             else:
                 data_movimento = date.today()
         
-        # Data venda (pode ser diferente da data movimento)
+        # Data venda
         data_venda_raw = dados.get("data_venda")
         data_venda = None
-        if data_venda_raw:
-            if isinstance(data_venda_raw, str):
-                for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
-                    try:
-                        data_venda = datetime.strptime(data_venda_raw, fmt).date()
-                        break
-                    except:
-                        continue
+        if data_venda_raw and isinstance(data_venda_raw, str):
+            for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
+                try:
+                    data_venda = datetime.strptime(data_venda_raw, fmt).date()
+                    break
+                except:
+                    continue
         
         # Valores
         valor_bruto = self._parse_decimal(dados.get("valor_bruto") or dados.get("valor") or 0)
         valor_liquido = self._parse_decimal(dados.get("valor_liquido") or valor_bruto)
         valor_taxa = self._parse_decimal(dados.get("taxa") or dados.get("desconto") or 0)
         
-        # Adquirente - ✅ CORREÇÃO: Sempre definir um nome para vendas
+        # Adquirente
         adquirente_nome = (
             dados.get("adquirente") or 
             dados.get("nome_adquirente") or 
             dados.get("estabelecimento")
         )
-        
-        # Se for venda e não tem adquirente, usar "Flow"
         if tipo_movimento == "venda" and not adquirente_nome:
             adquirente_nome = "Flow"
         
         # NSU
-        nsu = (
-            dados.get("nsu") or 
-            dados.get("id") or 
-            dados.get("fitid")
-        )
+        nsu = dados.get("nsu") or dados.get("id") or dados.get("fitid")
         
         # Descrição
         descricao = (
@@ -233,7 +207,17 @@ class ImportadorNormalizado:
             ""
         )
         
-        # ✅ CORREÇÃO CRÍTICA: Preparar dados crus para JSON
+        # ✅ GARANTIR CATEGORIZAÇÃO CONSISTENTE
+        trntype = 'DEBIT' if valor_bruto < 0 else 'CREDIT'
+        categoria_gerada = categorizar_transacao(
+            descricao=descricao or '',
+            name=dados.get('estabelecimento') or dados.get('name') or '',
+            valor=valor_bruto or Decimal('0'),
+            trntype=trntype
+        )
+        logger.debug(f"🏷️ Categoria gerada: {categoria_gerada} para descrição: {descricao[:50]}...")
+        
+        # Preparar dados crus para JSON
         dados_crus_preparados = _preparar_para_json(dados)
         
         # Metadados
@@ -275,7 +259,10 @@ class ImportadorNormalizado:
             descricao=descricao[:2000] if descricao else None,
             estabelecimento=dados.get("estabelecimento"),
             
-            # ✅ CORREÇÃO: Dados crus preparados para JSON
+            # ✅ CATEGORIA GARANTIDA
+            categoria=categoria_gerada,
+            
+            # Dados crus
             dados_crus=dados_crus_preparados,
             metadados=metadados,
             
@@ -299,14 +286,12 @@ class ImportadorNormalizado:
         """Verifica se já existe registro com mesmo NSU/data"""
         if not normalizacao.nsu:
             return False
-        
         try:
             duplicata = Normalizacao.query.filter_by(
                 empresa_id=self.empresa_id,
                 nsu=normalizacao.nsu,
                 data_movimento=normalizacao.data_movimento
             ).first()
-            
             return duplicata is not None
         except Exception as e:
             logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
