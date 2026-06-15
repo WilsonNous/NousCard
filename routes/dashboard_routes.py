@@ -3,7 +3,7 @@
 
 from flask import Blueprint, jsonify, request, g, render_template, make_response, redirect, url_for, session, abort
 from models import db, MovBanco, MovAdquirente, Empresa, ArquivoImportado, LogAuditoria, Usuario
-from sqlalchemy import func, extract, and_
+from sqlalchemy import func, extract, and_, or_
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from utils.auth_middleware import login_required, empresa_required
@@ -292,6 +292,11 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     """
     Calcula todos os KPIs financeiros baseados em MovBanco E MovAdquirente.
     Suporta data_inicio=None para período "geral".
+    
+    ✅ CORREÇÃO: MovAdquirente NÃO tem campo 'categoria', usar:
+    - bandeira (Visa, Mastercard, Elo, etc.)
+    - produto (Crédito, Débito, PIX)
+    - tipo_pagamento (cartao, pix, boleto)
     """
     from models import MovAdquirente
     
@@ -392,6 +397,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     ).scalar() or Decimal('0')
     
     # PIX Recebido - pode estar em ambas as tabelas
+    # ✅ CORREÇÃO: MovAdquirente não tem 'categoria', filtrar por tipo_pagamento ou produto
     pix_banco = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.categoria == 'pix_recebido',
@@ -407,11 +413,16 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         func.sum(MovBanco.valor)
     ).scalar() or Decimal('0')
     
+    # ✅ CORREÇÃO: Filtrar PIX em MovAdquirente por tipo_pagamento ou produto
     pix_adq = MovAdquirente.query.filter(
         MovAdquirente.empresa_id == empresa_id,
-        MovAdquirente.categoria == 'vendas_pix',
         MovAdquirente.ativo == True,
-        MovAdquirente.valor_bruto > 0
+        MovAdquirente.valor_bruto > 0,
+        or_(
+            MovAdquirente.tipo_pagamento == 'pix',
+            MovAdquirente.produto.ilike('%pix%'),
+            MovAdquirente.bandeira.ilike('%pix%')
+        )
     )
     if data_inicio is not None:
         pix_adq = pix_adq.filter(
@@ -424,7 +435,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     
     pix_recebido = pix_recebido_banco + pix_recebido_adq
     
-    # Transferências Recebidas
+    # Transferências Recebidas (só em MovBanco)
     transferencias = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.categoria == 'transferencia_recebida',
@@ -456,7 +467,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
     
-    # Impostos e Tributos
+    # Impostos e Tributos - MovBanco
     impostos = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.categoria.in_(['tributos', 'impostos_tributos']),
@@ -472,7 +483,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
     
-    # Outras despesas
+    # Outras despesas - MovBanco
     outras = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.categoria.in_(['tarifa_bancaria', 'emprestimo', 'aplicacao_investimento', 'seguro', 'outras_despesas']),
@@ -589,7 +600,7 @@ def get_dashboard_kpis():
         response = {
             'ok': True,
             'periodo': {
-                'inicio': data_inicio.isoformat(),
+                'inicio': data_inicio.isoformat() if data_inicio else None,
                 'fim': data_fim.isoformat(),
                 'tipo': periodo
             },
@@ -619,13 +630,14 @@ def get_dashboard_kpis():
         return jsonify({
             'ok': False,
             'error': 'Erro ao processar dados do dashboard',
-            'details': str(e)
+            'details': str(e) if app.debug else None
         }), 500
 
 
 def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
     """
     Calcula vendas por bandeira (Mastercard, Visa, Elo, etc.)
+    ✅ CORREÇÃO: Usa campo 'bandeira' que existe em MovAdquirente
     """
     from models import MovAdquirente
     
@@ -635,7 +647,9 @@ def calcular_vendas_por_bandeira(empresa_id, data_inicio, data_fim):
     ).filter(
         MovAdquirente.empresa_id == empresa_id,
         MovAdquirente.ativo == True,
-        MovAdquirente.valor_bruto > 0
+        MovAdquirente.valor_bruto > 0,
+        MovAdquirente.bandeira != None,
+        MovAdquirente.bandeira != ''
     )
     
     # Aplicar filtro de data apenas se data_inicio não for None
@@ -691,8 +705,8 @@ def get_resumo_mensal():
             else:
                 data_fim = datetime(ano_atual, mes_atual + 1, 1).date() - timedelta(days=1)
             
-            # Calcular saldo do mês
-            saldo = MovBanco.query.filter(
+            # Calcular saldo do mês (MovBanco + MovAdquirente)
+            saldo_banco = MovBanco.query.filter(
                 MovBanco.empresa_id == empresa_id,
                 MovBanco.data_movimento >= data_inicio,
                 MovBanco.data_movimento <= data_fim
@@ -700,9 +714,19 @@ def get_resumo_mensal():
                 func.sum(MovBanco.valor)
             ).scalar() or Decimal('0')
             
+            saldo_adq = MovAdquirente.query.filter(
+                MovAdquirente.empresa_id == empresa_id,
+                MovAdquirente.data_venda >= data_inicio,
+                MovAdquirente.data_venda <= data_fim
+            ).with_entities(
+                func.sum(MovAdquirente.valor_bruto)
+            ).scalar() or Decimal('0')
+            
+            saldo_total = saldo_banco + saldo_adq
+            
             meses.append({
                 'mes': f'{mes_atual:02d}/{ano_atual}',
-                'saldo': float(saldo),
+                'saldo': float(saldo_total),
                 'label': f'{mes_atual:02d}/{str(ano_atual)[-2:]}'
             })
         
@@ -723,13 +747,15 @@ def dre_resumo():
     # Calcular período de datas
     data_inicio, data_fim = get_periodo_datas(periodo)
     
-    # Buscar receitas (créditos)
+    # Buscar receitas (créditos) - da tabela Normalizacao
+    from models import Normalizacao
+    
     receitas_query = db.session.query(
         Normalizacao.categoria,
         func.sum(Normalizacao.valor_bruto).label('total')
     ).filter(
         Normalizacao.empresa_id == empresa_id,
-        Normalizacao.data_movimento.between(data_inicio, data_fim),
+        Normalizacao.data_movimento.between(data_inicio, data_fim) if data_inicio else True,
         Normalizacao.valor_bruto > 0,
         Normalizacao.status == 'processado'
     ).group_by(Normalizacao.categoria).all()
@@ -746,13 +772,13 @@ def dre_resumo():
         })
         total_receitas += total
     
-    # Buscar despesas (débitos)
+    # Buscar despesas (débitos) - da tabela Normalizacao
     despesas_query = db.session.query(
         Normalizacao.categoria,
         func.sum(Normalizacao.valor_bruto).label('total')
     ).filter(
         Normalizacao.empresa_id == empresa_id,
-        Normalizacao.data_movimento.between(data_inicio, data_fim),
+        Normalizacao.data_movimento.between(data_inicio, data_fim) if data_inicio else True,
         Normalizacao.valor_bruto < 0,
         Normalizacao.status == 'processado'
     ).group_by(Normalizacao.categoria).all()
