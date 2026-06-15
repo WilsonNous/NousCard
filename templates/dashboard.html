@@ -40,21 +40,27 @@
         cursor: pointer;
     }
 
-    /* KPIs Principais */
+    /* ============================================================
+       ✅ KPIs: Layout Horizontal (Desktop) / Vertical (Mobile)
+       ============================================================ */
     .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 1rem;
         margin-bottom: 1.5rem;
+        justify-content: flex-start;
     }
     
     .kpi-card {
+        flex: 0 0 auto;
+        width: 220px;
         background: var(--white);
         border-radius: 12px;
         padding: 1.25rem;
         box-shadow: var(--shadow-sm);
         border-left: 4px solid var(--gray-border);
         transition: transform 0.2s, box-shadow 0.2s;
+        text-align: center;
     }
     
     .kpi-card:hover {
@@ -68,7 +74,7 @@
     .kpi-card.cartao { border-left-color: var(--warning); }
     
     .kpi-label {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 600;
         color: var(--text-muted);
         text-transform: uppercase;
@@ -76,23 +82,49 @@
         margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 0.5rem;
     }
     
     .kpi-value {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: var(--text);
         margin-bottom: 0.25rem;
+        line-height: 1.3;
     }
     
     .kpi-sub {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: var(--text-muted);
     }
     
     .kpi-sub.positive { color: var(--success); }
     .kpi-sub.negative { color: var(--error); }
+
+    /* ============================================================
+       ✅ RESPONSIVO: Empilhar cards em telas pequenas
+       ============================================================ */
+    @media (max-width: 1024px) {
+        .kpi-card {
+            width: 48%;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .kpi-grid {
+            flex-direction: column;
+            align-items: center;
+        }
+        .kpi-card {
+            width: 100%;
+            max-width: 320px;
+        }
+        .dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
 
     /* Seção de Detalhes */
     .details-grid {
@@ -144,6 +176,7 @@
         align-items: center;
         justify-content: center;
         font-size: 1rem;
+        flex-shrink: 0;
     }
     
     .breakdown-name {
@@ -160,6 +193,8 @@
     .breakdown-value {
         font-weight: 700;
         font-size: 0.95rem;
+        text-align: right;
+        min-width: 100px;
     }
 
     /* Barra de Progresso */
@@ -235,7 +270,7 @@
         </div>
     </div>
 
-    <!-- KPIs Principais -->
+    <!-- KPIs Principais - Layout Horizontal -->
     <div class="kpi-grid">
         <!-- Saldo Líquido -->
         <div class="kpi-card saldo">
@@ -266,8 +301,8 @@
         </div>
     </div>
     
-    <!-- Adicionar após os KPIs principais -->
-    <div class="kpi-grid" style="margin-top: 1.5rem;">
+    <!-- Vendas por Bandeira - Layout Horizontal -->
+    <div class="kpi-grid" style="margin-top: 0.5rem;">
         <div class="kpi-card" style="border-left-color: #FF5F00;">
             <div class="kpi-label">💳 Mastercard</div>
             <div class="kpi-value" style="color: #FF5F00;" id="kpi-mastercard">R$ 0,00</div>
@@ -384,22 +419,34 @@
 </section>
 
 <script>
-// Função para formatar moeda BRL
+// ============================================================
+// ✅ FORMATAR BRL COM SEPARADOR DE MILHAR (CORRIGIDO)
+// ============================================================
 const formatBRL = (value) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+    if (value === null || value === undefined) return 'R$ 0,00';
+    
+    const num = typeof value === 'string' ? parseFloat(value.replace(/[^\d,-]/g, '').replace(',', '.')) : value;
+    
+    if (isNaN(num)) return 'R$ 0,00';
+    
+    // Formatar: 1234567.89 → "R$ 1.234.567,89"
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(num);
 };
 
 // Função principal de atualização do Dashboard
 async function atualizarDashboard(periodo) {
     // Mostrar estado de carregamento
-    document.getElementById('kpi-saldo').textContent = 'Carregando...';
-    document.getElementById('kpi-entradas').textContent = '...';
-    document.getElementById('kpi-saidas').textContent = '...';
-    document.getElementById('kpi-cartao').textContent = '...';
-    document.getElementById('kpi-mastercard').textContent = '...';
-    document.getElementById('kpi-visa').textContent = '...';
-    document.getElementById('kpi-elo').textContent = '...';
-    document.getElementById('kpi-outras').textContent = '...';
+    const kpiIds = ['kpi-saldo', 'kpi-entradas', 'kpi-saidas', 'kpi-cartao', 
+                    'kpi-mastercard', 'kpi-visa', 'kpi-elo', 'kpi-outras'];
+    kpiIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = 'Carregando...';
+    });
     
     try {
         // ✅ CHAMAR API REAL
@@ -421,36 +468,54 @@ async function atualizarDashboard(periodo) {
         }
         
         // Atualizar KPIs Principais
-        document.getElementById('kpi-saldo').textContent = formatBRL(data.saldo);
-        document.getElementById('kpi-saldo-sub').textContent = data.saldo >= 0 ? '✅ Fluxo positivo' : '⚠️ Fluxo negativo';
-        document.getElementById('kpi-saldo-sub').className = `kpi-sub ${data.saldo >= 0 ? 'positive' : 'negative'}`;
+        const saldoEl = document.getElementById('kpi-saldo');
+        if (saldoEl) {
+            saldoEl.textContent = formatBRL(data.saldo);
+            const subEl = document.getElementById('kpi-saldo-sub');
+            if (subEl) {
+                subEl.textContent = data.saldo >= 0 ? '✅ Fluxo positivo' : '⚠️ Fluxo negativo';
+                subEl.className = `kpi-sub ${data.saldo >= 0 ? 'positive' : 'negative'}`;
+            }
+        }
         
-        document.getElementById('kpi-entradas').textContent = formatBRL(data.entradas);
-        document.getElementById('kpi-saidas').textContent = formatBRL(data.saidas);
-        document.getElementById('kpi-cartao').textContent = formatBRL(data.vendas_cartao);
+        const entradasEl = document.getElementById('kpi-entradas');
+        if (entradasEl) entradasEl.textContent = formatBRL(data.entradas);
+        
+        const saidasEl = document.getElementById('kpi-saidas');
+        if (saidasEl) saidasEl.textContent = formatBRL(data.saidas);
+        
+        const cartaoEl = document.getElementById('kpi-cartao');
+        if (cartaoEl) cartaoEl.textContent = formatBRL(data.vendas_cartao);
         
         // ✅ Atualizar KPIs de Vendas por Bandeira
         const bandeiras = data.vendas_por_bandeira || {};
-        document.getElementById('kpi-mastercard').textContent = formatBRL(bandeiras.mastercard || 0);
-        document.getElementById('kpi-visa').textContent = formatBRL(bandeiras.visa || 0);
-        document.getElementById('kpi-elo').textContent = formatBRL(bandeiras.elo || 0);
+        
+        const mastercardEl = document.getElementById('kpi-mastercard');
+        if (mastercardEl) mastercardEl.textContent = formatBRL(bandeiras.mastercard || 0);
+        
+        const visaEl = document.getElementById('kpi-visa');
+        if (visaEl) visaEl.textContent = formatBRL(bandeiras.visa || 0);
+        
+        const eloEl = document.getElementById('kpi-elo');
+        if (eloEl) eloEl.textContent = formatBRL(bandeiras.elo || 0);
         
         // Calcular "Outras" (soma de todas as bandeiras não listadas)
         const outrasBandeiras = Object.entries(bandeiras)
             .filter(([key]) => !['mastercard', 'visa', 'elo'].includes(key.toLowerCase()))
             .reduce((sum, [_, value]) => sum + (value || 0), 0);
-        document.getElementById('kpi-outras').textContent = formatBRL(outrasBandeiras);
+        const outrasEl = document.getElementById('kpi-outras');
+        if (outrasEl) outrasEl.textContent = formatBRL(outrasBandeiras);
         
         // Calcular totais para porcentagens
-        const totalRec = data.receitas.cartao + data.receitas.pix + data.receitas.transferencias;
-        const totalDesp = data.despesas.fornecedores + data.despesas.impostos + data.despesas.outras;
+        const totalRec = (data.receitas?.cartao || 0) + (data.receitas?.pix || 0) + (data.receitas?.transferencias || 0);
+        const totalDesp = (data.despesas?.fornecedores || 0) + (data.despesas?.impostos || 0) + (data.despesas?.outras || 0);
         
         // Atualizar Breakdown de Receitas
         updateBreakdown('receitas-breakdown', [
             { 
                 name: 'Maquininha (Cartão)', 
                 desc: 'Mastercard, Visa, Elo, Maestro', 
-                value: data.receitas.cartao, 
+                value: data.receitas?.cartao || 0, 
                 total: totalRec, 
                 color: 'var(--primary)', 
                 icon: '💳', 
@@ -459,7 +524,7 @@ async function atualizarDashboard(periodo) {
             { 
                 name: 'PIX Recebido', 
                 desc: 'Vendas e transferências de clientes', 
-                value: data.receitas.pix, 
+                value: data.receitas?.pix || 0, 
                 total: totalRec, 
                 color: 'var(--success)', 
                 icon: '⚡', 
@@ -468,7 +533,7 @@ async function atualizarDashboard(periodo) {
             { 
                 name: 'Transferências', 
                 desc: 'TED, DOC e outras receitas', 
-                value: data.receitas.transferencias, 
+                value: data.receitas?.transferencias || 0, 
                 total: totalRec, 
                 color: 'var(--text-muted)', 
                 icon: '🏦', 
@@ -481,7 +546,7 @@ async function atualizarDashboard(periodo) {
             { 
                 name: 'Fornecedores', 
                 desc: 'PIX e boletos pagos', 
-                value: data.despesas.fornecedores, 
+                value: data.despesas?.fornecedores || 0, 
                 total: totalDesp, 
                 color: 'var(--error)', 
                 icon: '🏪', 
@@ -490,7 +555,7 @@ async function atualizarDashboard(periodo) {
             { 
                 name: 'Impostos e Tributos', 
                 desc: 'DAS, RFB, Simples Nacional', 
-                value: data.despesas.impostos, 
+                value: data.despesas?.impostos || 0, 
                 total: totalDesp, 
                 color: '#856404', 
                 icon: '🏛️', 
@@ -499,7 +564,7 @@ async function atualizarDashboard(periodo) {
             { 
                 name: 'Outras Despesas', 
                 desc: 'Tarifas, empréstimos, etc.', 
-                value: data.despesas.outras, 
+                value: data.despesas?.outras || 0, 
                 total: totalDesp, 
                 color: 'var(--text-muted)', 
                 icon: '📦', 
@@ -508,32 +573,40 @@ async function atualizarDashboard(periodo) {
         ]);
         
         // Atualizar Insight
-        document.getElementById('insight-text').textContent = data.insight;
+        const insightEl = document.getElementById('insight-text');
+        if (insightEl) {
+            insightEl.textContent = data.insight || 'Continue acompanhando seu fluxo de caixa regularmente.';
+        }
         
         // Mostrar mensagem se não houver dados
         if (data.total_registros === 0) {
-            document.getElementById('insight-text').textContent = 
-                "Nenhum dado encontrado para este período. Importe seu extrato bancário (OFX ou CSV) para visualizar seus KPIs financeiros!";
+            if (insightEl) {
+                insightEl.textContent = 
+                    "Nenhum dado encontrado para este período. Importe seu extrato bancário (OFX ou CSV) para visualizar seus KPIs financeiros!";
+            }
         }
         
     } catch (error) {
         console.error('Erro ao carregar dashboard:', error);
-        document.getElementById('kpi-saldo').textContent = 'Erro';
-        document.getElementById('kpi-entradas').textContent = 'Erro';
-        document.getElementById('kpi-saidas').textContent = 'Erro';
-        document.getElementById('kpi-cartao').textContent = 'Erro';
-        document.getElementById('kpi-mastercard').textContent = 'Erro';
-        document.getElementById('kpi-visa').textContent = 'Erro';
-        document.getElementById('kpi-elo').textContent = 'Erro';
-        document.getElementById('kpi-outras').textContent = 'Erro';
-        document.getElementById('insight-text').textContent = 
-            `Erro ao carregar dados: ${error.message}. Verifique se há movimentos importados no período.`;
+        
+        kpiIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = 'Erro';
+        });
+        
+        const insightEl = document.getElementById('insight-text');
+        if (insightEl) {
+            insightEl.textContent = 
+                `Erro ao carregar dados: ${error.message}. Verifique se há movimentos importados no período.`;
+        }
     }
 }
 
 // Função auxiliar para renderizar as barras de breakdown
 function updateBreakdown(containerId, items) {
     const container = document.getElementById(containerId);
+    if (!container) return;
+    
     container.innerHTML = ''; // Limpar
     
     items.forEach(item => {
@@ -542,7 +615,7 @@ function updateBreakdown(containerId, items) {
         const html = `
             <div class="breakdown-item">
                 <div style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; flex-wrap: wrap; gap: 0.5rem;">
                         <div class="breakdown-info">
                             <div class="breakdown-icon" style="background: ${item.bg}; color: ${item.color};">${item.icon}</div>
                             <div>
@@ -565,7 +638,8 @@ function updateBreakdown(containerId, items) {
 // Carregar dados ao iniciar a página
 document.addEventListener('DOMContentLoaded', () => {
     // ✅ NOVO: Pegar o valor selecionado no select (padrão: 12meses)
-    const periodoSelecionado = document.getElementById('periodoSelect').value;
+    const periodoSelect = document.getElementById('periodoSelect');
+    const periodoSelecionado = periodoSelect ? periodoSelect.value : '12meses';
     atualizarDashboard(periodoSelecionado);
 });
 </script>
