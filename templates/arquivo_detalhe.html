@@ -108,8 +108,8 @@
                         <tr>
                             <td>{{ reg.data }}</td>
                             <td>{{ reg.descricao or '-' }}</td>
-                            <td style="text-align: right; color: {% if reg.valor|float > 0 %}var(--success){% else %}var(--error){% endif %};">
-                                {{ reg.valor|format_brl }}
+                            <td style="text-align: right; color: {% if reg.valor|safe_float > 0 %}var(--success){% else %}var(--error){% endif %};">
+                                R$ {{ reg.valor|format_brl }}
                             </td>
                             <td>{{ reg.categoria or '-' }}</td>
                             <td>{{ reg.tipo_pagamento or '-' }}</td>
