@@ -161,37 +161,52 @@ def create_app(config_class=Config):
     except Exception as e:
         app.logger.error(f"❌ Erro ao registrar filtros de horário: {str(e)}")
 
-    # ✅ FILTROS FINANCEIROS PARA TEMPLATES (BRL + COMPARAÇÕES)
-    # ============================================================
-    # Disponibiliza em todos os templates:
-    #   {{ valor|format_brl }}      → "R$ 1.234,56"
-    #   {{ valor|safe_float }}      → 1234.56 (para comparações)
-    # ============================================================
     try:
         @app.template_filter('format_brl')
         def filter_format_brl(value):
             """
             Formata valor para BRL no template.
-            Aceita: str, int, float, Decimal, None
-            Exemplo: 1234.56 → "1.234,56"
+            Exemplos:
+                10000 → "10.000,00"
+                1234567.89 → "1.234.567,89"
+                "R$ 1.234,56" → "1.234,56"
             """
             from decimal import Decimal
             
             if value is None:
                 return "0,00"
             try:
-                # Converte para float se for string
+                # Converter para float, lidando com strings formatadas
                 if isinstance(value, str):
-                    # Remove R$, espaços e converte vírgula para ponto
-                    value = value.replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
-                    num = float(value)
+                    # Remover formatação existente: R$, espaços
+                    clean = value.replace("R$", "").replace(" ", "").strip()
+                    if not clean:
+                        return "0,00"
+                    # Converter para float: lidar com vírgula/ponto
+                    if "," in clean and "." in clean:
+                        # Tem ambos: ponto é separador de milhar, vírgula é decimal
+                        clean = clean.replace(".", "").replace(",", ".")
+                    elif "," in clean:
+                        # Só vírgula: é separador decimal
+                        clean = clean.replace(",", ".")
+                    num = float(clean)
                 elif isinstance(value, Decimal):
                     num = float(value)
                 else:
                     num = float(value)
                 
-                # Formata para padrão brasileiro: 1234.56 → "1.234,56"
-                return f"{num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                # Formatar: 1234567.89 → "1.234.567,89"
+                # Passo 1: formatar com separador de milhar US (vírgula) e decimal US (ponto)
+                # Ex: f"{1234567.89:,.2f}" → "1,234,567.89"
+                # Passo 2: trocar vírgula por X temporariamente
+                # Ex: "1,234,567.89" → "1X234X567.89"
+                # Passo 3: trocar ponto por vírgula (decimal BR)
+                # Ex: "1X234X567.89" → "1X234X567,89"
+                # Passo 4: trocar X por ponto (milhar BR)
+                # Ex: "1X234X567,89" → "1.234.567,89" ✅
+                formatted = f"{num:,.2f}"
+                return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+                
             except Exception as e:
                 app.logger.debug(f"⚠️ format_brl fallback: {str(e)}")
                 return "0,00"
