@@ -290,26 +290,28 @@ def get_periodo_datas(periodo):
 
 def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
     """
-    Calcula todos os KPIs financeiros baseados em MovBanco E MovAdquirente.
+    Calcula todos os KPIs financeiros.
     
-    ✅ CORREÇÃO CRÍTICA: Busca saídas por CATEGORIA, não por valor negativo,
-    pois alguns imports salvam saídas como valor positivo.
+    ✅ ESTRATÉGIA: Busca em 3 fontes, na ordem:
+    1. MovBanco (tabela final de extrato)
+    2. MovAdquirente (tabela final de vendas)
+    3. tous_normalizacao (fallback se não processado)
     """
-    from models import MovAdquirente, MovBanco
+    from models import MovAdquirente, MovBanco, Normalizacao
     from sqlalchemy import or_, and_
     
     logger.info(f"🔍 KPIs: empresa_id={empresa_id}, data_inicio={data_inicio}, data_fim={data_fim}")
     
     # ============================================================
-    # RECEITAS: Somar de ambas as tabelas
+    # RECEITAS: Somar de todas as fontes
     # ============================================================
     
-    # 1. Receitas de MovBanco (extrato bancário) - valores positivos OU categorias de receita
+    # 1. Receitas de MovBanco
     query_banco_entradas = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.ativo == True,
         or_(
-            MovBanco.valor > 0,  # Valores positivos são entradas
+            MovBanco.valor > 0,
             MovBanco.categoria.in_(['pix_recebido', 'transferencia_recebida', 'vendas_cartao', 'vendas_pix'])
         )
     )
@@ -322,7 +324,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         func.sum(MovBanco.valor)
     ).scalar() or Decimal('0')
     
-    # 2. Receitas de MovAdquirente (vendas via maquininha) - sempre positivas
+    # 2. Receitas de MovAdquirente
     query_adq_entradas = MovAdquirente.query.filter(
         MovAdquirente.empresa_id == empresa_id,
         MovAdquirente.ativo == True,
@@ -337,14 +339,31 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         func.sum(MovAdquirente.valor_bruto)
     ).scalar() or Decimal('0')
     
-    # Total de entradas = banco + adquirente
-    total_entradas = total_entradas_banco + total_entradas_adquirente
+    # 3. Fallback: tous_normalizacao para receitas
+    total_entradas_norm = Decimal('0')
+    if total_entradas_banco == 0 and total_entradas_adquirente == 0:
+        query_norm_entradas = Normalizacao.query.filter(
+            Normalizacao.empresa_id == empresa_id,
+            Normalizacao.status == 'processado',
+            Normalizacao.valor_bruto > 0
+        )
+        if data_inicio is not None:
+            query_norm_entradas = query_norm_entradas.filter(
+                Normalizacao.data_movimento >= data_inicio,
+                Normalizacao.data_movimento <= data_fim
+            )
+        total_entradas_norm = query_norm_entradas.with_entities(
+            func.sum(Normalizacao.valor_bruto)
+        ).scalar() or Decimal('0')
+        if total_entradas_norm > 0:
+            logger.info(f"🔄 Fallback receitas: {total_entradas_norm} em tous_normalizacao")
+    
+    total_entradas = total_entradas_banco + total_entradas_adquirente + total_entradas_norm
     
     # ============================================================
-    # SAÍDAS: Buscar por CATEGORIA (não por valor negativo!)
+    # SAÍDAS: Buscar por CATEGORIA + fallback em tous_normalizacao
     # ============================================================
     
-    # Categorias que indicam DESPESA/SAÍDA (independente do sinal do valor)
     CATEGORIAS_SAIDA = [
         'pix_emitido', 'pix_fornecedores', 'boleto', 'fornecedores_mercadoria',
         'fornecedores_servicos', 'tarifa_bancaria', 'emprestimo',
@@ -354,42 +373,33 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
         'seguros', 'saude_bem_estar', 'viagens_hospedagem', 'doacoes_patrocinios'
     ]
     
-    # Query para saídas: valores negativos OU categorias de despesa com valor positivo
+    # 1. Saídas de MovBanco (por categoria OU valor negativo)
     query_banco_saidas = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.ativo == True,
         or_(
-            MovBanco.valor < 0,  # Saídas tradicionais (negativas)
-            and_(
-                MovBanco.valor > 0,  # Ou positivos...
-                MovBanco.categoria.in_(CATEGORIAS_SAIDA)  # ...mas com categoria de despesa
-            )
+            MovBanco.valor < 0,
+            and_(MovBanco.valor > 0, MovBanco.categoria.in_(CATEGORIAS_SAIDA))
         )
     )
-    
     if data_inicio is not None:
         query_banco_saidas = query_banco_saidas.filter(
             MovBanco.data_movimento >= data_inicio,
             MovBanco.data_movimento <= data_fim
         )
-    
-    # Calcular total de saídas (usar ABS para garantir valor positivo)
     total_saidas_banco = query_banco_saidas.with_entities(
         func.sum(func.abs(MovBanco.valor))
     ).scalar() or Decimal('0')
     
-    # Fallback: buscar em tous_normalizacao se necessário
+    # 2. Fallback: tous_normalizacao para saídas
+    total_saidas_norm = Decimal('0')
     if total_saidas_banco == 0:
-        from models import Normalizacao
         query_norm_saidas = Normalizacao.query.filter(
             Normalizacao.empresa_id == empresa_id,
             Normalizacao.status == 'processado',
             or_(
                 Normalizacao.valor_bruto < 0,
-                and_(
-                    Normalizacao.valor_bruto > 0,
-                    Normalizacao.categoria.in_(CATEGORIAS_SAIDA)
-                )
+                and_(Normalizacao.valor_bruto > 0, Normalizacao.categoria.in_(CATEGORIAS_SAIDA))
             )
         )
         if data_inicio is not None:
@@ -401,17 +411,50 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
             func.sum(func.abs(Normalizacao.valor_bruto))
         ).scalar() or Decimal('0')
         if total_saidas_norm > 0:
-            logger.info(f"🔄 Fallback: {total_saidas_norm} em despesas em tous_normalizacao")
-            total_saidas_banco = total_saidas_norm
+            logger.info(f"🔄 Fallback saídas: {total_saidas_norm} em tous_normalizacao")
     
-    # Saldo do período
-    saldo = total_entradas - total_saidas_banco
+    total_saidas = total_saidas_banco + total_saidas_norm
+    
+    # Saldo
+    saldo = total_entradas - total_saidas
     
     # ============================================================
-    # DETALHAMENTO POR CATEGORIA
+    # DETALHAMENTO POR CATEGORIA (com fallback)
     # ============================================================
     
-    # Vendas no cartão (MovAdquirente)
+    def _somar_por_categoria(tabela, campo_valor, campo_data, categorias, data_inicio, data_fim):
+        """Helper para somar valores por lista de categorias"""
+        query = tabela.query.filter(
+            tabela.empresa_id == empresa_id,
+            tabela.ativo == True,
+            tabela.categoria.in_(categorias)
+        )
+        if data_inicio is not None:
+            query = query.filter(
+                getattr(tabela, campo_data) >= data_inicio,
+                getattr(tabela, campo_data) <= data_fim
+            )
+        return query.with_entities(func.sum(func.abs(getattr(tabela, campo_valor)))).scalar() or Decimal('0')
+    
+    # Fornecedores
+    cats_fornecedores = ['pix_emitido', 'pix_fornecedores', 'boleto', 'fornecedores_mercadoria', 'fornecedores_servicos', 'transporte_combustivel']
+    fornecedores_banco = _somar_por_categoria(MovBanco, 'valor', 'data_movimento', cats_fornecedores, data_inicio, data_fim)
+    fornecedores_norm = Decimal('0') if fornecedores_banco > 0 else _somar_por_categoria(Normalizacao, 'valor_bruto', 'data_movimento', cats_fornecedores, data_inicio, data_fim)
+    fornecedores_total = fornecedores_banco + fornecedores_norm
+    
+    # Impostos
+    cats_impostos = ['tributos', 'impostos_tributos']
+    impostos_banco = _somar_por_categoria(MovBanco, 'valor', 'data_movimento', cats_impostos, data_inicio, data_fim)
+    impostos_norm = Decimal('0') if impostos_banco > 0 else _somar_por_categoria(Normalizacao, 'valor_bruto', 'data_movimento', cats_impostos, data_inicio, data_fim)
+    impostos_total = impostos_banco + impostos_norm
+    
+    # Outras despesas
+    cats_outras = ['tarifa_bancaria', 'emprestimo', 'aplicacao_investimento', 'seguro', 'outras_despesas', 'energia_agua_telecom', 'transferencia_enviada_outros']
+    outras_banco = _somar_por_categoria(MovBanco, 'valor', 'data_movimento', cats_outras, data_inicio, data_fim)
+    outras_norm = Decimal('0') if outras_banco > 0 else _somar_por_categoria(Normalizacao, 'valor_bruto', 'data_movimento', cats_outras, data_inicio, data_fim)
+    outras_total = outras_banco + outras_norm
+    
+    # Vendas no cartão (só MovAdquirente)
     vendas_cartao = MovAdquirente.query.filter(
         MovAdquirente.empresa_id == empresa_id,
         MovAdquirente.ativo == True,
@@ -422,11 +465,9 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
             MovAdquirente.data_venda >= data_inicio,
             MovAdquirente.data_venda <= data_fim
         )
-    vendas_cartao_total = vendas_cartao.with_entities(
-        func.sum(MovAdquirente.valor_bruto)
-    ).scalar() or Decimal('0')
+    vendas_cartao_total = vendas_cartao.with_entities(func.sum(MovAdquirente.valor_bruto)).scalar() or Decimal('0')
     
-    # PIX Recebido (pode estar em ambas as tabelas)
+    # PIX Recebido
     pix_banco = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
         MovBanco.categoria == 'pix_recebido',
@@ -437,9 +478,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
             MovBanco.data_movimento >= data_inicio,
             MovBanco.data_movimento <= data_fim
         )
-    pix_recebido_banco = pix_banco.with_entities(
-        func.sum(MovBanco.valor)
-    ).scalar() or Decimal('0')
+    pix_recebido_banco = pix_banco.with_entities(func.sum(MovBanco.valor)).scalar() or Decimal('0')
     
     pix_adq = MovAdquirente.query.filter(
         MovAdquirente.empresa_id == empresa_id,
@@ -456,9 +495,7 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
             MovAdquirente.data_venda >= data_inicio,
             MovAdquirente.data_venda <= data_fim
         )
-    pix_recebido_adq = pix_adq.with_entities(
-        func.sum(MovAdquirente.valor_bruto)
-    ).scalar() or Decimal('0')
+    pix_recebido_adq = pix_adq.with_entities(func.sum(MovAdquirente.valor_bruto)).scalar() or Decimal('0')
     
     pix_recebido = pix_recebido_banco + pix_recebido_adq
     
@@ -473,81 +510,21 @@ def calcular_kpis_financeiros(empresa_id, data_inicio, data_fim):
             MovBanco.data_movimento >= data_inicio,
             MovBanco.data_movimento <= data_fim
         )
-    transferencias_recebidas = transferencias.with_entities(
-        func.sum(MovBanco.valor)
-    ).scalar() or Decimal('0')
+    transferencias_recebidas = transferencias.with_entities(func.sum(MovBanco.valor)).scalar() or Decimal('0')
     
-    # ============================================================
-    # DESPESAS DETALHADAS POR CATEGORIA (usando ABS para valor positivo)
-    # ============================================================
-    
-    # Fornecedores (PIX emitido + boletos + categorias relacionadas)
-    fornecedores = MovBanco.query.filter(
-        MovBanco.empresa_id == empresa_id,
-        MovBanco.ativo == True,
-        MovBanco.categoria.in_(['pix_emitido', 'pix_fornecedores', 'boleto', 'fornecedores_mercadoria', 'fornecedores_servicos', 'transporte_combustivel'])
+    # Total de registros
+    total_registros = (
+        MovBanco.query.filter_by(empresa_id=empresa_id, ativo=True).count() +
+        MovAdquirente.query.filter_by(empresa_id=empresa_id, ativo=True).count() +
+        Normalizacao.query.filter_by(empresa_id=empresa_id, status='processado').count()
     )
-    if data_inicio is not None:
-        fornecedores = fornecedores.filter(
-            MovBanco.data_movimento >= data_inicio,
-            MovBanco.data_movimento <= data_fim
-        )
-    fornecedores_total = fornecedores.with_entities(
-        func.sum(func.abs(MovBanco.valor))
-    ).scalar() or Decimal('0')
     
-    # Impostos e Tributos
-    impostos = MovBanco.query.filter(
-        MovBanco.empresa_id == empresa_id,
-        MovBanco.ativo == True,
-        MovBanco.categoria.in_(['tributos', 'impostos_tributos'])
-    )
-    if data_inicio is not None:
-        impostos = impostos.filter(
-            MovBanco.data_movimento >= data_inicio,
-            MovBanco.data_movimento <= data_fim
-        )
-    impostos_total = impostos.with_entities(
-        func.sum(func.abs(MovBanco.valor))
-    ).scalar() or Decimal('0')
-    
-    # Outras despesas (tarifas, empréstimos, energia, etc.)
-    outras = MovBanco.query.filter(
-        MovBanco.empresa_id == empresa_id,
-        MovBanco.ativo == True,
-        MovBanco.categoria.in_(['tarifa_bancaria', 'emprestimo', 'aplicacao_investimento', 'seguro', 'outras_despesas', 'energia_agua_telecom', 'transferencia_enviada_outros'])
-    )
-    if data_inicio is not None:
-        outras = outras.filter(
-            MovBanco.data_movimento >= data_inicio,
-            MovBanco.data_movimento <= data_fim
-        )
-    outras_total = outras.with_entities(
-        func.sum(func.abs(MovBanco.valor))
-    ).scalar() or Decimal('0')
-    
-    # Total de registros (ambas as tabelas)
-    total_registros_banco = MovBanco.query.filter_by(empresa_id=empresa_id, ativo=True)
-    if data_inicio is not None:
-        total_registros_banco = total_registros_banco.filter(
-            MovBanco.data_movimento.between(data_inicio, data_fim)
-        )
-    
-    total_registros_adq = MovAdquirente.query.filter_by(empresa_id=empresa_id, ativo=True)
-    if data_inicio is not None:
-        total_registros_adq = total_registros_adq.filter(
-            MovAdquirente.data_venda.between(data_inicio, data_fim)
-        )
-    
-    total_registros = total_registros_banco.count() + total_registros_adq.count()
-    
-    # Log de debug
-    logger.info(f"📊 KPIs calculados: entradas={total_entradas}, saidas={total_saidas_banco}, saldo={saldo}")
+    logger.info(f"📊 KPIs: entradas={total_entradas}, saidas={total_saidas}, saldo={saldo}")
     
     return {
         'saldo': float(saldo),
         'entradas': float(total_entradas),
-        'saidas': float(total_saidas_banco),
+        'saidas': float(total_saidas),
         'vendas_cartao': float(vendas_cartao_total),
         'receitas': {
             'cartao': float(vendas_cartao_total),
