@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COMPLETA COM TODAS AS FUNÇÕES
+# utils/parsers.py - VERSÃO FINAL COMPLETA COM CATEGORIZAÇÃO DRE INTELIGENTE
 
 import csv
 import io
@@ -114,82 +114,299 @@ def sanitizar_celula(value):
         return ""
 
 # ============================================================
-# CATEGORIZAÇÃO AUTOMÁTICA DE TRANSAÇÕES
+# 🎯 CATEGORIZAÇÃO INTELIGENTE DE TRANSAÇÕES (DRE) - SUPER APRIMORADA
 # ============================================================
 def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: str = None) -> str:
-    """Categoriza automaticamente a transação baseada em palavras-chave."""
-    texto = f"{descricao} {name}".upper()
-    eh_credito = valor > 0 or trntype == 'CREDIT'
+    """
+    Categoriza automaticamente a transação baseada em palavras-chave do extrato.
+    Retorna uma categoria padronizada para o DRE.
     
+    Categorias de RECEITA:
+    - vendas_cartao: Vendas via maquininha (Cielo, Rede, Flow, etc)
+    - vendas_pix: Vendas recebidas via PIX
+    - vendas_boleto: Vendas recebidas via boleto
+    - transferencia_recebida: TED/DOC recebidos
+    - outras_receitas: Outras entradas
+    
+    Categorias de DESPESA:
+    - fornecedores_mercadoria: Compra de estoque/produtos
+    - fornecedores_servicos: Serviços terceirizados
+    - impostos_tributos: DAS, IR, INSS, taxas governamentais
+    - tarifas_bancarias: Tarifas de conta, TED, manutenção
+    - aluguel_condominio: Aluguel, condomínio, IPTU
+    - energia_agua_telecom: Contas de consumo
+    - marketing_publicidade: Anúncios, redes sociais, panfletos
+    - salarios_encargos: Folha de pagamento, pró-labore
+    - transporte_combustivel: Uber, combustível, estacionamento
+    - equipamentos_manutencao: Compra ou manutenção de equipamentos
+    - outras_despesas: Não classificadas (tentar minimizar)
+    """
+    # Normalizar texto para busca
+    texto_completo = f"{descricao or ''} {name or ''}".upper().strip()
+    
+    # Determinar se é crédito (entrada) ou débito (saída)
+    eh_credito = valor > 0 or (trntype and trntype.upper() in ['CREDIT', 'CR'])
+    
+    # ============================================================
+    # 🟢 CATEGORIAS DE RECEITA (ENTRADAS)
+    # ============================================================
     if eh_credito:
-        # Vendas via Maquininha (SIPAG/adquirentes)
-        if any(kw in texto for kw in ['CR COMPRAS', 'SIPAG', 'CRED.COMPRAS']):
-            if 'MASTERCARD' in texto:
+        
+        # --- VENDAS VIA MAQUININHA (CARTÃO) ---
+        palavras_cartao = [
+            'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS', 'VENDA CARTAO', 'VENDA CARTÃO',
+            'MAQUININHA', 'ADQUIRENTE', 'CIELO', 'REDE', 'STONE', 'PAGSEGURO',
+            'GETNET', 'FLOW', 'MERCADO PAGO', 'TON', 'SUMUP', 'LINX', 'WISE',
+            'MASTERCARD', 'VISA', 'ELO', 'AMEX', 'HIPERCARD', 'MAESTRO',
+            'CARTAO DE CREDITO', 'CARTÃO DE CRÉDITO', 'CARTAO DE DEBITO',
+            'DEBITO VENDA', 'CREDITO VENDA', 'LIQUIDACAO CARTAO',
+            'REPASSE ADQUIRENTE', 'RECEBIMENTO CARTAO'
+        ]
+        if any(kw in texto_completo for kw in palavras_cartao):
+            # Sub-categorizar por bandeira
+            if 'MASTERCARD' in texto_completo or 'MAESTRO' in texto_completo:
                 return 'vendas_mastercard'
-            elif 'VISA' in texto and 'ELECTRON' not in texto:
+            elif 'VISA' in texto_completo and 'ELECTRON' not in texto_completo:
                 return 'vendas_visa'
-            elif 'MAESTRO' in texto:
-                return 'vendas_maestro'
-            elif 'ELECTRON' in texto:
+            elif 'VISA ELECTRON' in texto_completo or 'ELECTRON' in texto_completo:
                 return 'vendas_visa_electron'
-            elif 'ELO' in texto:
+            elif 'ELO' in texto_completo:
                 return 'vendas_elo'
+            elif 'AMEX' in texto_completo or 'AMERICAN EXPRESS' in texto_completo:
+                return 'vendas_amex'
+            elif 'HIPERCARD' in texto_completo:
+                return 'vendas_hipercard'
             else:
-                return 'vendas_cartao'
+                return 'vendas_cartao_outras'
         
-        if 'PIX RECEBIDO' in texto or ('RECEBIMENTO' in texto and 'PIX' in texto):
-            return 'pix_recebido'
+        # --- VENDAS VIA PIX ---
+        palavras_pix = [
+            'PIX RECEBIDO', 'PIX - RECEBIMENTO', 'RECEBIMENTO PIX', 'CHAVE PIX',
+            'PIX VENDA', 'PIX CLIENTE', 'PIX PAGAMENTO', 'PIX - VENDA',
+            'COBRANCA PIX', 'COBRANÇA PIX', 'PIX QR CODE', 'PIX COPIA E COLA'
+        ]
+        if any(kw in texto_completo for kw in palavras_pix):
+            return 'vendas_pix'
         
-        if 'DEVOLUÇÃO' in texto or 'DEVOLUCAO' in texto:
-            return 'devolucao_pix'
+        # --- VENDAS VIA BOLETO ---
+        palavras_boleto = [
+            'BOLETO RECEBIDO', 'BOLETO - RECEBIMENTO', 'RECEBIMENTO BOLETO',
+            'BOLETO BANCARIO', 'BOLETO BANCÁRIO', 'PAGAMENTO BOLETO',
+            'BOLETO COMPENSADO', 'BOLETO QUITADO'
+        ]
+        if any(kw in texto_completo for kw in palavras_boleto):
+            return 'vendas_boleto'
         
-        if any(kw in texto for kw in ['TRANSF.RECEBIDA', 'CRED.TRANSF', 'REM.:']):
+        # --- TRANSFERÊNCIAS RECEBIDAS (TED/DOC) ---
+        palavras_transferencia_recebida = [
+            'TED RECEBIDA', 'DOC RECEBIDO', 'TRANSFERENCIA RECEBIDA',
+            'TRANSFERÊNCIA RECEBIDA', 'CREDITO TED', 'CREDITO DOC',
+            'RECEBIMENTO TED', 'RECEBIMENTO DOC', 'DEPOSITO IDENTIFICADO',
+            'DEPOSITO DE TERCEIROS', 'REPASSE FINANCEIRO', 'REPASSE DE VALORES'
+        ]
+        if any(kw in texto_completo for kw in palavras_transferencia_recebida):
             return 'transferencia_recebida'
         
-        if 'RESGATE' in texto:
-            return 'resgate_investimento'
+        # --- OUTRAS RECEITAS ---
+        palavras_outras_receitas = [
+            'RENDIMENTO APLICACAO', 'RENDIMENTO APLICAÇÃO', 'JUROS RECEBIDOS',
+            'DIVIDENDOS', 'RESTITUICAO', 'RESTITUIÇÃO', 'REEMBOLSO',
+            'CASHBACK', 'BONUS', 'BÔNUS', 'DESCONTO OBTIDO', 'CREDITO DIVERSO'
+        ]
+        if any(kw in texto_completo for kw in palavras_outras_receitas):
+            return 'outras_receitas'
         
-        if 'CRÉDITO EM CONTA' in texto or 'CREDITO EM CONTA' in texto:
-            return 'credito_conta'
-        
-        return 'outras_receitas'
+        # Default para créditos não classificados
+        return 'receitas_nao_classificadas'
     
+    # ============================================================
+    # 🔴 CATEGORIAS DE DESPESA (SAÍDAS)
+    # ============================================================
     else:
-        if 'PIX EMITIDO' in texto or ('PAGAMENTO' in texto and 'PIX' in texto):
-            if 'MESMA TIT' in texto:
-                return 'pix_transferencia_propria'
-            return 'pix_fornecedores'
         
-        if any(kw in texto for kw in ['TRANSF.REALIZADA', 'DÉB.TRANSF', 'DEB.TRANSF', 'FAV.:']):
-            return 'transferencia_enviada'
+        # --- FORNECEDORES: MERCADORIA/ESTOQUE ---
+        palavras_fornecedores_mercadoria = [
+            'COMPRA MERCADORIA', 'COMPRA PRODUTO', 'COMPRA ESTOQUE',
+            'FORNECEDOR', 'DISTRIBUIDORA', 'ATACADO', 'VAREJO',
+            'MATERIAL DE CONSUMO', 'INSUMO', 'MATERIA-PRIMA',
+            'PRODUTO PARA REVENDA', 'COMPRA PARA REVENDA', 'STOCK',
+            'WHOLESALE', 'SUPPLIER', 'MERCHANDISE'
+        ]
+        if any(kw in texto_completo for kw in palavras_fornecedores_mercadoria):
+            return 'fornecedores_mercadoria'
         
-        if 'EMPRÉSTIMO' in texto or 'EMPRESTIMO' in texto:
-            return 'emprestimo'
+        # --- FORNECEDORES: SERVIÇOS ---
+        palavras_fornecedores_servicos = [
+            'SERVICO PRESTADO', 'SERVIÇO PRESTADO', 'HONORARIOS', 'HONORÁRIOS',
+            'CONSULTORIA', 'ASSESSORIA', 'MANUTENCAO', 'MANUTENÇÃO',
+            'REPARO', 'CONCERTO', 'LIMPEZA', 'SEGURANCA', 'SEGURANÇA',
+            'CONTABILIDADE', 'ADVOCACIA', 'MARKETING DIGITAL', 'DESENVOLVIMENTO',
+            'HOSPEDAGEM SITE', 'DOMINIO', 'SSL', 'EMAIL PROFISSIONAL',
+            'SOFTWARE', 'SISTEMA', 'APP', 'PLATAFORMA', 'ASSINATURA'
+        ]
+        if any(kw in texto_completo for kw in palavras_fornecedores_servicos):
+            return 'fornecedores_servicos'
         
-        if any(kw in texto for kw in ['TRIBUTOS', 'DAS-', 'DAS ', 'IMPOSTO', 'RFB', 'COMPE']):
-            if 'SIMPLES' in texto or 'DAS-' in texto:
-                return 'tributos_simples'
-            return 'tributos'
+        # --- IMPOSTOS E TRIBUTOS ---
+        palavras_impostos = [
+            'DAS', 'DARF', 'SIMPLES NACIONAL', 'MEI', 'IRPJ', 'CSLL',
+            'PIS', 'COFINS', 'ICMS', 'ISS', 'INSS', 'FGTS',
+            'IMPOSTO', 'TRIBUTO', 'TAXA GOVERNAMENTAL', 'GUIA RECOLHIMENTO',
+            'RFB', 'RECEITA FEDERAL', 'SEFAZ', 'PREFEITURA',
+            'IPTU', 'ISSQN', 'TAXA LICENCA', 'TAXA LICENÇA', 'ALVARA'
+        ]
+        if any(kw in texto_completo for kw in palavras_impostos):
+            return 'impostos_tributos'
         
-        if any(kw in texto for kw in ['BOLETO', 'TÍTULO', 'TIT.COMPE']):
-            return 'boleto'
+        # --- TARIFAS BANCÁRIAS ---
+        palavras_tarifas = [
+            'TARIFA', 'MANUTENCAO CONTA', 'MANUTENÇÃO CONTA', 'PACOTE SERVICOS',
+            'PACOTE SERVIÇOS', 'TED ENVIADA', 'DOC ENVIADO', 'BOLETO EMITIDO',
+            'CARTAO CREDITO TARIFA', 'ANUIDADE CARTAO', 'SAQUE',
+            'EXTRATO', 'SEGUNDA VIA', 'TARIFA BANCARIA', 'TARIFA BANCÁRIA',
+            'IOF', 'TARIFA PIX', 'CUSTO FINANCEIRO', 'JUROS MORATORIOS'
+        ]
+        if any(kw in texto_completo for kw in palavras_tarifas):
+            return 'tarifas_bancarias'
         
-        if any(kw in texto for kw in ['SEGURO', 'ALLIANZ']):
-            return 'seguro'
+        # --- ALUGUEL E CONDOMÍNIO ---
+        palavras_aluguel = [
+            'ALUGUEL', 'LOCACAO', 'LOCAÇÃO', 'CONDOMINIO', 'CONDOMÍNIO',
+            'IPTU', 'TAXA CONDOMINIO', 'TAXA CONDOMÍNIO', 'SEGURO IMOBIL',
+            'ADMINISTRADORA', 'IMOBILIARIA', 'IMOBILIÁRIA', 'RENT'
+        ]
+        if any(kw in texto_completo for kw in palavras_aluguel):
+            return 'aluguel_condominio'
         
-        if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA', 'TARIFAS', 'MANUTENÇÃO']):
-            return 'tarifa_bancaria'
+        # --- ENERGIA, ÁGUA, TELECOM ---
+        palavras_utilidades = [
+            'ENERGIA', 'LUZ', 'ELETRICA', 'ELÉTRICA', 'ENEL', 'CEMIG', 'LIGHT',
+            'AGUA', 'ÁGUA', 'SABESP', 'COPASA', 'SANESUL', 'ESGOTO',
+            'TELEFONE', 'CELULAR', 'INTERNET', 'BANDA LARGA', 'WI-FI',
+            'VIVO', 'CLARO', 'TIM', 'OI', 'NET', 'SKY', 'GVT',
+            'CONTA DE CONSUMO', 'UTILITIES'
+        ]
+        if any(kw in texto_completo for kw in palavras_utilidades):
+            return 'energia_agua_telecom'
         
-        if any(kw in texto for kw in ['APLICAÇÃO', 'APLICACAO', 'RDC', 'CDB']):
-            return 'aplicacao_investimento'
+        # --- MARKETING E PUBLICIDADE ---
+        palavras_marketing = [
+            'GOOGLE ADS', 'FACEBOOK ADS', 'INSTAGRAM ADS', 'META ADS',
+            'ANUNCIO', 'ANÚNCIO', 'PUBLICIDADE', 'PROPAGANDA', 'MARKETING',
+            'PANFLETO', 'FOLDER', 'CARTAO VISITA', 'CARTÃO DE VISITA',
+            'FAIXA', 'OUTDOOR', 'RADIO', 'TV', 'INFLUENCER', 'PATROCINIO',
+            'TRAFFIC', 'CONVERSION', 'CAMPAIGN'
+        ]
+        if any(kw in texto_completo for kw in palavras_marketing):
+            return 'marketing_publicidade'
         
-        if 'DÉB.CONV' in texto or 'DEB.CONV' in texto:
-            return 'debito_cartao'
+        # --- SALÁRIOS E ENCARGOS ---
+        palavras_folha = [
+            'SALARIO', 'SALÁRIO', 'PRO-LABORE', 'PRO LABORE', 'FOLHA PAGAMENTO',
+            '13 SALARIO', '13º SALÁRIO', 'FERIAS', 'FÉRIAS', 'RESCISAO',
+            'INSS EMPREGADOR', 'FGTS DEPOSITO', 'VALE TRANSPORTE', 'VALE REFEICAO',
+            'COMISSAO', 'COMISSÃO', 'BONUS FUNCIONARIO', 'BÔNUS FUNCIONÁRIO',
+            'PAYROLL', 'WAGE', 'SALARY'
+        ]
+        if any(kw in texto_completo for kw in palavras_folha):
+            return 'salarios_encargos'
         
+        # --- TRANSPORTE E COMBUSTÍVEL ---
+        palavras_transporte = [
+            'COMBUSTIVEL', 'COMBUSTÍVEL', 'GASOLINA', 'ETANOL', 'DIESEL',
+            'POSTO', 'UBER', '99', 'INDRIVER', 'TAXI', 'TÁXI',
+            'ESTACIONAMENTO', 'PEDAGIO', 'PEDÁGIO', 'FRETE', 'ENTREGA',
+            'CORREIOS', 'JADLOG', 'MELHOR ENVIO', 'TRANSPORTADORA',
+            'FUEL', 'GAS', 'PARKING', 'TOLL'
+        ]
+        if any(kw in texto_completo for kw in palavras_transporte):
+            return 'transporte_combustivel'
+        
+        # --- EQUIPAMENTOS E MANUTENÇÃO ---
+        palavras_equipamentos = [
+            'COMPRA EQUIPAMENTO', 'COMPUTADOR', 'NOTEBOOK', 'CELULAR', 'TABLET',
+            'IMPRESSORA', 'SCANNER', 'MONITOR', 'TECLADO', 'MOUSE',
+            'MOBILIA', 'MOBÍLIA', 'CADEIRA', 'MESA', 'ESTANTE',
+            'FERRAMENTA', 'EPI', 'UNIFORME', 'CRACHA',
+            'MANUTENCAO EQUIPAMENTO', 'REPARO EQUIPAMENTO', 'UPGRADE',
+            'EQUIPMENT', 'DEVICE', 'HARDWARE', 'SOFTWARE LICENSE'
+        ]
+        if any(kw in texto_completo for kw in palavras_equipamentos):
+            return 'equipamentos_manutencao'
+        
+        # --- SEGUROS ---
+        palavras_seguros = [
+            'SEGURO', 'APOLICE', 'APÓLICE', 'PRÊMIO SEGURO', 'PREMIO SEGURO',
+            'ALLIANZ', 'PORTO SEGURO', 'BRADESCO SEGUROS', 'SULAMERICA',
+            'MAPFRE', 'TOKIO MARINE', 'ZURICH', 'INSURANCE', 'POLICY'
+        ]
+        if any(kw in texto_completo for kw in palavras_seguros):
+            return 'seguros'
+        
+        # --- SAÚDE E BEM-ESTAR ---
+        palavras_saude = [
+            'PLANO SAUDE', 'PLANO SAÚDE', 'UNIMED', 'AMIL', 'BRADESCO SAUDE',
+            'MEDICO', 'MÉDICO', 'CONSULTA', 'EXAME', 'LABORATORIO',
+            'FARMACIA', 'FARMÁCIA', 'MEDICAMENTO', 'REMEDIO', 'REMÉDIO',
+            'ODONTOLOGICO', 'ODONTOLÓGICO', 'DENTISTA', 'HEALTH', 'CLINIC'
+        ]
+        if any(kw in texto_completo for kw in palavras_saude):
+            return 'saude_bem_estar'
+        
+        # --- VIAGENS E HOSPEDAGEM ---
+        palavras_viagens = [
+            'PASSAGEM AEREA', 'PASSAGEM AÉREA', 'AEROPORTO', 'TAM', 'GOL', 'AZUL',
+            'HOTEL', 'POUSADA', 'AIRBNB', 'BOOKING', 'HOSPEDAGEM',
+            'ALUGUEL CARRO', 'LOCACAO VEICULO', 'LOCAÇÃO VEÍCULO',
+            'RESTAURANTE', 'ALIMENTACAO VIAGEM', 'ALIMENTAÇÃO VIAGEM',
+            'TRAVEL', 'FLIGHT', 'HOTEL', 'ACCOMMODATION'
+        ]
+        if any(kw in texto_completo for kw in palavras_viagens):
+            return 'viagens_hospedagem'
+        
+        # --- DOAÇÕES E PATROCÍNIOS ---
+        palavras_doacoes = [
+            'DOACAO', 'DOAÇÃO', 'PATROCINIO', 'PATROCÍNIO', 'DONATION',
+            'INSTITUICAO', 'INSTITUIÇÃO', 'ONG', 'CARIDADE', 'CHARITY',
+            'SPONSORSHIP'
+        ]
+        if any(kw in texto_completo for kw in palavras_doacoes):
+            return 'doacoes_patrocinios'
+        
+        # --- PIX ENVIADO (genérico) ---
+        palavras_pix_enviado = [
+            'PIX EMITIDO', 'PIX - PAGAMENTO', 'PAGAMENTO PIX', 'PIX ENVIADO',
+            'TRANSFERENCIA PIX', 'TRANSFERÊNCIA PIX', 'PIX PARA'
+        ]
+        if any(kw in texto_completo for kw in palavras_pix_enviado):
+            # Tenta identificar o destino pelo nome do favorecido
+            if any(kw in texto_completo for kw in palavras_fornecedores_mercadoria + palavras_fornecedores_servicos):
+                return 'fornecedores_servicos'  # Fallback
+            return 'pix_enviado_outros'
+        
+        # --- BOLETO PAGO (genérico) ---
+        palavras_boleto_pago = [
+            'BOLETO PAGO', 'BOLETO - PAGAMENTO', 'PAGAMENTO BOLETO',
+            'BOLETO COMPENSADO', 'BOLETO QUITADO'
+        ]
+        if any(kw in texto_completo for kw in palavras_boleto_pago):
+            return 'boleto_pago_outros'
+        
+        # --- TRANSFERÊNCIA ENVIADA (genérico) ---
+        palavras_transferencia_enviada = [
+            'TED ENVIADA', 'DOC ENVIADO', 'TRANSFERENCIA ENVIADA',
+            'TRANSFERÊNCIA ENVIADA', 'DEBITO TED', 'DEBITO DOC'
+        ]
+        if any(kw in texto_completo for kw in palavras_transferencia_enviada):
+            return 'transferencia_enviada_outros'
+        
+        # ============================================================
+        # 🔴 DEFAULT: Outras Despesas (tentar minimizar esta categoria)
+        # ============================================================
         return 'outras_despesas'
 
 # ============================================================
-# INFERIR TIPO PAGAMENTO
+# 🎯 INFERIR TIPO PAGAMENTO (ATUALIZADO)
 # ============================================================
 def inferir_tipo_pagamento_ofx(registro):
     """Infere tipo_pagamento analisando descricao, name e trntype."""
@@ -198,24 +415,48 @@ def inferir_tipo_pagamento_ofx(registro):
     trntype = str(registro.get('trntype') or '').upper()
     texto = f"{descricao} {name}"
     
+    # PIX
     if 'PIX' in texto:
         return 'pix'
-    if any(kw in texto for kw in ['MASTERCARD', 'VISA', 'MAESTRO', 'ELO', 'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS']):
+    
+    # CARTÃO (Maquininha/Adquirente)
+    palavras_cartao = [
+        'MASTERCARD', 'VISA', 'MAESTRO', 'ELO', 'AMEX', 'HIPERCARD',
+        'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS', 'VENDA CARTAO', 'VENDA CARTÃO',
+        'MAQUININHA', 'ADQUIRENTE', 'CIELO', 'REDE', 'STONE', 'PAGSEGURO',
+        'GETNET', 'FLOW', 'MERCADO PAGO', 'TON', 'SUMUP'
+    ]
+    if any(kw in texto for kw in palavras_cartao):
         return 'cartao'
-    if any(kw in texto for kw in ['DÉBITO', 'DEBITO', 'DEB._', 'VISA ELECTRON']):
+    
+    # DÉBITO
+    if any(kw in texto for kw in ['DÉBITO', 'DEBITO', 'DEB._', 'VISA ELECTRON', 'MAESTRO']):
         return 'debito'
-    if any(kw in texto for kw in ['BOLETO', 'DAS-', 'DAS ', 'TRIBUTOS', 'COMPE', 'TÍTULO']):
+    
+    # BOLETO
+    if any(kw in texto for kw in ['BOLETO', 'DAS-', 'DAS ', 'TRIBUTOS', 'COMPE', 'TÍTULO', 'TIT.COMPE']):
         return 'boleto'
+    
+    # TRANSFERÊNCIA
     if any(kw in texto for kw in ['TRANSF', 'TED', 'DOC', 'REM.:', 'FAV.:']):
         return 'transferencia'
+    
+    # EMPRÉSTIMO
     if 'EMPRÉSTIMO' in texto or 'EMPRESTIMO' in texto:
         return 'emprestimo'
-    if any(kw in texto for kw in ['APLICAÇÃO', 'RESGATE', 'RDC', 'CDB']):
+    
+    # INVESTIMENTO
+    if any(kw in texto for kw in ['APLICAÇÃO', 'RESGATE', 'RDC', 'CDB', 'INVESTIMENTO']):
         return 'investimento'
-    if any(kw in texto for kw in ['SEGURO', 'ALLIANZ']):
+    
+    # SEGURO
+    if any(kw in texto for kw in ['SEGURO', 'ALLIANZ', 'APOLICE', 'PRÊMIO']):
         return 'seguro'
-    if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA']):
+    
+    # TARIFA
+    if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA', 'MANUTENÇÃO CONTA']):
         return 'tarifa'
+    
     return 'outros'
 
 # ============================================================
