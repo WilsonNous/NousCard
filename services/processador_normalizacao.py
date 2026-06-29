@@ -1,83 +1,14 @@
 # services/processador_normalizacao.py
 # Processa normalizações e salva nas tabelas finais
+# ✅ INTEGRADO com Classificador Financeiro
 
 from models import db, Normalizacao
 from services.importer_db_movimento import salvar_vendas, salvar_recebimentos
+from services.classificador_financeiro import classificador
 import logging
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# CATEGORIAS FINANCEIRAS
-# ============================================================
-
-CATEGORIAS_RECEITA = {
-    "venda",
-    "recebimento",
-    "deposito",
-    "pix_recebido",
-    "credito",
-    "estorno_credito",
-    "transferencia_entrada"
-}
-
-CATEGORIAS_DESPESA = {
-    "fornecedor",
-    "salario",
-    "folha",
-    "imposto",
-    "energia",
-    "agua",
-    "internet",
-    "telefone",
-    "combustivel",
-    "alimentacao",
-    "aluguel",
-    "tarifa_bancaria",
-    "tarifa",
-    "pix_enviado",
-    "ted",
-    "doc",
-    "boleto",
-    "transferencia_saida",
-    "saque",
-    "despesa",
-    "investimento"
-}
-
-# ============================================================
-# NORMALIZAÇÃO FINANCEIRA
-# ============================================================
-
-def normalizar_valor_financeiro(valor, categoria):
-    """
-    Garante que receitas sejam POSITIVAS e despesas NEGATIVAS.
-    
-    Args:
-        valor: Valor bruto (float ou string)
-        categoria: Categoria da transação (string)
-    
-    Returns:
-        float: Valor normalizado (+ para receita, - para despesa)
-    """
-    valor = abs(float(valor))
-    categoria = (categoria or "").lower().strip()
-    
-    # Despesas → sempre negativo
-    if categoria in CATEGORIAS_DESPESA:
-        return -valor
-    
-    # Receitas → sempre positivo
-    if categoria in CATEGORIAS_RECEITA:
-        return valor
-    
-    # Categoria desconhecida → mantém o valor original
-    return float(valor)
-
-
-# ============================================================
-# PROCESSAMENTO PRINCIPAL
-# ============================================================
 
 def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
     """Processa normalizações e salva nas tabelas finais"""
@@ -163,10 +94,6 @@ def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
     }
 
 
-# ============================================================
-# CONVERSORES
-# ============================================================
-
 def _converter_para_venda(norm: Normalizacao) -> dict:
     """Converte Normalizacao para formato de venda"""
     try:
@@ -178,28 +105,29 @@ def _converter_para_venda(norm: Normalizacao) -> dict:
             logger.warning(f"⚠️ Normalizacao {norm.id} sem data_movimento")
             return None
         
-        # ✅ Normalizar valor financeiro (vendas são receitas → positivo)
-        valor_normalizado = normalizar_valor_financeiro(
-            norm.valor_bruto,
-            norm.categoria or "venda"
-        )
-        valor_liquido = normalizar_valor_financeiro(
-            norm.valor_liquido if norm.valor_liquido else norm.valor_bruto,
-            norm.categoria or "venda"
+        # ✅ Classificar usando o novo motor
+        resultado = classificador.classificar(
+            descricao=norm.descricao or "",
+            valor=float(norm.valor_bruto),
+            trntype=getattr(norm, 'trntype', 'CREDIT')
         )
         
         return {
             "adquirente": norm.adquirente_nome or "Flow",
             "nsu": norm.nsu,
             "data_venda": norm.data_venda or norm.data_movimento,
-            "valor_bruto": valor_normalizado,
-            "valor_liquido": valor_liquido,
+            "valor_bruto": float(norm.valor_bruto),
+            "valor_liquido": float(norm.valor_liquido) if norm.valor_liquido else float(norm.valor_bruto),
             "desconto": float(norm.valor_taxa) if norm.valor_taxa else 0,
             "bandeira": norm.bandeira,
             "produto": norm.produto,
-            "tipo_pagamento": norm.tipo_pagamento or "cartao",
+            "tipo_pagamento": resultado["tipo_pagamento"],
+            "categoria": resultado["categoria"],
             "observacoes": norm.descricao,
             "empresa_id": norm.empresa_id,
+            "score_classificacao": resultado["score"],
+            "origem_classificacao": "classificador_financeiro_v2",
+            "regra_utilizada": resultado["categoria"]
         }
     except Exception as e:
         logger.error(f"❌ Erro ao converter normalizacao {norm.id} para venda: {str(e)}", exc_info=True)
@@ -209,47 +137,48 @@ def _converter_para_venda(norm: Normalizacao) -> dict:
 def _converter_para_recebimento(norm: Normalizacao) -> dict:
     """
     Converte Normalizacao para formato de recebimento.
-    ✅ Aplica normalização financeira: receitas +, despesas -
+    ✅ Usa o Classificador Financeiro oficial.
     """
     try:
         if not norm.valor_bruto:
             logger.warning(f"⚠️ Normalizacao {norm.id} sem valor_bruto")
             return None
         
-        # ✅ FALLBACK: Se não tem categoria, gerar agora
-        categoria = norm.categoria
-        if not categoria or categoria in ['outros', '']:
-            from utils.parsers import categorizar_transacao
-            trntype = 'DEBIT' if norm.valor_bruto < 0 else 'CREDIT'
-            categoria = categorizar_transacao(
-                descricao=norm.descricao or '',
-                name=norm.estabelecimento or '',
-                valor=norm.valor_bruto,
-                trntype=trntype
-            )
-            logger.debug(f"🏷️ Categoria gerada para recebimento {norm.id}: {categoria}")
-        
-        # ✅ NORMALIZAÇÃO FINANCEIRA (CORREÇÃO PRINCIPAL)
-        valor_normalizado = normalizar_valor_financeiro(
-            norm.valor_bruto,
-            categoria
+        # ✅ Usar o novo classificador financeiro
+        resultado = classificador.classificar(
+            descricao=norm.descricao or norm.historico or "",
+            valor=float(norm.valor_bruto),
+            trntype=getattr(norm, 'trntype', None)
         )
         
+        categoria = resultado["categoria"]
+        tipo_pagamento = resultado["tipo_pagamento"]
+        natureza = resultado["natureza"]
+        score = resultado["score"]
+        
+        # Aplicar normalização financeira
+        valor_abs = abs(float(norm.valor_bruto))
+        if natureza == "despesa":
+            valor_normalizado = -valor_abs
+        else:
+            valor_normalizado = valor_abs
+        
         logger.debug(
-            f"💰 Normalização financeira: "
-            f"valor_bruto={norm.valor_bruto}, "
-            f"categoria={categoria}, "
-            f"valor_normalizado={valor_normalizado}"
+            f"💰 Classificação: '{str(norm.descricao)[:50]}' "
+            f"→ {categoria} ({natureza}) score={score}"
         )
         
         return {
             "data": norm.data_movimento,
-            "valor": valor_normalizado,  # ✅ Valor normalizado
+            "valor": valor_normalizado,
             "descricao": norm.descricao,
             "nsu": norm.nsu,
-            "tipo_pagamento": norm.tipo_pagamento,
+            "tipo_pagamento": tipo_pagamento,
             "categoria": categoria,
             "empresa_id": norm.empresa_id,
+            "score_classificacao": score,
+            "origem_classificacao": "classificador_financeiro_v2",
+            "regra_utilizada": categoria
         }
     except Exception as e:
         logger.error(f"❌ Erro ao converter normalizacao {norm.id} para recebimento: {str(e)}", exc_info=True)

@@ -1,5 +1,5 @@
 # services/importer_normalizacao.py
-# Serviço para importar arquivos e normalizar no layout proprietário
+# ✅ INTEGRADO COM CLASSIFICADOR FINANCEIRO
 
 from models import db, Normalizacao
 from datetime import datetime, date, timezone
@@ -7,35 +7,23 @@ from decimal import Decimal
 import logging
 import json
 
-# ✅ IMPORTAR FUNÇÃO DE CATEGORIZAÇÃO
-from utils.parsers import categorizar_transacao
+from services.classificador_financeiro import classificador
 
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
-# ✅ FUNÇÃO AUXILIAR: Converter tipos não-serializáveis para JSON
-# ============================================================
 def _preparar_para_json(obj):
-    """
-    Converte recursivamente objetos não-serializáveis (date, datetime, Decimal)
-    para tipos compatíveis com JSON.
-    """
+    """Converte recursivamente objetos não-serializáveis para JSON."""
     if obj is None:
         return None
-    
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    
     if isinstance(obj, Decimal):
         return float(obj)
-    
     if isinstance(obj, dict):
         return {k: _preparar_para_json(v) for k, v in obj.items()}
-    
     if isinstance(obj, (list, tuple)):
         return [_preparar_para_json(item) for item in obj]
-    
     return obj
 
 
@@ -66,22 +54,17 @@ class ImportadorNormalizado:
             fim_idx = min((batch_num + 1) * BATCH_SIZE, len(registros))
             batch = registros[inicio_idx:fim_idx]
             
-            logger.info(f"📦 Batch {batch_num + 1}/{total_batches}: registros {inicio_idx + 1}-{fim_idx}")
-            
             batch_sucesso = 0
             batch_falhas = 0
             batch_duplicados = 0
             
             for idx, reg in enumerate(batch):
                 try:
-                    # Garantir rollback se sessão estiver inválida
                     try:
                         db.session.execute(db.text("SELECT 1"))
                     except Exception:
                         db.session.rollback()
-                        logger.warning(f"🔄 Rollback executado antes do registro {inicio_idx + idx + 1}")
                     
-                    # Criar registro de normalização
                     normalizacao = self._criar_normalizacao(
                         arquivo_id=arquivo_id,
                         dados=reg,
@@ -89,22 +72,18 @@ class ImportadorNormalizado:
                         tipo_movimento=tipo_movimento
                     )
                     
-                    # Auto-preencher adquirente para vendas
                     if normalizacao.tipo_movimento == "venda" and not normalizacao.adquirente_nome:
                         normalizacao.adquirente_nome = "Flow"
                     
-                    # Validar
                     valido, erro = normalizacao.validar()
                     if not valido:
                         normalizacao.status = "erro"
                         normalizacao.erro_mensagem = erro
                         self.stats["falhas"] += 1
                         batch_falhas += 1
-                        self.stats["erros"].append({"linha": inicio_idx + idx + 1, "erro": erro})
                         db.session.add(normalizacao)
                         continue
                     
-                    # Verificar duplicata
                     if self._verificar_duplicata(normalizacao):
                         normalizacao.status = "duplicado"
                         normalizacao.erro_mensagem = "Registro duplicado"
@@ -113,46 +92,40 @@ class ImportadorNormalizado:
                         db.session.add(normalizacao)
                         continue
                     
-                    # Enriquecer dados
                     try:
                         normalizacao.enriquecer()
                         normalizacao.status = "validado"
-                    except Exception as e:
-                        logger.warning(f"⚠️ Erro ao enriquecer registro {inicio_idx + idx + 1}: {str(e)}")
+                    except Exception:
                         normalizacao.status = "validado"
                     
-                    # Salvar
                     db.session.add(normalizacao)
                     self.stats["sucesso"] += 1
                     batch_sucesso += 1
                     
                 except Exception as e:
-                    logger.error(f"❌ Erro ao normalizar registro {inicio_idx + idx + 1}: {str(e)}", exc_info=True)
+                    logger.error(f"❌ Erro ao normalizar registro {inicio_idx + idx + 1}: {str(e)}")
                     self.stats["falhas"] += 1
                     batch_falhas += 1
-                    self.stats["erros"].append({"linha": inicio_idx + idx + 1, "erro": str(e)})
                     try:
                         db.session.rollback()
                     except:
                         pass
                     continue
             
-            # Commit do batch
             try:
                 db.session.commit()
-                logger.info(f"✅ Batch {batch_num + 1}/{total_batches} salvo: {batch_sucesso} sucesso, {batch_falhas} falhas, {batch_duplicados} duplicados")
+                logger.info(f"✅ Batch {batch_num + 1}/{total_batches}: {batch_sucesso} OK, {batch_falhas} falhas, {batch_duplicados} dup")
             except Exception as e:
-                logger.error(f"❌ Erro no commit do batch {batch_num + 1}: {str(e)}", exc_info=True)
+                logger.error(f"❌ Erro no commit do batch {batch_num + 1}: {str(e)}")
                 db.session.rollback()
                 continue
         
-        logger.info(f"✅ Normalização concluída: {self.stats['sucesso']} sucesso, {self.stats['falhas']} falhas, {self.stats['duplicados']} duplicados")
+        logger.info(f"✅ Normalização concluída: {self.stats['sucesso']} sucesso")
         return self.stats
     
     def _criar_normalizacao(self, arquivo_id: int, dados: dict, tipo_origem: str, tipo_movimento: str):
         """Cria objeto Normalizacao a partir dos dados parseados"""
         
-        # Data
         data_movimento = (
             dados.get("data_movimento") or 
             dados.get("data") or 
@@ -171,7 +144,6 @@ class ImportadorNormalizado:
             else:
                 data_movimento = date.today()
         
-        # Data venda
         data_venda_raw = dados.get("data_venda")
         data_venda = None
         if data_venda_raw and isinstance(data_venda_raw, str):
@@ -182,12 +154,10 @@ class ImportadorNormalizado:
                 except:
                     continue
         
-        # Valores
         valor_bruto = self._parse_decimal(dados.get("valor_bruto") or dados.get("valor") or 0)
         valor_liquido = self._parse_decimal(dados.get("valor_liquido") or valor_bruto)
         valor_taxa = self._parse_decimal(dados.get("taxa") or dados.get("desconto") or 0)
         
-        # Adquirente
         adquirente_nome = (
             dados.get("adquirente") or 
             dados.get("nome_adquirente") or 
@@ -196,10 +166,8 @@ class ImportadorNormalizado:
         if tipo_movimento == "venda" and not adquirente_nome:
             adquirente_nome = "Flow"
         
-        # NSU
         nsu = dados.get("nsu") or dados.get("id") or dados.get("fitid")
         
-        # Descrição
         descricao = (
             dados.get("descricao") or 
             dados.get("memo") or 
@@ -207,20 +175,37 @@ class ImportadorNormalizado:
             ""
         )
         
-        # ✅ GARANTIR CATEGORIZAÇÃO CONSISTENTE
-        trntype = 'DEBIT' if valor_bruto < 0 else 'CREDIT'
-        categoria_gerada = categorizar_transacao(
-            descricao=descricao or '',
-            name=dados.get('estabelecimento') or dados.get('name') or '',
-            valor=valor_bruto or Decimal('0'),
-            trntype=trntype
-        )
-        logger.debug(f"🏷️ Categoria gerada: {categoria_gerada} para descrição: {descricao[:50]}...")
+        # ============================================================
+        # ✅ CLASSIFICAÇÃO (já vem dos parsers, fallback se necessário)
+        # ============================================================
+        categoria = dados.get("categoria")
+        score = dados.get("score_classificacao", 0)
+        origem = dados.get("origem_classificacao", "")
+        regra = dados.get("regra_utilizada", "")
+        grupo = dados.get("grupo", "")
+        subgrupo = dados.get("subgrupo", "")
+        natureza = dados.get("natureza", "")
+        centro_custo = dados.get("centro_custo", "")
+        tipo_pagamento = dados.get("tipo_pagamento", "outros")
         
-        # Preparar dados crus para JSON
+        if not categoria or categoria in ['outros', 'outras_despesas']:
+            resultado = classificador.classificar(
+                descricao=descricao or "",
+                valor=float(valor_bruto),
+                trntype='DEBIT' if valor_bruto < 0 else 'CREDIT'
+            )
+            categoria = resultado["categoria"]
+            tipo_pagamento = resultado["tipo_pagamento"] or tipo_pagamento
+            score = resultado["score"]
+            origem = "classificador_financeiro_v2"
+            regra = resultado["categoria"]
+            grupo = resultado["grupo"]
+            subgrupo = resultado["subgrupo"]
+            natureza = resultado["natureza"]
+            centro_custo = resultado["centro_custo"]
+        
         dados_crus_preparados = _preparar_para_json(dados)
         
-        # Metadados
         metadados = {
             "importado_em": datetime.now(timezone.utc).isoformat(),
             "usuario_id": self.usuario_id,
@@ -233,46 +218,37 @@ class ImportadorNormalizado:
             arquivo_origem_id=arquivo_id,
             tipo_origem=tipo_origem,
             tipo_movimento=tipo_movimento,
-            
-            # Identificadores
             nsu=nsu[:100] if nsu else None,
             autorizacao=dados.get("autorizacao"),
             documento=dados.get("documento"),
-            
-            # Datas
             data_movimento=data_movimento if isinstance(data_movimento, date) else date.today(),
             data_venda=data_venda,
-            
-            # Valores
             valor_bruto=valor_bruto,
             valor_liquido=valor_liquido,
             valor_taxa=valor_taxa,
-            
-            # Classificação
             adquirente_nome=adquirente_nome[:100] if adquirente_nome else None,
             bandeira=dados.get("bandeira"),
             produto=dados.get("produto"),
-            tipo_pagamento=dados.get("tipo_pagamento") or "cartao",
+            tipo_pagamento=tipo_pagamento,
             quantidade=dados.get("quantidade"),
-            
-            # Descrição
             descricao=descricao[:2000] if descricao else None,
             estabelecimento=dados.get("estabelecimento"),
-            
-            # ✅ CATEGORIA GARANTIDA
-            categoria=categoria_gerada,
-            
-            # Dados crus
+            categoria=categoria,
+            score_classificacao=score,
+            origem_classificacao=origem,
+            regra_utilizada=regra,
+            grupo=grupo,
+            subgrupo=subgrupo,
+            natureza=natureza,
+            centro_custo=centro_custo,
             dados_crus=dados_crus_preparados,
             metadados=metadados,
-            
             status="importado"
         )
         
         return normalizacao
     
     def _parse_decimal(self, value):
-        """Converte valor para Decimal"""
         if value is None:
             return Decimal("0")
         if isinstance(value, Decimal):
@@ -283,7 +259,6 @@ class ImportadorNormalizado:
             return Decimal("0")
     
     def _verificar_duplicata(self, normalizacao: Normalizacao) -> bool:
-        """Verifica se já existe registro com mesmo NSU/data"""
         if not normalizacao.nsu:
             return False
         try:
@@ -293,6 +268,5 @@ class ImportadorNormalizado:
                 data_movimento=normalizacao.data_movimento
             ).first()
             return duplicata is not None
-        except Exception as e:
-            logger.warning(f"⚠️ Erro ao verificar duplicata: {str(e)}")
+        except Exception:
             return False
