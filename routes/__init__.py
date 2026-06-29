@@ -26,11 +26,9 @@ def _import_blueprint(module_path: str, blueprint_name: str):
         module = __import__(module_path, fromlist=[blueprint_name])
         return getattr(module, blueprint_name)
     except ImportError as e:
-        # Em produção, falhar é melhor que silenciar
         if os.getenv('FLASK_ENV') == 'production':
             logger.error(f"❌ Falha crítica ao importar {blueprint_name}: {e}")
             raise
-        # Em dev/teste, permitir continuar com warning
         logger.warning(f"⚠️ Blueprint {blueprint_name} não disponível: {e}")
         return None
     except AttributeError as e:
@@ -38,8 +36,8 @@ def _import_blueprint(module_path: str, blueprint_name: str):
         raise
 
 
-# ✅ IMPORTAÇÕES DIRETAS (CORRIGIDO - importar AMBOS os blueprints do dashboard)
-from .dashboard_routes import dashboard_bp, dashboard_api_bp  # ← CORRIGIDO: importar ambos
+# ✅ IMPORTAÇÕES DIRETAS
+from .dashboard_routes import dashboard_bp, dashboard_api_bp
 from .contrato_routes import contrato_bp
 from .assistant_routes import assistant_bp
 from .auth_routes import auth_bp
@@ -55,28 +53,16 @@ from routes.debug_routes import debug_bp
 def register_blueprints(app: Flask):
     """
     Registra todos os blueprints da aplicação com validação e logging.
-    
-    ✅ Ordem de registro (importante):
-    1. Autenticação (público, necessário para login)
-    2. Interface principal (dashboard, landing)
-    3. Módulos de negócio (empresas, operações, etc.)
-    4. APIs (versionadas, para frontend/mobile)
-    5. Área administrativa (restrita)
-    
-    Args:
-        app: Instância Flask configurada
     """
     
-    # Configurar logging apenas em debug
     is_debug = app.debug or os.getenv('FLASK_ENV') == 'development'
     
     if is_debug:
         logger.info("🔄 Iniciando registro de blueprints...")
         start_time = time.time()
     
-    # Lista de blueprints para registro (ordem importante)
     blueprints = [
-        # 1️⃣ AUTENTICAÇÃO (primeiro, para login/logout público)
+        # 1️⃣ AUTENTICAÇÃO
         {
             'blueprint': auth_bp,
             'prefix': '/auth',
@@ -85,10 +71,10 @@ def register_blueprints(app: Flask):
             'required': True
         },
         
-        # 2️⃣ INTERFACE PRINCIPAL (SEM url_prefix para rotas raiz)
+        # 2️⃣ INTERFACE PRINCIPAL
         {
-            'blueprint': dashboard_bp,  # ✅ Blueprint HTML do dashboard
-            'prefix': None,  # Rotas raiz: /, /dashboard
+            'blueprint': dashboard_bp,
+            'prefix': None,
             'description': 'Interface principal (dashboard, landing)',
             'access': 'authenticated',
             'required': True
@@ -117,15 +103,21 @@ def register_blueprints(app: Flask):
             'required': True
         },
         
-        # 4️⃣ APIs (versionadas para frontend/mobile)
+        # 4️⃣ APIs
         {
-            'blueprint': dashboard_api_bp,  # ✅ NOVO: Blueprint API do dashboard (JSON)
-            'prefix': None,  # Sem prefixo, rotas já têm /api/v1/dashboard/*
+            'blueprint': dashboard_api_bp,
+            'prefix': '/api/v1/dashboard',  # ✅ CORRIGIDO: Prefixo explícito
             'description': 'API de dashboard financeiro (KPIs, insights)',
             'access': 'authenticated',
             'required': True
         },
-
+        {
+            'blueprint': dashboard_api,
+            'prefix': '/api/v1',
+            'description': 'API de dashboard legada',
+            'access': 'authenticated',
+            'required': False
+        },
         {
             'blueprint': bp_conc,
             'prefix': '/api/v1/conciliacao',
@@ -142,7 +134,7 @@ def register_blueprints(app: Flask):
             'feature_flag': 'FEATURE_AUDITORIA_ENABLED'
         },
         
-        # 5️⃣ ÁREA ADMINISTRATIVA (restrita, último para segurança)
+        # 5️⃣ ÁREA ADMINISTRATIVA
         {
             'blueprint': master_bp,
             'prefix': '/master',
@@ -159,7 +151,7 @@ def register_blueprints(app: Flask):
             'feature_flag': 'FEATURE_ASSISTANT_ENABLED'
         },
         
-        # 6️⃣ DEBUG/DIAGNÓSTICO (apenas master, para troubleshooting)
+        # 6️⃣ DEBUG
         {
             'blueprint': debug_bp,
             'prefix': '/debug',
@@ -170,7 +162,6 @@ def register_blueprints(app: Flask):
         },
     ]
     
-    # Registrar cada blueprint com validação
     registered = 0
     skipped = 0
     
@@ -182,14 +173,12 @@ def register_blueprints(app: Flask):
         required = bp_config.get('required', True)
         feature_flag = bp_config.get('feature_flag')
         
-        # ✅ Verificar feature flag se configurado
         if feature_flag and not app.config.get(feature_flag, True):
             if is_debug:
                 logger.info(f"⏭️ Blueprint '{description}' pulado (feature flag: {feature_flag}=False)")
             skipped += 1
             continue
         
-        # ✅ Verificar se blueprint é None
         if blueprint is None:
             if required:
                 logger.error(f"❌ Blueprint obrigatório '{description}' não está disponível")
@@ -201,10 +190,9 @@ def register_blueprints(app: Flask):
                 continue
               
         try:
-            # ✅ Timing do registro
             bp_start = time.time()
             app.register_blueprint(blueprint, url_prefix=prefix)
-            bp_duration = (time.time() - bp_start) * 1000  # em ms
+            bp_duration = (time.time() - bp_start) * 1000
             
             if is_debug:
                 logger.info(f"✅ Registrado: {description} ({prefix or '/'}) [{bp_duration:.1f}ms] [{access_level}]")
@@ -219,12 +207,10 @@ def register_blueprints(app: Flask):
                 logger.warning(f"⚠️ {error_msg} (blueprint opcional, continuando)")
                 skipped += 1
     
-    # ✅ Log final de resumo
     if is_debug:
         total_time = (time.time() - start_time) * 1000
         logger.info(f"🎯 Registro concluído: {registered} blueprints, {skipped} pulados [{total_time:.1f}ms total]")
         
-        # ✅ Listar rotas registradas (opcional, pode ser pesado)
         if app.config.get('DEBUG_LIST_ROUTES', False):
             logger.info("📋 Rotas registradas:")
             for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
@@ -232,5 +218,4 @@ def register_blueprints(app: Flask):
                     methods = ', '.join(sorted(m for m in rule.methods if m not in ['HEAD', 'OPTIONS']))
                     logger.info(f"  {rule.rule:40s} [{methods:10s}] → {rule.endpoint}")
     
-    # ✅ Expor lista de blueprints para testes (injeção de dependência)
     app.config['_REGISTERED_BLUEPRINTS'] = [bp['blueprint'].name for bp in blueprints if bp['blueprint']]
