@@ -1,4 +1,4 @@
-# utils/parsers.py - VERSÃO FINAL COMPLETA COM CATEGORIZAÇÃO DRE INTELIGENTE
+# utils/parsers.py - VERSÃO FINAL COM CLASSIFICADOR FINANCEIRO INTEGRADO
 
 import csv
 import io
@@ -69,7 +69,6 @@ def parse_data(value):
         return value if isinstance(value, date) else value.date()
     try:
         value = str(value).strip()
-        # Remove timezone se presente
         if '[' in value:
             value = value.split('[')[0]
         formatos = [
@@ -114,353 +113,7 @@ def sanitizar_celula(value):
         return ""
 
 # ============================================================
-# 🎯 CATEGORIZAÇÃO INTELIGENTE DE TRANSAÇÕES (DRE) - SUPER APRIMORADA
-# ============================================================
-def categorizar_transacao(descricao: str, name: str, valor: Decimal, trntype: str = None) -> str:
-    """
-    Categoriza automaticamente a transação baseada em palavras-chave do extrato.
-    Retorna uma categoria padronizada para o DRE.
-    
-    Categorias de RECEITA:
-    - vendas_cartao: Vendas via maquininha (Cielo, Rede, Flow, etc)
-    - vendas_pix: Vendas recebidas via PIX
-    - vendas_boleto: Vendas recebidas via boleto
-    - transferencia_recebida: TED/DOC recebidos
-    - outras_receitas: Outras entradas
-    
-    Categorias de DESPESA:
-    - fornecedores_mercadoria: Compra de estoque/produtos
-    - fornecedores_servicos: Serviços terceirizados
-    - impostos_tributos: DAS, IR, INSS, taxas governamentais
-    - tarifas_bancarias: Tarifas de conta, TED, manutenção
-    - aluguel_condominio: Aluguel, condomínio, IPTU
-    - energia_agua_telecom: Contas de consumo
-    - marketing_publicidade: Anúncios, redes sociais, panfletos
-    - salarios_encargos: Folha de pagamento, pró-labore
-    - transporte_combustivel: Uber, combustível, estacionamento
-    - equipamentos_manutencao: Compra ou manutenção de equipamentos
-    - outras_despesas: Não classificadas (tentar minimizar)
-    """
-    # Normalizar texto para busca
-    texto_completo = f"{descricao or ''} {name or ''}".upper().strip()
-    
-    # Determinar se é crédito (entrada) ou débito (saída)
-    eh_credito = valor > 0 or (trntype and trntype.upper() in ['CREDIT', 'CR'])
-    
-    # ============================================================
-    # 🟢 CATEGORIAS DE RECEITA (ENTRADAS)
-    # ============================================================
-    if eh_credito:
-        
-        # --- VENDAS VIA MAQUININHA (CARTÃO) ---
-        palavras_cartao = [
-            'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS', 'VENDA CARTAO', 'VENDA CARTÃO',
-            'MAQUININHA', 'ADQUIRENTE', 'CIELO', 'REDE', 'STONE', 'PAGSEGURO',
-            'GETNET', 'FLOW', 'MERCADO PAGO', 'TON', 'SUMUP', 'LINX', 'WISE',
-            'MASTERCARD', 'VISA', 'ELO', 'AMEX', 'HIPERCARD', 'MAESTRO',
-            'CARTAO DE CREDITO', 'CARTÃO DE CRÉDITO', 'CARTAO DE DEBITO',
-            'DEBITO VENDA', 'CREDITO VENDA', 'LIQUIDACAO CARTAO',
-            'REPASSE ADQUIRENTE', 'RECEBIMENTO CARTAO'
-        ]
-        if any(kw in texto_completo for kw in palavras_cartao):
-            # Sub-categorizar por bandeira
-            if 'MASTERCARD' in texto_completo or 'MAESTRO' in texto_completo:
-                return 'vendas_mastercard'
-            elif 'VISA' in texto_completo and 'ELECTRON' not in texto_completo:
-                return 'vendas_visa'
-            elif 'VISA ELECTRON' in texto_completo or 'ELECTRON' in texto_completo:
-                return 'vendas_visa_electron'
-            elif 'ELO' in texto_completo:
-                return 'vendas_elo'
-            elif 'AMEX' in texto_completo or 'AMERICAN EXPRESS' in texto_completo:
-                return 'vendas_amex'
-            elif 'HIPERCARD' in texto_completo:
-                return 'vendas_hipercard'
-            else:
-                return 'vendas_cartao_outras'
-        
-        # --- VENDAS VIA PIX ---
-        palavras_pix = [
-            'PIX RECEBIDO', 'PIX - RECEBIMENTO', 'RECEBIMENTO PIX', 'CHAVE PIX',
-            'PIX VENDA', 'PIX CLIENTE', 'PIX PAGAMENTO', 'PIX - VENDA',
-            'COBRANCA PIX', 'COBRANÇA PIX', 'PIX QR CODE', 'PIX COPIA E COLA'
-        ]
-        if any(kw in texto_completo for kw in palavras_pix):
-            return 'vendas_pix'
-        
-        # --- VENDAS VIA BOLETO ---
-        palavras_boleto = [
-            'BOLETO RECEBIDO', 'BOLETO - RECEBIMENTO', 'RECEBIMENTO BOLETO',
-            'BOLETO BANCARIO', 'BOLETO BANCÁRIO', 'PAGAMENTO BOLETO',
-            'BOLETO COMPENSADO', 'BOLETO QUITADO'
-        ]
-        if any(kw in texto_completo for kw in palavras_boleto):
-            return 'vendas_boleto'
-        
-        # --- TRANSFERÊNCIAS RECEBIDAS (TED/DOC) ---
-        palavras_transferencia_recebida = [
-            'TED RECEBIDA', 'DOC RECEBIDO', 'TRANSFERENCIA RECEBIDA',
-            'TRANSFERÊNCIA RECEBIDA', 'CREDITO TED', 'CREDITO DOC',
-            'RECEBIMENTO TED', 'RECEBIMENTO DOC', 'DEPOSITO IDENTIFICADO',
-            'DEPOSITO DE TERCEIROS', 'REPASSE FINANCEIRO', 'REPASSE DE VALORES'
-        ]
-        if any(kw in texto_completo for kw in palavras_transferencia_recebida):
-            return 'transferencia_recebida'
-        
-        # --- OUTRAS RECEITAS ---
-        palavras_outras_receitas = [
-            'RENDIMENTO APLICACAO', 'RENDIMENTO APLICAÇÃO', 'JUROS RECEBIDOS',
-            'DIVIDENDOS', 'RESTITUICAO', 'RESTITUIÇÃO', 'REEMBOLSO',
-            'CASHBACK', 'BONUS', 'BÔNUS', 'DESCONTO OBTIDO', 'CREDITO DIVERSO'
-        ]
-        if any(kw in texto_completo for kw in palavras_outras_receitas):
-            return 'outras_receitas'
-        
-        # Default para créditos não classificados
-        return 'receitas_nao_classificadas'
-    
-    # ============================================================
-    # 🔴 CATEGORIAS DE DESPESA (SAÍDAS)
-    # ============================================================
-    else:
-        
-        # --- FORNECEDORES: MERCADORIA/ESTOQUE ---
-        palavras_fornecedores_mercadoria = [
-            'COMPRA MERCADORIA', 'COMPRA PRODUTO', 'COMPRA ESTOQUE',
-            'FORNECEDOR', 'DISTRIBUIDORA', 'ATACADO', 'VAREJO',
-            'MATERIAL DE CONSUMO', 'INSUMO', 'MATERIA-PRIMA',
-            'PRODUTO PARA REVENDA', 'COMPRA PARA REVENDA', 'STOCK',
-            'WHOLESALE', 'SUPPLIER', 'MERCHANDISE'
-        ]
-        if any(kw in texto_completo for kw in palavras_fornecedores_mercadoria):
-            return 'fornecedores_mercadoria'
-        
-        # --- FORNECEDORES: SERVIÇOS ---
-        palavras_fornecedores_servicos = [
-            'SERVICO PRESTADO', 'SERVIÇO PRESTADO', 'HONORARIOS', 'HONORÁRIOS',
-            'CONSULTORIA', 'ASSESSORIA', 'MANUTENCAO', 'MANUTENÇÃO',
-            'REPARO', 'CONCERTO', 'LIMPEZA', 'SEGURANCA', 'SEGURANÇA',
-            'CONTABILIDADE', 'ADVOCACIA', 'MARKETING DIGITAL', 'DESENVOLVIMENTO',
-            'HOSPEDAGEM SITE', 'DOMINIO', 'SSL', 'EMAIL PROFISSIONAL',
-            'SOFTWARE', 'SISTEMA', 'APP', 'PLATAFORMA', 'ASSINATURA'
-        ]
-        if any(kw in texto_completo for kw in palavras_fornecedores_servicos):
-            return 'fornecedores_servicos'
-        
-        # --- IMPOSTOS E TRIBUTOS ---
-        palavras_impostos = [
-            'DAS', 'DARF', 'SIMPLES NACIONAL', 'MEI', 'IRPJ', 'CSLL',
-            'PIS', 'COFINS', 'ICMS', 'ISS', 'INSS', 'FGTS',
-            'IMPOSTO', 'TRIBUTO', 'TAXA GOVERNAMENTAL', 'GUIA RECOLHIMENTO',
-            'RFB', 'RECEITA FEDERAL', 'SEFAZ', 'PREFEITURA',
-            'IPTU', 'ISSQN', 'TAXA LICENCA', 'TAXA LICENÇA', 'ALVARA'
-        ]
-        if any(kw in texto_completo for kw in palavras_impostos):
-            return 'impostos_tributos'
-        
-        # --- TARIFAS BANCÁRIAS ---
-        palavras_tarifas = [
-            'TARIFA', 'MANUTENCAO CONTA', 'MANUTENÇÃO CONTA', 'PACOTE SERVICOS',
-            'PACOTE SERVIÇOS', 'TED ENVIADA', 'DOC ENVIADO', 'BOLETO EMITIDO',
-            'CARTAO CREDITO TARIFA', 'ANUIDADE CARTAO', 'SAQUE',
-            'EXTRATO', 'SEGUNDA VIA', 'TARIFA BANCARIA', 'TARIFA BANCÁRIA',
-            'IOF', 'TARIFA PIX', 'CUSTO FINANCEIRO', 'JUROS MORATORIOS'
-        ]
-        if any(kw in texto_completo for kw in palavras_tarifas):
-            return 'tarifas_bancarias'
-        
-        # --- ALUGUEL E CONDOMÍNIO ---
-        palavras_aluguel = [
-            'ALUGUEL', 'LOCACAO', 'LOCAÇÃO', 'CONDOMINIO', 'CONDOMÍNIO',
-            'IPTU', 'TAXA CONDOMINIO', 'TAXA CONDOMÍNIO', 'SEGURO IMOBIL',
-            'ADMINISTRADORA', 'IMOBILIARIA', 'IMOBILIÁRIA', 'RENT'
-        ]
-        if any(kw in texto_completo for kw in palavras_aluguel):
-            return 'aluguel_condominio'
-        
-        # --- ENERGIA, ÁGUA, TELECOM ---
-        palavras_utilidades = [
-            'ENERGIA', 'LUZ', 'ELETRICA', 'ELÉTRICA', 'ENEL', 'CEMIG', 'LIGHT',
-            'AGUA', 'ÁGUA', 'SABESP', 'COPASA', 'SANESUL', 'ESGOTO',
-            'TELEFONE', 'CELULAR', 'INTERNET', 'BANDA LARGA', 'WI-FI',
-            'VIVO', 'CLARO', 'TIM', 'OI', 'NET', 'SKY', 'GVT',
-            'CONTA DE CONSUMO', 'UTILITIES'
-        ]
-        if any(kw in texto_completo for kw in palavras_utilidades):
-            return 'energia_agua_telecom'
-        
-        # --- MARKETING E PUBLICIDADE ---
-        palavras_marketing = [
-            'GOOGLE ADS', 'FACEBOOK ADS', 'INSTAGRAM ADS', 'META ADS',
-            'ANUNCIO', 'ANÚNCIO', 'PUBLICIDADE', 'PROPAGANDA', 'MARKETING',
-            'PANFLETO', 'FOLDER', 'CARTAO VISITA', 'CARTÃO DE VISITA',
-            'FAIXA', 'OUTDOOR', 'RADIO', 'TV', 'INFLUENCER', 'PATROCINIO',
-            'TRAFFIC', 'CONVERSION', 'CAMPAIGN'
-        ]
-        if any(kw in texto_completo for kw in palavras_marketing):
-            return 'marketing_publicidade'
-        
-        # --- SALÁRIOS E ENCARGOS ---
-        palavras_folha = [
-            'SALARIO', 'SALÁRIO', 'PRO-LABORE', 'PRO LABORE', 'FOLHA PAGAMENTO',
-            '13 SALARIO', '13º SALÁRIO', 'FERIAS', 'FÉRIAS', 'RESCISAO',
-            'INSS EMPREGADOR', 'FGTS DEPOSITO', 'VALE TRANSPORTE', 'VALE REFEICAO',
-            'COMISSAO', 'COMISSÃO', 'BONUS FUNCIONARIO', 'BÔNUS FUNCIONÁRIO',
-            'PAYROLL', 'WAGE', 'SALARY'
-        ]
-        if any(kw in texto_completo for kw in palavras_folha):
-            return 'salarios_encargos'
-        
-        # --- TRANSPORTE E COMBUSTÍVEL ---
-        palavras_transporte = [
-            'COMBUSTIVEL', 'COMBUSTÍVEL', 'GASOLINA', 'ETANOL', 'DIESEL',
-            'POSTO', 'UBER', '99', 'INDRIVER', 'TAXI', 'TÁXI',
-            'ESTACIONAMENTO', 'PEDAGIO', 'PEDÁGIO', 'FRETE', 'ENTREGA',
-            'CORREIOS', 'JADLOG', 'MELHOR ENVIO', 'TRANSPORTADORA',
-            'FUEL', 'GAS', 'PARKING', 'TOLL'
-        ]
-        if any(kw in texto_completo for kw in palavras_transporte):
-            return 'transporte_combustivel'
-        
-        # --- EQUIPAMENTOS E MANUTENÇÃO ---
-        palavras_equipamentos = [
-            'COMPRA EQUIPAMENTO', 'COMPUTADOR', 'NOTEBOOK', 'CELULAR', 'TABLET',
-            'IMPRESSORA', 'SCANNER', 'MONITOR', 'TECLADO', 'MOUSE',
-            'MOBILIA', 'MOBÍLIA', 'CADEIRA', 'MESA', 'ESTANTE',
-            'FERRAMENTA', 'EPI', 'UNIFORME', 'CRACHA',
-            'MANUTENCAO EQUIPAMENTO', 'REPARO EQUIPAMENTO', 'UPGRADE',
-            'EQUIPMENT', 'DEVICE', 'HARDWARE', 'SOFTWARE LICENSE'
-        ]
-        if any(kw in texto_completo for kw in palavras_equipamentos):
-            return 'equipamentos_manutencao'
-        
-        # --- SEGUROS ---
-        palavras_seguros = [
-            'SEGURO', 'APOLICE', 'APÓLICE', 'PRÊMIO SEGURO', 'PREMIO SEGURO',
-            'ALLIANZ', 'PORTO SEGURO', 'BRADESCO SEGUROS', 'SULAMERICA',
-            'MAPFRE', 'TOKIO MARINE', 'ZURICH', 'INSURANCE', 'POLICY'
-        ]
-        if any(kw in texto_completo for kw in palavras_seguros):
-            return 'seguros'
-        
-        # --- SAÚDE E BEM-ESTAR ---
-        palavras_saude = [
-            'PLANO SAUDE', 'PLANO SAÚDE', 'UNIMED', 'AMIL', 'BRADESCO SAUDE',
-            'MEDICO', 'MÉDICO', 'CONSULTA', 'EXAME', 'LABORATORIO',
-            'FARMACIA', 'FARMÁCIA', 'MEDICAMENTO', 'REMEDIO', 'REMÉDIO',
-            'ODONTOLOGICO', 'ODONTOLÓGICO', 'DENTISTA', 'HEALTH', 'CLINIC'
-        ]
-        if any(kw in texto_completo for kw in palavras_saude):
-            return 'saude_bem_estar'
-        
-        # --- VIAGENS E HOSPEDAGEM ---
-        palavras_viagens = [
-            'PASSAGEM AEREA', 'PASSAGEM AÉREA', 'AEROPORTO', 'TAM', 'GOL', 'AZUL',
-            'HOTEL', 'POUSADA', 'AIRBNB', 'BOOKING', 'HOSPEDAGEM',
-            'ALUGUEL CARRO', 'LOCACAO VEICULO', 'LOCAÇÃO VEÍCULO',
-            'RESTAURANTE', 'ALIMENTACAO VIAGEM', 'ALIMENTAÇÃO VIAGEM',
-            'TRAVEL', 'FLIGHT', 'HOTEL', 'ACCOMMODATION'
-        ]
-        if any(kw in texto_completo for kw in palavras_viagens):
-            return 'viagens_hospedagem'
-        
-        # --- DOAÇÕES E PATROCÍNIOS ---
-        palavras_doacoes = [
-            'DOACAO', 'DOAÇÃO', 'PATROCINIO', 'PATROCÍNIO', 'DONATION',
-            'INSTITUICAO', 'INSTITUIÇÃO', 'ONG', 'CARIDADE', 'CHARITY',
-            'SPONSORSHIP'
-        ]
-        if any(kw in texto_completo for kw in palavras_doacoes):
-            return 'doacoes_patrocinios'
-        
-        # --- PIX ENVIADO (genérico) ---
-        palavras_pix_enviado = [
-            'PIX EMITIDO', 'PIX - PAGAMENTO', 'PAGAMENTO PIX', 'PIX ENVIADO',
-            'TRANSFERENCIA PIX', 'TRANSFERÊNCIA PIX', 'PIX PARA'
-        ]
-        if any(kw in texto_completo for kw in palavras_pix_enviado):
-            # Tenta identificar o destino pelo nome do favorecido
-            if any(kw in texto_completo for kw in palavras_fornecedores_mercadoria + palavras_fornecedores_servicos):
-                return 'fornecedores_servicos'  # Fallback
-            return 'pix_enviado_outros'
-        
-        # --- BOLETO PAGO (genérico) ---
-        palavras_boleto_pago = [
-            'BOLETO PAGO', 'BOLETO - PAGAMENTO', 'PAGAMENTO BOLETO',
-            'BOLETO COMPENSADO', 'BOLETO QUITADO'
-        ]
-        if any(kw in texto_completo for kw in palavras_boleto_pago):
-            return 'boleto_pago_outros'
-        
-        # --- TRANSFERÊNCIA ENVIADA (genérico) ---
-        palavras_transferencia_enviada = [
-            'TED ENVIADA', 'DOC ENVIADO', 'TRANSFERENCIA ENVIADA',
-            'TRANSFERÊNCIA ENVIADA', 'DEBITO TED', 'DEBITO DOC'
-        ]
-        if any(kw in texto_completo for kw in palavras_transferencia_enviada):
-            return 'transferencia_enviada_outros'
-        
-        # ============================================================
-        # 🔴 DEFAULT: Outras Despesas (tentar minimizar esta categoria)
-        # ============================================================
-        return 'outras_despesas'
-
-# ============================================================
-# 🎯 INFERIR TIPO PAGAMENTO (ATUALIZADO)
-# ============================================================
-def inferir_tipo_pagamento_ofx(registro):
-    """Infere tipo_pagamento analisando descricao, name e trntype."""
-    descricao = str(registro.get('descricao') or '').upper()
-    name = str(registro.get('name') or '').upper()
-    trntype = str(registro.get('trntype') or '').upper()
-    texto = f"{descricao} {name}"
-    
-    # PIX
-    if 'PIX' in texto:
-        return 'pix'
-    
-    # CARTÃO (Maquininha/Adquirente)
-    palavras_cartao = [
-        'MASTERCARD', 'VISA', 'MAESTRO', 'ELO', 'AMEX', 'HIPERCARD',
-        'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS', 'VENDA CARTAO', 'VENDA CARTÃO',
-        'MAQUININHA', 'ADQUIRENTE', 'CIELO', 'REDE', 'STONE', 'PAGSEGURO',
-        'GETNET', 'FLOW', 'MERCADO PAGO', 'TON', 'SUMUP'
-    ]
-    if any(kw in texto for kw in palavras_cartao):
-        return 'cartao'
-    
-    # DÉBITO
-    if any(kw in texto for kw in ['DÉBITO', 'DEBITO', 'DEB._', 'VISA ELECTRON', 'MAESTRO']):
-        return 'debito'
-    
-    # BOLETO
-    if any(kw in texto for kw in ['BOLETO', 'DAS-', 'DAS ', 'TRIBUTOS', 'COMPE', 'TÍTULO', 'TIT.COMPE']):
-        return 'boleto'
-    
-    # TRANSFERÊNCIA
-    if any(kw in texto for kw in ['TRANSF', 'TED', 'DOC', 'REM.:', 'FAV.:']):
-        return 'transferencia'
-    
-    # EMPRÉSTIMO
-    if 'EMPRÉSTIMO' in texto or 'EMPRESTIMO' in texto:
-        return 'emprestimo'
-    
-    # INVESTIMENTO
-    if any(kw in texto for kw in ['APLICAÇÃO', 'RESGATE', 'RDC', 'CDB', 'INVESTIMENTO']):
-        return 'investimento'
-    
-    # SEGURO
-    if any(kw in texto for kw in ['SEGURO', 'ALLIANZ', 'APOLICE', 'PRÊMIO']):
-        return 'seguro'
-    
-    # TARIFA
-    if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA', 'MANUTENÇÃO CONTA']):
-        return 'tarifa'
-    
-    return 'outros'
-
-# ============================================================
-# NORMALIZE ROW
+# NORMALIZE ROW (COM CLASSIFICADOR FINANCEIRO)
 # ============================================================
 def normalize_row(row: dict):
     if not row:
@@ -539,14 +192,79 @@ def normalize_row(row: dict):
     if "tipo_pagamento" not in new or new["tipo_pagamento"] in ("cartao", "outros"):
         new["tipo_pagamento"] = inferir_tipo_pagamento_ofx(new)
     
-    new["categoria"] = categorizar_transacao(
-        new.get("descricao", ""),
-        new.get("name", ""),
-        new.get("valor", Decimal("0")),
-        new.get("trntype")
+    # ============================================================
+    # ✅ CLASSIFICADOR FINANCEIRO (NOVO MOTOR)
+    # ============================================================
+    from services.classificador_financeiro import classificador
+    
+    descricao_completa = new.get("descricao", "")
+    name = new.get("name", "")
+    valor = new.get("valor", Decimal("0"))
+    trntype = new.get("trntype", "")
+    tipo_pagamento = new.get("tipo_pagamento", "outros")
+    
+    resultado = classificador.classificar(
+        descricao=f"{descricao_completa} {name}",
+        valor=float(valor),
+        trntype=trntype
     )
     
+    new["categoria"] = resultado["categoria"]
+    new["tipo_pagamento"] = resultado["tipo_pagamento"] or tipo_pagamento
+    new["score_classificacao"] = resultado["score"]
+    new["origem_classificacao"] = "classificador_financeiro_v2"
+    new["regra_utilizada"] = resultado["categoria"]
+    new["grupo"] = resultado["grupo"]
+    new["subgrupo"] = resultado["subgrupo"]
+    new["natureza"] = resultado["natureza"]
+    new["centro_custo"] = resultado["centro_custo"]
+    
     return new
+
+# ============================================================
+# INFERIR TIPO PAGAMENTO
+# ============================================================
+def inferir_tipo_pagamento_ofx(registro):
+    """Infere tipo_pagamento analisando descricao, name e trntype."""
+    descricao = str(registro.get('descricao') or '').upper()
+    name = str(registro.get('name') or '').upper()
+    trntype = str(registro.get('trntype') or '').upper()
+    texto = f"{descricao} {name}"
+    
+    if 'PIX' in texto:
+        return 'pix'
+    
+    palavras_cartao = [
+        'MASTERCARD', 'VISA', 'MAESTRO', 'ELO', 'AMEX', 'HIPERCARD',
+        'SIPAG', 'CRED.COMPRAS', 'CR COMPRAS', 'VENDA CARTAO', 'VENDA CARTÃO',
+        'MAQUININHA', 'ADQUIRENTE', 'CIELO', 'REDE', 'STONE', 'PAGSEGURO',
+        'GETNET', 'FLOW', 'MERCADO PAGO', 'TON', 'SUMUP'
+    ]
+    if any(kw in texto for kw in palavras_cartao):
+        return 'cartao'
+    
+    if any(kw in texto for kw in ['DÉBITO', 'DEBITO', 'DEB._', 'VISA ELECTRON', 'MAESTRO']):
+        return 'debito'
+    
+    if any(kw in texto for kw in ['BOLETO', 'DAS-', 'DAS ', 'TRIBUTOS', 'COMPE', 'TÍTULO', 'TIT.COMPE']):
+        return 'boleto'
+    
+    if any(kw in texto for kw in ['TRANSF', 'TED', 'DOC', 'REM.:', 'FAV.:']):
+        return 'transferencia'
+    
+    if 'EMPRÉSTIMO' in texto or 'EMPRESTIMO' in texto:
+        return 'emprestimo'
+    
+    if any(kw in texto for kw in ['APLICAÇÃO', 'RESGATE', 'RDC', 'CDB', 'INVESTIMENTO']):
+        return 'investimento'
+    
+    if any(kw in texto for kw in ['SEGURO', 'ALLIANZ', 'APOLICE', 'PRÊMIO']):
+        return 'seguro'
+    
+    if any(kw in texto for kw in ['PACOTE SERVIÇOS', 'TARIFA', 'MANUTENÇÃO CONTA']):
+        return 'tarifa'
+    
+    return 'outros'
 
 # ============================================================
 # PARSE CSV
@@ -833,112 +551,70 @@ def dividir_ofx_em_partes(content: str, max_transacoes: int = 30) -> list:
     return partes
 
 # ============================================================
-# ✅ DIVIDIR CSV (NOVA FUNÇÃO)
+# DIVIDIR CSV
 # ============================================================
 def dividir_csv_em_partes(content: str, max_linhas: int = 100) -> list:
-    """Divide arquivo CSV em partes menores, mantendo o header em cada parte."""
     lines = content.split('\n')
-    
     if len(lines) <= max_linhas + 1:
         return [content]
-    
     header = lines[0]
-    data_lines = lines[1:]
-    data_lines = [line for line in data_lines if line.strip()]
-    
+    data_lines = [line for line in lines[1:] if line.strip()]
     total_linhas = len(data_lines)
-    logger.info(f"📊 CSV com {total_linhas} linhas de dados")
-    
     partes = []
     num_partes = (total_linhas + max_linhas - 1) // max_linhas
-    
     for i in range(num_partes):
         inicio_idx = i * max_linhas
         fim_idx = min((i + 1) * max_linhas, total_linhas)
-        linhas_parte = data_lines[inicio_idx:fim_idx]
-        csv_parte = header + '\n' + '\n'.join(linhas_parte)
+        csv_parte = header + '\n' + '\n'.join(data_lines[inicio_idx:fim_idx])
         partes.append(csv_parte)
-    
     logger.info(f"✅ CSV dividido: {total_linhas} linhas em {len(partes)} partes")
     return partes
 
 # ============================================================
-# ✅ FLOW CSV - DETECTOR
+# FLOW CSV
 # ============================================================
 def is_flow_csv(filename: str, sample_content: str) -> bool:
-    """
-    Detecta se o arquivo é do formato Flow baseando-se APENAS no conteúdo.
-    Formato real: cada linha tem 8 campos separados por ;
-    CB-XXXXXXX;DD/MM/YYYY;Bandeira;Produto;Qtd;R$ X;R$ Y;R$ Z
-    """
     if not sample_content:
         return False
-    
     lines = [l.strip() for l in sample_content.split('\n') if l.strip()]
     if not lines:
         return False
-    
-    # Testar as primeiras linhas para ver se batem com o padrão Flow
     matches = 0
     for line in lines[:5]:
         parts = line.split(';')
         if len(parts) == 8:
-            # Campo 1: estabelecimento (começa com CB- ou similar)
-            # Campo 2: data DD/MM/YYYY
-            # Campo 3: bandeira (Visa, Mastercard, Elo, etc.)
-            # Campo 6,7,8: valores com R$
             if (len(parts[0]) >= 5 and 
                 '/' in parts[1] and 
                 parts[2].strip() in ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard', 'Alelo', 'VR'] and
                 'R$' in parts[5]):
                 matches += 1
-    
     if matches >= 2:
-        logger.info(f"✅ CSV Flow detectado pelo padrão de dados ({matches} linhas compatíveis)")
         return True
-    
-    # Fallback: detecção pelo título (caso tenha)
     content_lower = sample_content.lower()
     if ('relatório sumarizado de vendas' in content_lower or 
         'relatorio sumarizado de vendas' in content_lower):
         if 'estabelecimento' in content_lower:
-            logger.info(f"✅ CSV Flow detectado pelo título")
             return True
-    
     return False
 
 
-# ============================================================
-# ✅ FLOW CSV - PARSER (FORMATO REAL SEM HEADERS)
-# ============================================================
 def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -> list:
-    """
-    Parser para CSV do Flow com logs de progresso.
-    """
     inicio = time.time()
     logger.info(f"📄 Início parse Flow CSV: {filename}")
-    
     file_stream.seek(0, 2)
     size = file_stream.tell()
     file_stream.seek(0)
-    
     if size > MAX_FILE_SIZE:
         raise ValueError(f"Arquivo Flow CSV excede {MAX_FILE_SIZE/1024/1024}MB")
-    
     encoding = detectar_encoding(file_stream)
-    
     try:
         file_stream.seek(0)
         raw = file_stream.read().decode(encoding, errors="replace")
         lines = [l.strip() for l in raw.strip().split('\n') if l.strip()]
-        
         if not lines:
             raise ValueError("Arquivo Flow CSV vazio")
-        
-        # Detectar linha de início
         start_line = 0
         estabelecimento_principal = None
-        
         for i, line in enumerate(lines):
             parts = line.split(';')
             if len(parts) == 8:
@@ -948,83 +624,40 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     start_line = i
                     estabelecimento_principal = parts[0].strip()
                     break
-        
-        logger.info(f"🏢 Estabelecimento: {estabelecimento_principal}, iniciando na linha {start_line}")
-        
-        # Resolver empresa_id
         empresa_id = _get_empresa_id_por_estabelecimento(estabelecimento_principal, default_empresa_id)
         if not empresa_id:
             empresa_id = default_empresa_id
-        
-        logger.info(f"🏢 empresa_id: {empresa_id}")
-        
-        # Processar linhas
         registros = []
         nsu_counter = 0
-        total_linhas = len(lines) - start_line
-        
-        logger.info(f"📊 Processando {total_linhas} linhas de dados...")
-        
         for row_num, line in enumerate(lines[start_line:], start=start_line):
             try:
                 if line.lower().startswith('total') or not line.strip():
                     continue
-                
                 parts = line.split(';')
                 if len(parts) != 8:
                     continue
-                
-                estabelecimento = parts[0].strip()
                 data_str = parts[1].strip()
-                bandeira = parts[2].strip()
-                produto = parts[3].strip()
-                quantidade_str = parts[4].strip()
-                valor_bruto_str = parts[5].strip()
-                desconto_str = parts[6].strip()
-                valor_liquido_str = parts[7].strip()
-                
                 data_venda = parse_data(data_str)
                 if not data_venda:
                     continue
-                
-                valor_bruto = parse_valor(valor_bruto_str.replace('R$', '').replace('.', '').replace(',', '.'))
+                valor_bruto = parse_valor(parts[5].replace('R$', '').replace('.', '').replace(',', '.'))
                 if not valor_bruto or valor_bruto <= 0:
                     continue
-                
-                desconto = parse_valor(desconto_str.replace('R$', '').replace('.', '').replace(',', '.'))
-                valor_liquido = parse_valor(valor_liquido_str.replace('R$', '').replace('.', '').replace(',', '.'))
-                
+                desconto = parse_valor(parts[6].replace('R$', '').replace('.', '').replace(',', '.'))
+                valor_liquido = parse_valor(parts[7].replace('R$', '').replace('.', '').replace(',', '.'))
                 nsu_counter += 1
-                nsu = f"FLOW-{estabelecimento or 'UNK'}-{data_venda.strftime('%Y%m%d')}-{nsu_counter:04d}"
-                
-                bandeira_map = {
-                    'mastercard': 'Mastercard',
-                    'visa': 'Visa',
-                    'elo': 'Elo',
-                    'amex': 'Amex',
-                    'hipercard': 'Hipercard',
-                }
-                bandeira_final = bandeira_map.get(bandeira.lower().strip(), bandeira)
-                
-                produto_lower = produto.lower().strip()
+                nsu = f"FLOW-{parts[0].strip()}-{data_venda.strftime('%Y%m%d')}-{nsu_counter:04d}"
+                bandeira_map = {'mastercard': 'Mastercard', 'visa': 'Visa', 'elo': 'Elo', 'amex': 'Amex', 'hipercard': 'Hipercard'}
+                bandeira_final = bandeira_map.get(parts[2].strip().lower(), parts[2].strip())
+                produto_lower = parts[3].strip().lower()
                 if 'pix' in produto_lower:
                     tipo_pagamento = 'pix'
-                    produto_final = 'PIX'
                 elif 'débito' in produto_lower or 'debito' in produto_lower:
                     tipo_pagamento = 'cartao'
-                    produto_final = 'Débito'
                 elif 'crédito' in produto_lower or 'credito' in produto_lower:
                     tipo_pagamento = 'cartao'
-                    produto_final = 'Crédito'
                 else:
                     tipo_pagamento = 'cartao'
-                    produto_final = produto or 'Desconhecido'
-                
-                try:
-                    quantidade = int(quantidade_str)
-                except:
-                    quantidade = 1
-                
                 registro = {
                     'adquirente': 'Flow',
                     'nsu': nsu,
@@ -1033,92 +666,55 @@ def parse_flow_csv(file_stream, filename: str, default_empresa_id: int = None) -
                     'valor_liquido': float(valor_liquido),
                     'desconto': float(desconto),
                     'bandeira': bandeira_final,
-                    'produto': produto_final,
+                    'produto': parts[3].strip(),
                     'tipo_pagamento': tipo_pagamento,
-                    'observacoes': f"Flow {bandeira_final} {produto_final} - Qtd: {quantidade} - {data_venda.strftime('%d/%m/%Y')}",
+                    'observacoes': f"Flow {bandeira_final} - {data_venda.strftime('%d/%m/%Y')}",
                     'empresa_id': empresa_id,
-                    'estabelecimento': estabelecimento,
                 }
-                
                 registros.append(registro)
-                
-                # ✅ Log de progresso a cada 50 registros
-                if len(registros) % 50 == 0:
-                    logger.info(f"📊 Progresso: {len(registros)}/{total_linhas} registros processados")
-                
             except Exception as e:
-                logger.error(f"❌ Erro linha {row_num}: {str(e)}", exc_info=True)
+                logger.error(f"❌ Erro linha {row_num}: {str(e)}")
                 continue
-        
         tempo = time.time() - inicio
         logger.info(f"✅ Parse Flow CSV: {len(registros)} registros em {tempo:.2f}s")
-        
-        if registros:
-            logger.info(f"📋 Exemplo: {registros[0]}")
-        
         return registros
-        
     except Exception as e:
-        logger.error(f"❌ Erro Flow CSV: {str(e)}", exc_info=True)
+        logger.error(f"❌ Erro Flow CSV: {str(e)}")
         raise ValueError(f"Erro Flow CSV: {str(e)}")
 
 
-# ============================================================
-# HELPER: Resolver empresa_id pelo código do estabelecimento
-# ============================================================
 def _get_empresa_id_por_estabelecimento(codigo_estabelecimento: str, fallback: int = None) -> int:
-    """
-    Resolve empresa_id a partir do código do estabelecimento (ex: CB-109264950001).
-    Usa tabela de mapeamento ou config hardcoded.
-    """
     if not codigo_estabelecimento:
         return fallback
-    
-    # Tentativa 1: Tabela EstabelecimentoMapeamento
     try:
         from models import EstabelecimentoMapeamento
         mapeamento = EstabelecimentoMapeamento.query.filter_by(
             codigo_estabelecimento=codigo_estabelecimento, ativo=True
         ).first()
         if mapeamento:
-            logger.info(f"✅ Estabelecimento {codigo_estabelecimento} encontrado na tabela: empresa_id={mapeamento.empresa_id}")
             return mapeamento.empresa_id
-    except Exception as e:
-        logger.debug(f"⚠️ Tabela EstabelecimentoMapeamento não disponível: {str(e)}")
-    
-    # Tentativa 2: Config hardcoded
+    except Exception:
+        pass
     try:
         from config.estabelecimentos import ESTABELECIMENTO_PARA_EMPRESA
         if codigo_estabelecimento in ESTABELECIMENTO_PARA_EMPRESA:
-            empresa_id = ESTABELECIMENTO_PARA_EMPRESA[codigo_estabelecimento]
-            logger.info(f"✅ Estabelecimento {codigo_estabelecimento} encontrado no config: empresa_id={empresa_id}")
-            return empresa_id
-    except Exception as e:
-        logger.debug(f"⚠️ Config estabelecimentos não disponível: {str(e)}")
-    
-    # Fallback: usar o default
-    logger.info(f"ℹ️ Estabelecimento {codigo_estabelecimento} não mapeado, usando fallback: {fallback}")
+            return ESTABELECIMENTO_PARA_EMPRESA[codigo_estabelecimento]
+    except Exception:
+        pass
     return fallback
 
 
-# ============================================================
-# PARSE GENERIC (entry point principal)
-# ============================================================
 def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
-    """Dispatcher principal: detecta o tipo e delega para o parser correto."""
     if not filename:
         raise ValueError("Nome do arquivo é obrigatório")
-    
     filename_lower = filename.lower()
     file_stream.seek(0)
     sample = file_stream.read(2048).decode('utf-8', errors='ignore')
     file_stream.seek(0)
     
-    # 1. Detectar Flow CSV
     if is_flow_csv(filename, sample):
         return parse_flow_csv(file_stream, filename, default_empresa_id)
     
-    # 2. CSV / TXT genérico
     if filename_lower.endswith(('.csv', '.txt')):
         registros = parse_csv_generic(file_stream, filename)
         if default_empresa_id:
@@ -1127,7 +723,6 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
                     reg['empresa_id'] = default_empresa_id
         return registros
     
-    # 3. Excel
     elif filename_lower.endswith(('.xlsx', '.xls')):
         registros = parse_excel_generic(file_stream, filename)
         if default_empresa_id:
@@ -1136,7 +731,6 @@ def parse_generic(file_stream, filename: str, default_empresa_id: int = None):
                     reg['empresa_id'] = default_empresa_id
         return registros
     
-    # 4. OFX
     elif filename_lower.endswith('.ofx'):
         registros = parse_ofx_generic(file_stream, filename)
         if default_empresa_id:
