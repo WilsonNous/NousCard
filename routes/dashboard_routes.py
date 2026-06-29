@@ -59,7 +59,7 @@ def get_periodo_datas(periodo):
 
 
 # ============================================================
-# ROTA HTML DO DASHBOARD
+# ROTA RAIZ
 # ============================================================
 
 @dashboard_bp.route("/")
@@ -71,6 +71,10 @@ def raiz_inteligente():
         return redirect(url_for('dashboard.dashboard'))
     return redirect(url_for('auth.login_page'))
 
+
+# ============================================================
+# ROTA HTML DO DASHBOARD
+# ============================================================
 
 @dashboard_bp.route("/dashboard")
 @login_required
@@ -144,6 +148,22 @@ def dashboard():
     except Exception as e:
         logger.error(f"❌ Erro ao renderizar dashboard: {str(e)}", exc_info=True)
         abort(500)
+
+
+# ============================================================
+# ✅ ROTA DRE (COMPATIBILIDADE COM base.html)
+# ============================================================
+
+@dashboard_bp.route("/dre")
+@login_required
+@empresa_required
+def dre_resumo():
+    """
+    DRE - Demonstrativo de Resultado do Exercício.
+    Redireciona para o dashboard principal.
+    Implementação completa do DRE será feita futuramente.
+    """
+    return redirect(url_for('dashboard.dashboard'))
 
 
 # ============================================================
@@ -300,7 +320,6 @@ def _agrupar_por_categoria(empresa_id, data_inicio, data_fim, tipo='receita'):
         for tipo_pag, total, qtd in query_adq:
             if total and total > 0:
                 cat = f'vendas_{tipo_pag or "cartao"}'
-                # Somar com MovBanco se já existir
                 existente = next((r for r in resultados if r['categoria'] == cat), None)
                 if existente:
                     existente['total'] += float(total)
@@ -439,7 +458,6 @@ def get_resumo_mensal():
             else:
                 data_fim = datetime(ano_atual, mes_atual + 1, 1).date() - timedelta(days=1)
             
-            # Entradas
             entradas = db.session.query(func.sum(MovBanco.valor)).filter(
                 MovBanco.empresa_id == empresa_id,
                 MovBanco.valor > 0,
@@ -447,7 +465,6 @@ def get_resumo_mensal():
                 MovBanco.data_movimento <= data_fim
             ).scalar() or Decimal('0')
             
-            # Saídas
             saidas = db.session.query(func.sum(func.abs(MovBanco.valor))).filter(
                 MovBanco.empresa_id == empresa_id,
                 MovBanco.valor < 0,
