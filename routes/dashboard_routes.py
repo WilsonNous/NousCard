@@ -295,51 +295,70 @@ def get_dashboard_kpis():
         data_inicio, data_fim = get_periodo_datas(periodo)
 
         receitas_por_categoria = _agrupar_por_categoria(
-            empresa_id,
-            data_inicio,
-            data_fim,
-            tipo="receita",
+            empresa_id, data_inicio, data_fim, tipo="receita"
         )
 
         despesas_por_categoria = _agrupar_por_categoria(
-            empresa_id,
-            data_inicio,
-            data_fim,
-            tipo="despesa",
+            empresa_id, data_inicio, data_fim, tipo="despesa"
         )
 
         total_entradas = sum(item["total"] for item in receitas_por_categoria)
         total_saidas = sum(item["total"] for item in despesas_por_categoria)
         saldo = total_entradas - total_saidas
+        margem_caixa = (saldo / total_entradas * 100) if total_entradas > 0 else 0
+        indice_despesa = (total_saidas / total_entradas * 100) if total_entradas > 0 else 0
 
         vendas_por_bandeira = _agrupar_por_bandeira(
-            empresa_id,
-            data_inicio,
-            data_fim,
+            empresa_id, data_inicio, data_fim
         )
 
         vendas_cartao_total = sum(vendas_por_bandeira.values())
 
         receitas_breakdown = _formatar_breakdown(
-            receitas_por_categoria,
-            total_entradas,
+            receitas_por_categoria, total_entradas
         )
 
         despesas_breakdown = _formatar_breakdown(
-            despesas_por_categoria,
-            total_saidas,
+            despesas_por_categoria, total_saidas
         )
 
         receitas_resumo = _montar_resumo_receitas(
-            receitas_por_categoria,
-            vendas_cartao_total,
+            receitas_por_categoria, vendas_cartao_total
         )
 
         despesas_resumo = _montar_resumo_despesas(
-            despesas_por_categoria,
+            despesas_por_categoria
         )
 
-        insight = _gerar_insight(
+        despesas_por_grupo = _montar_despesas_por_grupo(
+            despesas_por_categoria,
+            total_saidas
+        )
+
+        top_receitas = _top_categorias(
+            receitas_por_categoria,
+            total_entradas,
+            limite=5
+        )
+
+        top_despesas = _top_categorias(
+            despesas_por_categoria,
+            total_saidas,
+            limite=5
+        )
+
+        diagnostico = _gerar_diagnostico_dashboard(
+            entradas=total_entradas,
+            saidas=total_saidas,
+            saldo=saldo,
+            margem_caixa=margem_caixa,
+            indice_despesa=indice_despesa,
+            top_receitas=top_receitas,
+            top_despesas=top_despesas,
+            vendas_cartao=vendas_cartao_total,
+        )
+
+        insight = diagnostico.get("mensagem_principal") or _gerar_insight(
             total_entradas,
             total_saidas,
             saldo,
@@ -355,15 +374,31 @@ def get_dashboard_kpis():
                 "fim": data_fim.isoformat() if data_fim else None,
                 "tipo": periodo,
             },
+
+            # KPIs principais
             "saldo": _round(saldo),
             "entradas": _round(total_entradas),
             "saidas": _round(total_saidas),
+            "margem_caixa": _round(margem_caixa),
+            "indice_despesa": _round(indice_despesa),
+
+            # Cartões/adquirentes
             "vendas_cartao": _round(vendas_cartao_total),
             "vendas_por_bandeira": vendas_por_bandeira,
+
+            # Resumos atuais
             "receitas": receitas_resumo,
             "despesas": despesas_resumo,
             "receitas_breakdown": receitas_breakdown,
             "despesas_breakdown": despesas_breakdown,
+
+            # Nova camada gerencial
+            "top_receitas": top_receitas,
+            "top_despesas": top_despesas,
+            "despesas_por_grupo": despesas_por_grupo,
+            "diagnostico": diagnostico,
+
+            # Compatibilidade
             "insight": insight,
             "total_registros": total_registros,
         }
@@ -373,13 +408,19 @@ def get_dashboard_kpis():
             "total_recebido": _round(total_entradas),
             "diferenca": _round(saldo),
             "total_vendas_pix": _round(receitas_resumo.get("pix", 0)),
-            "alertas": 0,
+            "alertas": len(diagnostico.get("alertas", [])),
             "adquirentes": [],
             "bandeiras": vendas_por_bandeira,
             "receitas": receitas_resumo,
             "despesas": despesas_resumo,
             "receitas_breakdown": receitas_breakdown,
             "despesas_breakdown": despesas_breakdown,
+            "margem_caixa": _round(margem_caixa),
+            "indice_despesa": _round(indice_despesa),
+            "top_receitas": top_receitas,
+            "top_despesas": top_despesas,
+            "despesas_por_grupo": despesas_por_grupo,
+            "diagnostico": diagnostico,
             "detalhamento": {
                 "vendas": [],
                 "recebidos": [],
@@ -389,7 +430,8 @@ def get_dashboard_kpis():
 
         logger.info(
             f"📊 Dashboard KPIs empresa={empresa_id}: "
-            f"entradas={total_entradas}, saidas={total_saidas}, saldo={saldo}"
+            f"entradas={total_entradas}, saidas={total_saidas}, "
+            f"saldo={saldo}, margem={margem_caixa:.2f}%"
         )
 
         return jsonify(response), 200
@@ -648,6 +690,268 @@ def _montar_resumo_despesas(categorias):
         "outras": _round(outras),
     }
 
+def _montar_despesas_por_grupo(categorias, total_saidas):
+    grupos_definicao = {
+        "transferencias": {
+            "nome": "Transferências Enviadas",
+            "icone": "🔁",
+            "categorias": {
+                "transferencias_enviadas",
+                "transferencia_enviada",
+            },
+        },
+        "alimentacao": {
+            "nome": "Alimentação",
+            "icone": "🍽️",
+            "categorias": {
+                "alimentacao_restaurante",
+                "alimentacao_mercado",
+                "supermercado",
+            },
+        },
+        "transporte": {
+            "nome": "Transporte",
+            "icone": "⛽",
+            "categorias": {
+                "transporte_combustivel",
+                "transporte_pedagio",
+                "transporte_estacionamento",
+            },
+        },
+        "impostos": {
+            "nome": "Impostos e Tributos",
+            "icone": "🏛️",
+            "categorias": {
+                "impostos_federais",
+                "impostos_municipais",
+                "impostos_tributos",
+                "tributos",
+            },
+        },
+        "servicos": {
+            "nome": "Serviços Essenciais",
+            "icone": "📡",
+            "categorias": {
+                "internet",
+                "telefonia",
+                "energia",
+                "agua",
+                "energia_agua_telecom",
+            },
+        },
+        "financeiro": {
+            "nome": "Financeiro",
+            "icone": "🏦",
+            "categorias": {
+                "emprestimos",
+                "tarifas_bancarias",
+                "juros",
+                "taxas",
+            },
+        },
+        "assinaturas": {
+            "nome": "Assinaturas",
+            "icone": "🎬",
+            "categorias": {
+                "streaming",
+                "assinaturas",
+                "software",
+            },
+        },
+    }
+
+    grupos = {}
+
+    for chave, config in grupos_definicao.items():
+        grupos[chave] = {
+            "chave": chave,
+            "nome": config["nome"],
+            "icone": config["icone"],
+            "valor": 0.0,
+            "percentual": 0.0,
+            "quantidade": 0,
+            "categorias": [],
+        }
+
+    outros = {
+        "chave": "outros",
+        "nome": "Outras Despesas",
+        "icone": "📦",
+        "valor": 0.0,
+        "percentual": 0.0,
+        "quantidade": 0,
+        "categorias": [],
+    }
+
+    for item in categorias:
+        categoria = item.get("categoria")
+        valor = _to_float(item.get("total"))
+        quantidade = item.get("quantidade", 0)
+
+        grupo_encontrado = None
+
+        for chave, config in grupos_definicao.items():
+            if categoria in config["categorias"]:
+                grupo_encontrado = chave
+                break
+
+        destino = grupos.get(grupo_encontrado) if grupo_encontrado else outros
+
+        destino["valor"] += valor
+        destino["quantidade"] += quantidade
+        destino["categorias"].append({
+            "categoria": categoria,
+            "nome": _nome_amigavel(categoria),
+            "valor": _round(valor),
+            "quantidade": quantidade,
+            "percentual": round((valor / total_saidas * 100), 1) if total_saidas > 0 else 0,
+        })
+
+    resultado = []
+
+    for grupo in list(grupos.values()) + [outros]:
+        if grupo["valor"] <= 0:
+            continue
+
+        grupo["valor"] = _round(grupo["valor"])
+        grupo["percentual"] = round((grupo["valor"] / total_saidas * 100), 1) if total_saidas > 0 else 0
+        grupo["categorias"] = sorted(
+            grupo["categorias"],
+            key=lambda x: x["valor"],
+            reverse=True
+        )
+
+        resultado.append(grupo)
+
+    return sorted(resultado, key=lambda x: x["valor"], reverse=True)
+
+
+def _top_categorias(categorias, total_geral, limite=5):
+    resultado = []
+
+    for item in categorias[:limite]:
+        valor = _to_float(item.get("total"))
+        categoria = item.get("categoria")
+
+        resultado.append({
+            "categoria": categoria,
+            "nome": _nome_amigavel(categoria),
+            "valor": _round(valor),
+            "percentual": round((valor / total_geral * 100), 1) if total_geral > 0 else 0,
+            "quantidade": item.get("quantidade", 0),
+            "origem": item.get("origem", "banco"),
+        })
+
+    return resultado
+
+def _gerar_diagnostico_dashboard(
+    entradas,
+    saidas,
+    saldo,
+    margem_caixa,
+    indice_despesa,
+    top_receitas,
+    top_despesas,
+    vendas_cartao,
+):
+    alertas = []
+    oportunidades = []
+    pontos_positivos = []
+
+    maior_receita = top_receitas[0] if top_receitas else None
+    maior_despesa = top_despesas[0] if top_despesas else None
+
+    if entradas <= 0 and saidas <= 0:
+        return {
+            "nivel": "sem_dados",
+            "titulo": "Sem dados suficientes",
+            "mensagem_principal": "Importe seu extrato bancário para visualizar seus KPIs financeiros.",
+            "alertas": [],
+            "oportunidades": ["Importar OFX ou CSV bancário para iniciar a análise."],
+            "pontos_positivos": [],
+            "resumo": {
+                "margem_caixa": 0,
+                "indice_despesa": 0,
+                "maior_receita": None,
+                "maior_despesa": None,
+            },
+        }
+
+    if saldo > 0:
+        pontos_positivos.append(f"Fluxo positivo no período: R$ {_round(saldo):,.2f}.")
+    else:
+        alertas.append(f"Fluxo negativo no período: R$ {_round(abs(saldo)):,.2f}.")
+
+    if margem_caixa < 0:
+        alertas.append("A operação consumiu mais caixa do que gerou no período.")
+    elif margem_caixa < 10:
+        alertas.append(f"Margem de caixa apertada: {margem_caixa:.1f}%.")
+    elif margem_caixa < 20:
+        oportunidades.append(f"Margem de caixa positiva, mas ainda moderada: {margem_caixa:.1f}%.")
+    else:
+        pontos_positivos.append(f"Boa margem de caixa: {margem_caixa:.1f}%.")
+
+    if indice_despesa > 90:
+        alertas.append(f"Despesas consumiram {indice_despesa:.1f}% das entradas.")
+    elif indice_despesa > 70:
+        oportunidades.append(f"Despesas acima de 70% das entradas: {indice_despesa:.1f}%.")
+    else:
+        pontos_positivos.append(f"Despesas controladas: {indice_despesa:.1f}% das entradas.")
+
+    if maior_despesa:
+        oportunidades.append(
+            f"Maior grupo de saída: {maior_despesa['nome']} "
+            f"com R$ {maior_despesa['valor']:,.2f} "
+            f"({maior_despesa['percentual']}%)."
+        )
+
+    if maior_receita:
+        pontos_positivos.append(
+            f"Principal fonte de entrada: {maior_receita['nome']} "
+            f"com R$ {maior_receita['valor']:,.2f}."
+        )
+
+    if vendas_cartao <= 0:
+        oportunidades.append("Nenhuma venda de cartão/adquirente identificada no período.")
+    elif entradas > 0:
+        percentual_cartao = (vendas_cartao / entradas) * 100
+        if percentual_cartao > 30:
+            oportunidades.append(
+                f"{percentual_cartao:.1f}% das entradas vêm de cartão. Vale revisar taxas da adquirente."
+            )
+
+    if saldo < 0:
+        nivel = "critico"
+        titulo = "Fluxo negativo"
+        mensagem = "⚠️ O caixa fechou negativo. Revise despesas e acelere recebimentos."
+    elif margem_caixa < 10:
+        nivel = "atencao"
+        titulo = "Fluxo positivo, mas apertado"
+        mensagem = f"✅ O caixa fechou positivo, porém com margem de apenas {margem_caixa:.1f}%."
+    elif indice_despesa > 70:
+        nivel = "atencao"
+        titulo = "Despesas elevadas"
+        mensagem = f"📉 As despesas consumiram {indice_despesa:.1f}% das entradas."
+    else:
+        nivel = "saudavel"
+        titulo = "Fluxo saudável"
+        mensagem = f"✅ O período teve saldo positivo e margem de caixa de {margem_caixa:.1f}%."
+
+    return {
+        "nivel": nivel,
+        "titulo": titulo,
+        "mensagem_principal": mensagem,
+        "alertas": alertas,
+        "oportunidades": oportunidades,
+        "pontos_positivos": pontos_positivos,
+        "resumo": {
+            "margem_caixa": _round(margem_caixa),
+            "indice_despesa": _round(indice_despesa),
+            "maior_receita": maior_receita,
+            "maior_despesa": maior_despesa,
+        },
+    }
+    
 
 def _total_registros_dashboard(empresa_id):
     total = 0
