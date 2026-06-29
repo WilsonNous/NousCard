@@ -341,7 +341,11 @@ def process_uploaded_files(files, empresa_id, usuario_id):
             inicio_final = time.time()
             
             from services.processador_normalizacao import processar_normalizacoes
-            stats_final = processar_normalizacoes(empresa_id, arquivo_id)
+            stats_final = processar_normalizacoes(
+                empresa_id,
+                arquivo_id,
+                dados_conta=resultado.get("dados_conta")
+            )
             
             tempo_final = time.time() - inicio_final
             logger.info(f"✅ [ETAPA 5/5] Processamento final concluído em {tempo_final:.2f}s")

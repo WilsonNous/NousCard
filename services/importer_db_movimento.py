@@ -1,5 +1,5 @@
 # services/importer_db_movimento.py
-# ✅ VERSÃO FINAL AJUSTADA: Integrado com Classificador Financeiro + Campos extras MovBanco
+# ✅ VERSÃO FINAL AJUSTADA: Conta bancária extraída do OFX + Classificador Financeiro
 
 from models import db, MovAdquirente, MovBanco, Adquirente, ContaBancaria
 from datetime import datetime, date, timezone
@@ -19,7 +19,6 @@ BATCH_SIZE = 200
 # ============================================================
 
 def to_date(valor):
-    """Converte valor para date de forma segura."""
     if not valor:
         return None
 
@@ -49,7 +48,6 @@ def to_date(valor):
 
 
 def to_decimal(valor, default=Decimal("0")):
-    """Converte valor para Decimal de forma segura."""
     try:
         if valor is None:
             return default
@@ -61,21 +59,155 @@ def to_decimal(valor, default=Decimal("0")):
 
 
 def set_if_exists(obj, campo, valor):
-    """
-    Define atributo somente se a model possuir o campo.
-    Evita quebrar se a migration ainda não foi aplicada.
-    """
     if hasattr(obj, campo):
         setattr(obj, campo, valor)
 
 
 # ============================================================
-# SALVAR VENDAS (MovAdquirente)
+# CONTA BANCÁRIA
+# ============================================================
+
+def _normalizar_dados_conta(dados_conta):
+    """
+    Normaliza dados extraídos do OFX.
+
+    Esperado de extrair_dados_conta_ofx():
+    {
+        banco,
+        agencia,
+        conta,
+        nome,
+        tipo
+    }
+    """
+
+    if not dados_conta:
+        return {}
+
+    banco = (
+        dados_conta.get("banco")
+        or dados_conta.get("bankid")
+        or dados_conta.get("bank_id")
+        or "OFX"
+    )
+
+    agencia = (
+        dados_conta.get("agencia")
+        or dados_conta.get("branchid")
+        or dados_conta.get("branch_id")
+        or "0000"
+    )
+
+    conta = (
+        dados_conta.get("conta")
+        or dados_conta.get("acctid")
+        or dados_conta.get("account_id")
+        or dados_conta.get("numero")
+    )
+
+    tipo = (
+        dados_conta.get("tipo")
+        or dados_conta.get("accttype")
+        or "corrente"
+    )
+
+    nome = (
+        dados_conta.get("nome")
+        or f"Conta OFX {banco} {agencia} {conta or ''}".strip()
+    )
+
+    return {
+        "banco": str(banco).strip()[:50] if banco else "OFX",
+        "agencia": str(agencia).strip()[:20] if agencia else "0000",
+        "conta": str(conta).strip()[:50] if conta else None,
+        "tipo": str(tipo).strip()[:30] if tipo else "corrente",
+        "nome": str(nome).strip()[:120] if nome else "Conta OFX",
+    }
+
+
+def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
+    """
+    Busca ou cria conta bancária com base nos dados do OFX.
+    Se dados_conta vier vazio, tenta usar primeira conta ativa.
+    """
+
+    dados = _normalizar_dados_conta(dados_conta)
+
+    # 1. Se veio conta do OFX, usar ela
+    if dados.get("conta"):
+        conta = ContaBancaria.query.filter_by(
+            empresa_id=empresa_id,
+            banco=dados["banco"],
+            agencia=dados["agencia"],
+            conta=dados["conta"],
+            ativo=True,
+        ).first()
+
+        if conta:
+            logger.info(
+                f"🏦 Conta OFX localizada: banco={dados['banco']} "
+                f"agencia={dados['agencia']} conta={dados['conta']} id={conta.id}"
+            )
+            return conta
+
+        conta = ContaBancaria(
+            empresa_id=empresa_id,
+            nome=dados["nome"],
+            banco=dados["banco"],
+            agencia=dados["agencia"],
+            conta=dados["conta"],
+            tipo=dados["tipo"],
+            ativo=True,
+        )
+
+        db.session.add(conta)
+        db.session.flush()
+
+        logger.info(
+            f"✅ Conta OFX criada: banco={dados['banco']} "
+            f"agencia={dados['agencia']} conta={dados['conta']} id={conta.id}"
+        )
+
+        return conta
+
+    # 2. Fallback: primeira conta ativa da empresa
+    conta = ContaBancaria.query.filter_by(
+        empresa_id=empresa_id,
+        ativo=True,
+    ).first()
+
+    if conta:
+        logger.warning(
+            f"⚠️ OFX sem conta identificada. Usando conta ativa existente id={conta.id}"
+        )
+        return conta
+
+    # 3. Último fallback: criar conta técnica
+    conta = ContaBancaria(
+        empresa_id=empresa_id,
+        nome="Conta OFX não identificada",
+        banco="OFX",
+        agencia="0000",
+        conta=f"OFX-{empresa_id}",
+        tipo="corrente",
+        ativo=True,
+    )
+
+    db.session.add(conta)
+    db.session.flush()
+
+    logger.warning(
+        f"⚠️ Conta OFX técnica criada para empresa {empresa_id}: id={conta.id}"
+    )
+
+    return conta
+
+
+# ============================================================
+# SALVAR VENDAS
 # ============================================================
 
 def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> dict:
-    """Salva registros de vendas em MovAdquirente."""
-
     stats = {
         "sucesso": 0,
         "falhas": 0,
@@ -112,9 +244,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                 )
                 db.session.add(adquirente)
                 db.session.commit()
-
                 stats["adquirente_criada"] = True
-                logger.info(f"✅ Adquirente criada: {nome}")
 
             adquirentes_cache[nome.lower()] = adquirente
             stats["adquirentes_processadas"].add(nome)
@@ -220,7 +350,6 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
 
             if batch_sucesso > 0:
                 db.session.commit()
-                logger.info(f"✅ Batch vendas {batch_num + 1}/{total_batches}: {batch_sucesso} OK")
             else:
                 db.session.rollback()
 
@@ -248,30 +377,19 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
     if isinstance(stats.get("adquirentes_processadas"), set):
         stats["adquirentes_processadas"] = list(stats["adquirentes_processadas"])
 
-    logger.info(
-        f"✅ Vendas: {stats['sucesso']} OK, "
-        f"{stats['falhas']} falhas, {stats['duplicados']} duplicados"
-    )
-
     return stats
 
 
 # ============================================================
-# SALVAR RECEBIMENTOS (MovBanco)
+# SALVAR RECEBIMENTOS
 # ============================================================
 
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dados_conta=None):
-    """
-    Salva registros bancários em mov_banco.
-    ✅ Recebe dados já classificados pelo processador_normalizacao.
-    ✅ Persiste campos extras se existirem na model.
-    """
-
     inicio_total = time.time()
 
     logger.info(
-        f"🔍 Início importação recebimentos: "
-        f"empresa={empresa_id}, registros={len(registros)}"
+        f"🔍 Início importação recebimentos: empresa={empresa_id}, "
+        f"registros={len(registros)}, dados_conta={dados_conta}"
     )
 
     estatisticas = {
@@ -283,61 +401,14 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
         "conta_id": None,
     }
 
-    # ============================================================
-    # 1. GARANTIR CONTA BANCÁRIA
-    # ============================================================
-
-    conta_id = None
-
-    if dados_conta and (dados_conta.get("banco") or dados_conta.get("conta")):
-        try:
-            conta = ContaBancaria.query.filter_by(
-                empresa_id=empresa_id,
-                banco=dados_conta.get("banco"),
-                agencia=dados_conta.get("agencia"),
-                conta=dados_conta.get("conta"),
-                ativo=True,
-            ).first()
-
-            if not conta:
-                conta = ContaBancaria(
-                    empresa_id=empresa_id,
-                    nome=dados_conta.get("nome", "Conta OFX"),
-                    banco=dados_conta.get("banco"),
-                    agencia=dados_conta.get("agencia"),
-                    conta=dados_conta.get("conta"),
-                    tipo=dados_conta.get("tipo", "corrente"),
-                    ativo=True,
-                )
-
-                db.session.add(conta)
-                db.session.flush()
-
-                estatisticas["conta_criada"] = True
-                logger.info(f"✅ Conta bancária criada: {conta.nome}")
-
-            conta_id = conta.id
-            estatisticas["conta_id"] = conta_id
-
-        except Exception as e:
-            logger.error(f"❌ Erro ao criar/verificar conta: {str(e)}", exc_info=True)
-            db.session.rollback()
-
-    if not conta_id:
-        conta_fallback = ContaBancaria.query.filter_by(
-            empresa_id=empresa_id,
-            ativo=True,
-        ).first()
-
-        if conta_fallback:
-            conta_id = conta_fallback.id
-            estatisticas["conta_id"] = conta_id
-        else:
-            logger.error(f"❌ Nenhuma conta bancária ativa encontrada para empresa {empresa_id}")
-
-    # ============================================================
-    # 2. PROCESSAR EM BATCHES
-    # ============================================================
+    try:
+        conta = obter_ou_criar_conta_bancaria(empresa_id, dados_conta)
+        conta_id = conta.id
+        estatisticas["conta_id"] = conta_id
+    except Exception as e:
+        logger.error(f"❌ Erro fatal ao obter/criar conta bancária: {str(e)}", exc_info=True)
+        estatisticas["falhas"] = len(registros)
+        return estatisticas
 
     for i in range(0, len(registros), BATCH_SIZE):
         batch = registros[i:i + BATCH_SIZE]
@@ -355,7 +426,6 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
 
                     if not data_movimento:
                         estatisticas["invalidos"] += 1
-                        logger.warning(f"⚠️ Movimento sem data válida: {r}")
                         continue
 
                     categoria = str(r.get("categoria") or "outros").strip()[:100]
@@ -375,11 +445,6 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
                         conciliado=False,
                         arquivo_origem=str(arquivo_id)[:255] if arquivo_id else None,
                     )
-
-                    # ====================================================
-                    # CAMPOS EXTRAS DO CLASSIFICADOR FINANCEIRO
-                    # Só seta se a coluna existir na model.
-                    # ====================================================
 
                     extras = {
                         "categoria_principal": r.get("categoria_principal"),
@@ -412,19 +477,24 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
 
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(f"❌ Erro SQL no batch recebimentos {i // BATCH_SIZE + 1}: {str(e)}", exc_info=True)
+            logger.error(
+                f"❌ Erro SQL no batch recebimentos {i // BATCH_SIZE + 1}: {str(e)}",
+                exc_info=True,
+            )
             estatisticas["falhas"] += len(batch)
 
         except Exception as e:
             db.session.rollback()
-            logger.error(f"❌ Erro inesperado no batch recebimentos {i // BATCH_SIZE + 1}: {str(e)}", exc_info=True)
+            logger.error(
+                f"❌ Erro inesperado no batch recebimentos {i // BATCH_SIZE + 1}: {str(e)}",
+                exc_info=True,
+            )
             estatisticas["falhas"] += len(batch)
 
     tempo_total = time.time() - inicio_total
 
     logger.info(
-        f"✅ Fim importação recebimentos: {estatisticas} "
-        f"em {tempo_total:.2f}s"
+        f"✅ Fim importação recebimentos: {estatisticas} em {tempo_total:.2f}s"
     )
 
     return estatisticas

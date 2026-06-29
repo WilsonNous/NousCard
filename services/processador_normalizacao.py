@@ -1,6 +1,4 @@
 # services/processador_normalizacao.py
-# Processa normalizações e salva nas tabelas finais
-# ✅ INTEGRADO com Classificador Financeiro
 
 from models import db, Normalizacao
 from services.importer_db_movimento import salvar_vendas, salvar_recebimentos
@@ -10,108 +8,102 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def processar_normalizacoes(empresa_id: int, arquivo_id: int = None):
-    """Processa normalizações e salva nas tabelas finais"""
-    logger.info(f"🔄 Processando normalizações para empresa {empresa_id}, arquivo {arquivo_id}")
-    
+def processar_normalizacoes(empresa_id: int, arquivo_id: int = None, dados_conta: dict = None):
+    logger.info(f"🔄 Processando normalizações: empresa={empresa_id}, arquivo={arquivo_id}")
+
     query = Normalizacao.query.filter(
         Normalizacao.empresa_id == empresa_id,
         Normalizacao.status.in_(["importado", "validado"])
     )
-    
+
     if arquivo_id:
         query = query.filter_by(arquivo_origem_id=arquivo_id)
-    
+
     normalizacoes = query.all()
-    
+
     if not normalizacoes:
-        logger.info("ℹ️ Nenhuma normalização para processar")
         return {"vendas": {"sucesso": 0}, "recebimentos": {"sucesso": 0}}
-    
-    logger.info(f"📦 {len(normalizacoes)} normalizações para processar")
-    
+
     vendas = []
     recebimentos = []
-    
+
     for norm in normalizacoes:
         try:
-            # Enriquecer se ainda não foi enriquecido
             if norm.status == "importado":
                 norm.enriquecer()
-            
+
             if norm.tipo_movimento == "venda":
-                venda_dict = _converter_para_venda(norm)
-                if venda_dict:
-                    vendas.append(venda_dict)
+                item = _converter_para_venda(norm)
+                if item:
+                    vendas.append(item)
                     norm.status = "processado"
                 else:
                     norm.status = "erro"
                     norm.erro_mensagem = "Falha na conversão para venda"
-            
+
             elif norm.tipo_movimento in ["recebimento", "pagamento"]:
-                recebimento_dict = _converter_para_recebimento(norm)
-                if recebimento_dict:
-                    recebimentos.append(recebimento_dict)
+                item = _converter_para_recebimento(norm)
+                if item:
+                    recebimentos.append(item)
                     norm.status = "processado"
                 else:
                     norm.status = "erro"
                     norm.erro_mensagem = "Falha na conversão para recebimento"
-            
+
         except Exception as e:
-            logger.error(f"❌ Erro ao processar normalizacao {norm.id}: {str(e)}", exc_info=True)
+            logger.error(f"❌ Erro normalização {norm.id}: {str(e)}", exc_info=True)
             norm.status = "erro"
             norm.erro_mensagem = str(e)
-    
-    # Salvar nas tabelas finais
+
     stats_vendas = {"sucesso": 0, "falhas": 0, "duplicados": 0}
     stats_recebimentos = {"sucesso": 0, "falhas": 0}
-    
+
     if vendas:
-        logger.info(f"💳 Salvando {len(vendas)} vendas")
-        try:
-            stats_vendas = salvar_vendas(vendas, empresa_id, arquivo_id)
-            logger.info(f"✅ Vendas salvas: {stats_vendas}")
-        except Exception as e:
-            logger.error(f"❌ Erro ao salvar vendas: {str(e)}", exc_info=True)
-            stats_vendas["erro"] = str(e)
-    
+        stats_vendas = salvar_vendas(vendas, empresa_id, arquivo_id)
+
     if recebimentos:
-        logger.info(f"🏦 Salvando {len(recebimentos)} recebimentos")
-        try:
-            stats_recebimentos = salvar_recebimentos(recebimentos, empresa_id, arquivo_id)
-            logger.info(f"✅ Recebimentos salvos: {stats_recebimentos}")
-        except Exception as e:
-            logger.error(f"❌ Erro ao salvar recebimentos: {str(e)}", exc_info=True)
-            stats_recebimentos["erro"] = str(e)
-    
+        stats_recebimentos = salvar_recebimentos(
+            recebimentos,
+            empresa_id,
+            arquivo_id,
+            dados_conta=dados_conta
+        )
+
     db.session.commit()
-    
-    logger.info(f"✅ Processamento concluído: {stats_vendas.get('sucesso', 0)} vendas, {stats_recebimentos.get('sucesso', 0)} recebimentos")
-    
+
     return {
         "vendas": stats_vendas,
         "recebimentos": stats_recebimentos
     }
 
 
+def _texto_norm(norm):
+    return (
+        getattr(norm, "descricao", None)
+        or getattr(norm, "historico", None)
+        or getattr(norm, "estabelecimento", None)
+        or ""
+    )
+
+
+def _classificar(norm, valor):
+    return classificador.classificar(
+        descricao=_texto_norm(norm),
+        valor=float(valor or 0),
+        trntype=getattr(norm, "trntype", None)
+    )
+
+
 def _converter_para_venda(norm: Normalizacao) -> dict:
-    """Converte Normalizacao para formato de venda"""
     try:
         if not norm.valor_bruto or norm.valor_bruto <= 0:
-            logger.warning(f"⚠️ Normalizacao {norm.id} sem valor_bruto válido")
             return None
-        
+
         if not norm.data_movimento:
-            logger.warning(f"⚠️ Normalizacao {norm.id} sem data_movimento")
             return None
-        
-        # ✅ Classificar usando o novo motor
-        resultado = classificador.classificar(
-            descricao=norm.descricao or "",
-            valor=float(norm.valor_bruto),
-            trntype=getattr(norm, 'trntype', 'CREDIT')
-        )
-        
+
+        resultado = _classificar(norm, norm.valor_bruto)
+
         return {
             "adquirente": norm.adquirente_nome or "Flow",
             "nsu": norm.nsu,
@@ -121,65 +113,62 @@ def _converter_para_venda(norm: Normalizacao) -> dict:
             "desconto": float(norm.valor_taxa) if norm.valor_taxa else 0,
             "bandeira": norm.bandeira,
             "produto": norm.produto,
-            "tipo_pagamento": resultado["tipo_pagamento"],
-            "categoria": resultado["categoria"],
+            "tipo_pagamento": resultado.get("tipo_pagamento") or norm.tipo_pagamento or "cartao",
+            "categoria": resultado.get("categoria") or norm.categoria or "vendas_cartao",
             "observacoes": norm.descricao,
             "empresa_id": norm.empresa_id,
-            "score_classificacao": resultado["score"],
+            "score_classificacao": resultado.get("score", 0),
+            "categoria_principal": resultado.get("grupo"),
+            "subcategoria": resultado.get("subgrupo"),
             "origem_classificacao": "classificador_financeiro_v2",
-            "regra_utilizada": resultado["categoria"]
+            "regra_utilizada": resultado.get("regra") or resultado.get("categoria"),
+            "classificacao_automatica": True,
+            "classificacao_manual": False,
         }
+
     except Exception as e:
-        logger.error(f"❌ Erro ao converter normalizacao {norm.id} para venda: {str(e)}", exc_info=True)
+        logger.error(f"❌ Erro ao converter venda {norm.id}: {str(e)}", exc_info=True)
         return None
 
 
 def _converter_para_recebimento(norm: Normalizacao) -> dict:
-    """
-    Converte Normalizacao para formato de recebimento.
-    ✅ Usa o Classificador Financeiro oficial.
-    """
     try:
-        if not norm.valor_bruto:
-            logger.warning(f"⚠️ Normalizacao {norm.id} sem valor_bruto")
+        if norm.valor_bruto is None:
             return None
-        
-        # ✅ Usar o novo classificador financeiro
-        resultado = classificador.classificar(
-            descricao=norm.descricao or norm.historico or "",
-            valor=float(norm.valor_bruto),
-            trntype=getattr(norm, 'trntype', None)
-        )
-        
-        categoria = resultado["categoria"]
-        tipo_pagamento = resultado["tipo_pagamento"]
-        natureza = resultado["natureza"]
-        score = resultado["score"]
-        
-        # Aplicar normalização financeira
+
+        resultado = _classificar(norm, norm.valor_bruto)
+
+        categoria = resultado.get("categoria") or norm.categoria or "outros"
+        tipo_pagamento = resultado.get("tipo_pagamento") or norm.tipo_pagamento or "outros"
+        natureza = resultado.get("natureza")
+        score = resultado.get("score", 0)
+
         valor_abs = abs(float(norm.valor_bruto))
+
         if natureza == "despesa":
             valor_normalizado = -valor_abs
-        else:
+        elif natureza == "receita":
             valor_normalizado = valor_abs
-        
-        logger.debug(
-            f"💰 Classificação: '{str(norm.descricao)[:50]}' "
-            f"→ {categoria} ({natureza}) score={score}"
-        )
-        
+        else:
+            valor_normalizado = float(norm.valor_bruto)
+
         return {
             "data": norm.data_movimento,
             "valor": valor_normalizado,
-            "descricao": norm.descricao,
+            "descricao": _texto_norm(norm),
             "nsu": norm.nsu,
             "tipo_pagamento": tipo_pagamento,
             "categoria": categoria,
             "empresa_id": norm.empresa_id,
             "score_classificacao": score,
+            "categoria_principal": resultado.get("grupo"),
+            "subcategoria": resultado.get("subgrupo"),
             "origem_classificacao": "classificador_financeiro_v2",
-            "regra_utilizada": categoria
+            "regra_utilizada": resultado.get("regra") or categoria,
+            "classificacao_automatica": True,
+            "classificacao_manual": False,
         }
+
     except Exception as e:
-        logger.error(f"❌ Erro ao converter normalizacao {norm.id} para recebimento: {str(e)}", exc_info=True)
+        logger.error(f"❌ Erro ao converter recebimento {norm.id}: {str(e)}", exc_info=True)
         return None
