@@ -241,6 +241,150 @@
         font-size: 0.9rem;
         line-height: 1.4;
     }
+
+    /* ============================================================
+       NOVA CAMADA GERENCIAL
+       ============================================================ */
+    
+    .kpi-card.margem {
+        border-left-color: #7c3aed;
+    }
+    
+    .kpi-card.indice {
+        border-left-color: #f97316;
+    }
+    
+    .manager-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .manager-card {
+        background: var(--white);
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .manager-card h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        color: var(--text);
+    }
+    
+    .diagnostico-card {
+        border-left: 5px solid var(--primary);
+    }
+    
+    .diagnostico-card.atencao {
+        border-left-color: var(--warning);
+    }
+    
+    .diagnostico-card.critico {
+        border-left-color: var(--error);
+    }
+    
+    .diagnostico-card.saudavel {
+        border-left-color: var(--success);
+    }
+    
+    .diagnostico-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .diagnostico-message {
+        font-size: 0.95rem;
+        color: var(--text);
+        margin-bottom: 1rem;
+    }
+    
+    .diagnostico-list {
+        margin: 0.5rem 0 0 0;
+        padding-left: 1.1rem;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+    
+    .group-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .group-item {
+        border-bottom: 1px solid var(--gray-border);
+        padding-bottom: 0.75rem;
+    }
+    
+    .group-item:last-child {
+        border-bottom: none;
+    }
+    
+    .group-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .group-name {
+        font-weight: 700;
+        color: var(--text);
+    }
+    
+    .group-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    
+    .group-value {
+        font-weight: 700;
+        text-align: right;
+    }
+    
+    .top-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+    
+    .top-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+        align-items: center;
+        border-bottom: 1px solid var(--gray-border);
+        padding-bottom: 0.65rem;
+    }
+    
+    .top-row:last-child {
+        border-bottom: none;
+    }
+    
+    .top-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .top-percent {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+    
+    .top-value {
+        font-weight: 700;
+        text-align: right;
+    }
+    
+    @media (max-width: 900px) {
+        .manager-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -298,6 +442,115 @@
             <div class="kpi-label">💳 Vendas no Cartão</div>
             <div class="kpi-value" style="color: var(--warning);" id="kpi-cartao">R$ 0,00</div>
             <div class="kpi-sub" id="kpi-cartao-sub">Recebimentos SIPAG/Adquirente</div>
+        </div>
+    </div>
+    
+    <!-- KPIs Gerenciais -->
+    <div class="kpi-grid" style="margin-top: 0.5rem;">
+        <div class="kpi-card margem">
+            <div class="kpi-label">📊 Margem de Caixa</div>
+            <div class="kpi-value" id="kpi-margem">0,00%</div>
+            <div class="kpi-sub" id="kpi-margem-sub">Saldo sobre entradas</div>
+        </div>
+    
+        <div class="kpi-card indice">
+            <div class="kpi-label">🔥 Índice de Despesas</div>
+            <div class="kpi-value" id="kpi-indice-despesa">0,00%</div>
+            <div class="kpi-sub" id="kpi-indice-sub">Saídas sobre entradas</div>
+        </div>
+    
+        <div class="kpi-card">
+            <div class="kpi-label">🧭 Maior Receita</div>
+            <div class="kpi-value" id="kpi-maior-receita">—</div>
+            <div class="kpi-sub" id="kpi-maior-receita-sub">Principal origem</div>
+        </div>
+    
+        <div class="kpi-card">
+            <div class="kpi-label">⚠️ Maior Despesa</div>
+            <div class="kpi-value" id="kpi-maior-despesa">—</div>
+            <div class="kpi-sub" id="kpi-maior-despesa-sub">Principal saída</div>
+        </div>
+    </div>
+    
+    <!-- Diagnóstico e Despesas por Grupo -->
+    <div class="manager-grid">
+        <div class="manager-card diagnostico-card" id="diagnostico-card">
+            <h3>🧠 Diagnóstico NousCard</h3>
+    
+            <div class="diagnostico-title" id="diagnostico-titulo">
+                Analisando dados...
+            </div>
+    
+            <div class="diagnostico-message" id="diagnostico-mensagem">
+                Carregando leitura financeira do período.
+            </div>
+    
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+                <div>
+                    <strong>Alertas</strong>
+                    <ul class="diagnostico-list" id="diagnostico-alertas">
+                        <li>Nenhum alerta carregado.</li>
+                    </ul>
+                </div>
+    
+                <div>
+                    <strong>Oportunidades</strong>
+                    <ul class="diagnostico-list" id="diagnostico-oportunidades">
+                        <li>Nenhuma oportunidade carregada.</li>
+                    </ul>
+                </div>
+    
+                <div>
+                    <strong>Pontos positivos</strong>
+                    <ul class="diagnostico-list" id="diagnostico-positivos">
+                        <li>Nenhum ponto carregado.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    
+        <div class="manager-card">
+            <h3>📉 Despesas por Grupo</h3>
+            <div class="group-list" id="despesas-grupos">
+                <div class="group-item">
+                    <div class="group-header">
+                        <div>
+                            <div class="group-name">Carregando...</div>
+                            <div class="group-meta">Aguarde</div>
+                        </div>
+                        <div class="group-value">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Receitas e Top Despesas -->
+    <div class="details-grid">
+        <div class="detail-card">
+            <h3>🏆 Top Receitas</h3>
+            <div class="top-list" id="top-receitas">
+                <div class="top-row">
+                    <div>
+                        <div class="top-name">Carregando...</div>
+                        <div class="top-percent">Aguarde</div>
+                    </div>
+                    <div class="top-value">—</div>
+                </div>
+            </div>
+        </div>
+    
+        <div class="detail-card">
+            <h3>🔥 Top Despesas</h3>
+            <div class="top-list" id="top-despesas">
+                <div class="top-row">
+                    <div>
+                        <div class="top-name">Carregando...</div>
+                        <div class="top-percent">Aguarde</div>
+                    </div>
+                    <div class="top-value">—</div>
+                </div>
+            </div>
         </div>
     </div>
     
