@@ -44,7 +44,7 @@ from .auth_routes import auth_bp
 from .empresas_routes import empresas_bp
 from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
-from .dashboard_api import dashboard_api
+# ❌ REMOVIDO: from .dashboard_api import dashboard_api  (conflito com dashboard_api_bp)
 from .conciliacao_api import bp_conc
 from .auditor_routes import auditor_bp  
 from routes.debug_routes import debug_bp
@@ -103,21 +103,15 @@ def register_blueprints(app: Flask):
             'required': True
         },
         
-        # 4️⃣ APIs
+        # 4️⃣ APIs (versionadas para frontend/mobile)
         {
             'blueprint': dashboard_api_bp,
-            'prefix': '/api/v1/dashboard',  # ✅ CORRIGIDO: Prefixo explícito
+            'prefix': '/api/v1/dashboard',
             'description': 'API de dashboard financeiro (KPIs, insights)',
             'access': 'authenticated',
             'required': True
         },
-        {
-            'blueprint': dashboard_api,
-            'prefix': '/api/v1',
-            'description': 'API de dashboard legada',
-            'access': 'authenticated',
-            'required': False
-        },
+        # ❌ REMOVIDO: dashboard_api legado (conflito de nome)
         {
             'blueprint': bp_conc,
             'prefix': '/api/v1/conciliacao',
