@@ -1,0 +1,212 @@
+{
+  "categorias": {
+    "transporte_combustivel": {
+      "palavras": ["POSTO", "IPIRANGA", "SHELL", "PETROBRAS", "SIM", "MARILU", "TORNEG", "AUTO POSTO", "CANAL DELTA", "ROTA DO MAR", "COMBUSTIVEL", "COMBUSTÍVEL"],
+      "prioridade": 60,
+      "grupo": "Transporte",
+      "subgrupo": "Combustível",
+      "centro_custo": "Veículos",
+      "natureza": "despesa",
+      "icone": "fa-gas-pump",
+      "cor": "warning"
+    },
+    "transporte_pedagio": {
+      "palavras": ["PEDAGIO", "PEDÁGIO", "SEM PARAR", "CCR", "ARTERIS", "CONECTCAR", "MOVE MAIS", "AUTOPISTA", "RODOANEL"],
+      "prioridade": 80,
+      "grupo": "Transporte",
+      "subgrupo": "Pedágio",
+      "centro_custo": "Veículos",
+      "natureza": "despesa",
+      "icone": "fa-road",
+      "cor": "warning"
+    },
+    "transporte_estacionamento": {
+      "palavras": ["ESTACIONAMENTO", "PARK", "GARAGEM"],
+      "prioridade": 80,
+      "grupo": "Transporte",
+      "subgrupo": "Estacionamento",
+      "centro_custo": "Veículos",
+      "natureza": "despesa",
+      "icone": "fa-parking",
+      "cor": "warning"
+    },
+    "transporte_uber": {
+      "palavras": ["UBER", "99 TAXI", "CABIFY"],
+      "prioridade": 90,
+      "grupo": "Transporte",
+      "subgrupo": "Aplicativo",
+      "centro_custo": "Veículos",
+      "natureza": "despesa",
+      "icone": "fa-car",
+      "cor": "warning"
+    },
+    "alimentacao_restaurante": {
+      "palavras": ["PANKO", "RESTAURANTE", "BURGER", "LANCHES", "COFFEE", "PIZZARIA", "IFOOD", "MCDONALDS", "BURGER KING", "MAIS SABOR", "SIMPLE COFFEE", "PADARIA", "GAUCHA", "RODOSNACK", "BUENOS AIRES", "CLEAN BEACH", "BETTER COMERCIO", "PASTEL", "SUSHI", "CHURRAS"],
+      "prioridade": 70,
+      "grupo": "Alimentação",
+      "subgrupo": "Restaurante",
+      "centro_custo": "Alimentação",
+      "natureza": "despesa",
+      "icone": "fa-utensils",
+      "cor": "info"
+    },
+    "alimentacao_mercado": {
+      "palavras": ["KOCH", "ANGELONI", "FORT", "GIASSI", "HIPERMERCADO", "SUPERMERCADO", "MERCADO", "ATACADO", "ATACADÃO", "CARREFOUR", "WALMART", "BIG", "COMPER"],
+      "prioridade": 70,
+      "grupo": "Alimentação",
+      "subgrupo": "Mercado",
+      "centro_custo": "Alimentação",
+      "natureza": "despesa",
+      "icone": "fa-cart-shopping",
+      "cor": "success"
+    },
+    "streaming": {
+      "palavras": ["NETFLIX", "SPOTIFY", "YOUTUBE", "AMAZON PRIME", "DISNEY", "HBO", "APPLE TV", "PARAMOUNT"],
+      "prioridade": 85,
+      "grupo": "Streaming",
+      "subgrupo": "Assinatura",
+      "centro_custo": "Serviços Digitais",
+      "natureza": "despesa",
+      "icone": "fa-play",
+      "cor": "danger"
+    },
+    "telefonia": {
+      "palavras": ["CLARO", "TIM", "VIVO", "OI", "NEXTEL", "ALGAR"],
+      "prioridade": 85,
+      "grupo": "Telefonia",
+      "subgrupo": "Móvel",
+      "centro_custo": "Serviços Digitais",
+      "natureza": "despesa",
+      "icone": "fa-mobile-alt",
+      "cor": "primary"
+    },
+    "internet": {
+      "palavras": ["INTERNET", "PROVEDOR", "FIBRA", "BANDA LARGA"],
+      "prioridade": 85,
+      "grupo": "Telefonia",
+      "subgrupo": "Internet",
+      "centro_custo": "Serviços Digitais",
+      "natureza": "despesa",
+      "icone": "fa-wifi",
+      "cor": "primary"
+    },
+    "impostos_federais": {
+      "palavras": ["RECEITA FEDERAL", "DAS", "SIMPLES NACIONAL", "DARF", "RFB", "PIS", "COFINS", "CSLL", "IRPJ", "IMPOSTO DE RENDA"],
+      "prioridade": 90,
+      "grupo": "Tributos",
+      "subgrupo": "Federais",
+      "centro_custo": "Tributos",
+      "natureza": "despesa",
+      "icone": "fa-file-invoice-dollar",
+      "cor": "danger"
+    },
+    "impostos_municipais": {
+      "palavras": ["IPTU", "ISS", "TAXA DE LICENÇA", "ALVARA"],
+      "prioridade": 90,
+      "grupo": "Tributos",
+      "subgrupo": "Municipais",
+      "centro_custo": "Tributos",
+      "natureza": "despesa",
+      "icone": "fa-building",
+      "cor": "danger"
+    },
+    "tarifas_bancarias": {
+      "palavras": ["TARIFA", "MANUTENCAO", "MANUTENÇÃO", "PACOTE", "ANUIDADE", "CESTA", "IOF"],
+      "prioridade": 75,
+      "grupo": "Financeiro",
+      "subgrupo": "Tarifas",
+      "centro_custo": "Financeiro",
+      "natureza": "despesa",
+      "icone": "fa-university",
+      "cor": "secondary"
+    },
+    "salarios": {
+      "palavras": ["SALARIO", "SALÁRIO", "PRO-LABORE", "PRO LABORE", "ADIANTAMENTO SALARIAL"],
+      "prioridade": 90,
+      "grupo": "Pessoal",
+      "subgrupo": "Salários",
+      "centro_custo": "Pessoal",
+      "natureza": "despesa",
+      "icone": "fa-users",
+      "cor": "primary"
+    },
+    "beneficios": {
+      "palavras": ["PLANO SAUDE", "PLANO DE SAÚDE", "VALE REFEIÇÃO", "VALE TRANSPORTE", "SEGURO DE VIDA"],
+      "prioridade": 90,
+      "grupo": "Pessoal",
+      "subgrupo": "Benefícios",
+      "centro_custo": "Pessoal",
+      "natureza": "despesa",
+      "icone": "fa-heart",
+      "cor": "success"
+    },
+    "emprestimos": {
+      "palavras": ["EMPRESTIMO", "EMPRÉSTIMO", "RESGATE DE EMPRÉSTIMO", "FINANCIAMENTO", "CREDITO PESSOAL", "CRÉDITO PESSOAL"],
+      "prioridade": 90,
+      "grupo": "Financeiro",
+      "subgrupo": "Empréstimos",
+      "centro_custo": "Financeiro",
+      "natureza": "despesa",
+      "icone": "fa-hand-holding-usd",
+      "cor": "danger"
+    },
+    "investimentos": {
+      "palavras": ["INVESTIMENTO", "APLICACAO", "APLICAÇÃO", "CDB", "TESOURO", "FUNDO"],
+      "prioridade": 90,
+      "grupo": "Financeiro",
+      "subgrupo": "Investimentos",
+      "centro_custo": "Financeiro",
+      "natureza": "receita",
+      "icone": "fa-chart-line",
+      "cor": "success"
+    },
+    "receitas_pix": {
+      "palavras": ["TRANSFERENCIA RECEBIDA", "TRANSFERÊNCIA RECEBIDA", "REEMBOLSO RECEBIDO"],
+      "prioridade": 50,
+      "grupo": "Receitas",
+      "subgrupo": "Pix",
+      "centro_custo": "Receitas",
+      "natureza": "receita",
+      "icone": "fa-pix",
+      "cor": "success"
+    },
+    "transferencias_enviadas": {
+      "palavras": ["TRANSFERENCIA ENVIADA", "TRANSFERÊNCIA ENVIADA"],
+      "prioridade": 50,
+      "grupo": "Transferências",
+      "subgrupo": "Enviadas",
+      "centro_custo": "Transferências",
+      "natureza": "despesa",
+      "icone": "fa-exchange-alt",
+      "cor": "warning"
+    },
+    "vendas_elo": {
+      "palavras": ["VENDA", "CLUBE GIRO", "MASEAL"],
+      "prioridade": 40,
+      "grupo": "Receitas",
+      "subgrupo": "Cartão Elo",
+      "centro_custo": "Receitas",
+      "natureza": "receita",
+      "icone": "fa-credit-card",
+      "cor": "success"
+    }
+  },
+  "tipos_pagamento": {
+    "pix": ["PIX", "TRANSFERENCIA", "TRANSFERÊNCIA"],
+    "debito": ["COMPRA NO DÉBITO", "COMPRA NO DEBITO", "DÉBITO", "DEBITO"],
+    "credito": ["COMPRA NO CRÉDITO", "COMPRA NO CREDITO", "CRÉDITO", "CREDITO"],
+    "boleto": ["BOLETO", "PAGAMENTO DE BOLETO"],
+    "emprestimo": ["EMPRESTIMO", "EMPRÉSTIMO", "RESGATE"],
+    "ted": ["TED", "DOC"],
+    "credito_conta": ["CREDITO EM CONTA", "CRÉDITO EM CONTA", "DEPOSITO", "DEPÓSITO"]
+  },
+  "aliases": {
+    "POSTOMARILU": "POSTO MARILU",
+    "POSTO-MARILU": "POSTO MARILU",
+    "NETFLIX.COM": "NETFLIX",
+    "NETFLIX ENTRETENIMENTO": "NETFLIX",
+    "PAGSEGURO": "PAGSEGURO",
+    "MERCADOPAGO": "MERCADO PAGO",
+    "MP *": ""
+  }
+}
