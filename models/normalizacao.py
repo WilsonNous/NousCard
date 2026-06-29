@@ -23,24 +23,21 @@ class Normalizacao(db.Model, BaseMixin):
     arquivo_origem_id = db.Column(db.Integer, db.ForeignKey("arquivos_importados.id"), nullable=True, index=True)
     
     # Tipo e origem
-    tipo_origem = db.Column(db.String(50), nullable=False, index=True)  # ofx_banco, csv_adquirente, csv_flow, etc
-    tipo_movimento = db.Column(db.String(50), nullable=False, index=True)  # venda, recebimento, pagamento, etc
+    tipo_origem = db.Column(db.String(50), nullable=False, index=True)
+    tipo_movimento = db.Column(db.String(50), nullable=False, index=True)
     
     # ============================================================
-    # DADOS DA TRANSAÇÃO (CAMPOS PADRONIZADOS)
+    # DADOS DA TRANSAÇÃO
     # ============================================================
     
-    # Identificadores únicos
-    nsu = db.Column(db.String(100), nullable=True, index=True)  # NSU, ID da transação
-    autorizacao = db.Column(db.String(50), nullable=True)  # Código de autorização
-    documento = db.Column(db.String(100), nullable=True)  # Documento fiscal, boleto, etc
+    nsu = db.Column(db.String(100), nullable=True, index=True)
+    autorizacao = db.Column(db.String(50), nullable=True)
+    documento = db.Column(db.String(100), nullable=True)
     
-    # Datas
-    data_movimento = db.Column(db.Date, nullable=False, index=True)  # Data do movimento
-    data_venda = db.Column(db.Date, nullable=True, index=True)  # Data da venda (pode ser diferente)
-    data_prevista_pagamento = db.Column(db.Date, nullable=True)  # Previsão de recebimento
+    data_movimento = db.Column(db.Date, nullable=False, index=True)
+    data_venda = db.Column(db.Date, nullable=True, index=True)
+    data_prevista_pagamento = db.Column(db.Date, nullable=True)
     
-    # Valores monetários
     valor_bruto = db.Column(db.Numeric(12, 2), nullable=False, default=Decimal("0"))
     valor_liquido = db.Column(db.Numeric(12, 2), nullable=True)
     valor_taxa = db.Column(db.Numeric(10, 4), nullable=True, default=Decimal("0"))
@@ -51,18 +48,15 @@ class Normalizacao(db.Model, BaseMixin):
     # CLASSIFICAÇÃO
     # ============================================================
     
-    # Adquirente/Meio de pagamento
     adquirente_nome = db.Column(db.String(100), nullable=True, index=True)
     adquirente_id = db.Column(db.Integer, db.ForeignKey("adquirentes.id"), nullable=True)
     bandeira = db.Column(db.String(50), nullable=True, index=True)
-    produto = db.Column(db.String(50), nullable=True)  # Crédito, Débito, PIX, etc
-    tipo_pagamento = db.Column(db.String(50), nullable=True, index=True)  # cartao, pix, boleto
+    produto = db.Column(db.String(50), nullable=True)
+    tipo_pagamento = db.Column(db.String(50), nullable=True, index=True)
     
-    # Parcelamento
     parcela = db.Column(db.Integer, nullable=True)
     total_parcelas = db.Column(db.Integer, nullable=True)
     
-    # Conta bancária (para recebimentos/pagamentos)
     conta_bancaria_id = db.Column(db.Integer, db.ForeignKey("contas_bancarias.id"), nullable=True)
     banco_codigo = db.Column(db.String(10), nullable=True)
     agencia = db.Column(db.String(20), nullable=True)
@@ -85,12 +79,21 @@ class Normalizacao(db.Model, BaseMixin):
     tags = db.Column(db.String(500), nullable=True)
     
     # ============================================================
+    # ✅ NOVOS CAMPOS: INTELIGÊNCIA FINANCEIRA
+    # ============================================================
+    score_classificacao = db.Column(db.Integer, default=0)
+    origem_classificacao = db.Column(db.String(100), default='')
+    regra_utilizada = db.Column(db.String(100), default='')
+    grupo = db.Column(db.String(100), default='')
+    natureza = db.Column(db.String(20), default='')
+    centro_custo = db.Column(db.String(100), default='')
+    
+    # ============================================================
     # CONTROLE E STATUS
     # ============================================================
     status = db.Column(db.String(30), nullable=False, default="importado", index=True)
     erro_mensagem = db.Column(db.Text, nullable=True)
     
-    # Dados crus (JSON) para auditoria e reprocessamento
     dados_crus = db.Column(JSON, nullable=True)
     metadados = db.Column(JSON, nullable=True)
     
@@ -128,6 +131,10 @@ class Normalizacao(db.Model, BaseMixin):
             "status": self.status,
             "categoria": self.categoria,
             "descricao": self.descricao,
+            "score_classificacao": self.score_classificacao,
+            "grupo": self.grupo,
+            "natureza": self.natureza,
+            "centro_custo": self.centro_custo,
             "criado_em": self.criado_em.isoformat() if self.criado_em else None
         }
     
@@ -147,11 +154,9 @@ class Normalizacao(db.Model, BaseMixin):
         if not self.tipo_movimento:
             erros.append("tipo_movimento é obrigatório")
         
-        # ✅ CORREÇÃO: Se for venda e não tiver adquirente, usar "Flow"
         if self.tipo_movimento == "venda":
             if not self.adquirente_nome and not self.adquirente_id:
-                self.adquirente_nome = "Flow"  # ✅ Auto-preencher
-                logger.info(f"⚠️ Registro {self.id} sem adquirente, usando 'Flow' como padrão")
+                self.adquirente_nome = "Flow"
         
         if erros:
             return False, "; ".join(erros)
@@ -162,7 +167,6 @@ class Normalizacao(db.Model, BaseMixin):
         """Enriquece os dados com informações adicionais"""
         from models import Adquirente
         
-        # Resolver adquirente por nome
         if self.adquirente_nome and not self.adquirente_id:
             adquirente = Adquirente.query.filter(
                 db.func.lower(Adquirente.nome) == self.adquirente_nome.lower()
@@ -171,7 +175,6 @@ class Normalizacao(db.Model, BaseMixin):
             if adquirente:
                 self.adquirente_id = adquirente.id
             else:
-                # Criar adquirente se não existir
                 nova_adquirente = Adquirente(
                     nome=self.adquirente_nome[:100],
                     codigo=self.adquirente_nome[:20].upper().replace(" ", "_"),
@@ -181,7 +184,6 @@ class Normalizacao(db.Model, BaseMixin):
                 db.session.flush()
                 self.adquirente_id = nova_adquirente.id
         
-        # Categorização automática
         if not self.categoria and self.descricao:
             self.categoria = self._categorizar_automatico()
         
@@ -191,7 +193,6 @@ class Normalizacao(db.Model, BaseMixin):
         """Categorização automática baseada em palavras-chave"""
         texto = f"{self.descricao or ''} {self.historico or ''}".upper()
         
-        # Vendas
         if any(kw in texto for kw in ["VENDA", "SIPAG", "CR COMPRAS", "CRED.COMPRAS"]):
             if "MASTERCARD" in texto:
                 return "vendas_mastercard"
@@ -200,22 +201,18 @@ class Normalizacao(db.Model, BaseMixin):
             elif "ELO" in texto:
                 return "vendas_elo"
         
-        # PIX
         if "PIX" in texto:
             if "RECEBIDO" in texto or "CREDITADO" in texto:
                 return "pix_recebido"
             else:
                 return "pix_emitido"
         
-        # Tarifas
         if any(kw in texto for kw in ["TARIFA", "MANUTENÇÃO", "PACOTE SERVIÇOS"]):
             return "tarifa_bancaria"
         
-        # Tributos
         if any(kw in texto for kw in ["DAS", "IMPOSTO", "TRIBUTOS", "RFB"]):
             return "tributos"
         
-        # Transferências
         if any(kw in texto for kw in ["TED", "DOC", "TRANSFERÊNCIA", "TRANSF"]):
             if "RECEBIDA" in texto or "CRÉDITO" in texto:
                 return "transferencia_recebida"
