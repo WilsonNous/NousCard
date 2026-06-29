@@ -139,28 +139,54 @@ class Normalizacao(db.Model, BaseMixin):
         }
     
     def validar(self):
-        """Valida os dados antes do processamento"""
+        """
+        Valida os dados antes do processamento.
+    
+        Regras:
+        - venda/adquirente: valor_bruto deve ser maior que zero
+        - recebimento/pagamento/extrato bancário: valor_bruto pode ser positivo ou negativo
+          positivo = entrada/receita
+          negativo = saída/despesa
+        - valor zero não deve ser processado
+        """
         erros = []
-        
+    
         if not self.empresa_id:
             erros.append("empresa_id é obrigatório")
-        
+    
         if not self.data_movimento:
             erros.append("data_movimento é obrigatório")
-        
-        if not self.valor_bruto or self.valor_bruto <= 0:
-            erros.append("valor_bruto deve ser maior que zero")
-        
+    
         if not self.tipo_movimento:
             erros.append("tipo_movimento é obrigatório")
-        
+    
+        if self.valor_bruto is None:
+            erros.append("valor_bruto é obrigatório")
+        else:
+            try:
+                valor = Decimal(str(self.valor_bruto))
+            except Exception:
+                valor = Decimal("0")
+                erros.append("valor_bruto inválido")
+    
+            if self.tipo_movimento == "venda":
+                if valor <= 0:
+                    erros.append("valor_bruto deve ser maior que zero para vendas")
+    
+            elif self.tipo_movimento in ["recebimento", "pagamento", "extrato"]:
+                if valor == 0:
+                    erros.append("valor_bruto não pode ser zero para extrato bancário")
+    
+            elif self.tipo_movimento:
+                erros.append(f"tipo_movimento inválido: {self.tipo_movimento}")
+    
         if self.tipo_movimento == "venda":
             if not self.adquirente_nome and not self.adquirente_id:
                 self.adquirente_nome = "Flow"
-        
+    
         if erros:
             return False, "; ".join(erros)
-        
+    
         return True, None
     
     def enriquecer(self):
