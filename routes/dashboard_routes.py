@@ -1,5 +1,6 @@
 # routes/dashboard_routes.py
-# Dashboard Financeiro Inteligente - Refatorado com GROUP BY categoria
+# Dashboard Financeiro Inteligente
+# ✅ Corrigido: entradas/saídas por sinal + categoria inteligente
 # ✅ Compatível com frontend antigo e novo
 
 from flask import (
@@ -115,6 +116,56 @@ def _aplicar_periodo(query, campo_data, data_inicio, data_fim):
             campo_data <= data_fim,
         )
     return query
+
+
+def _categoria_eh_receita(categoria):
+    cat = str(categoria or "").lower()
+
+    return (
+        cat.startswith("receita")
+        or cat.startswith("receitas")
+        or cat.startswith("venda")
+        or cat.startswith("vendas")
+        or cat in {
+            "pix_recebido",
+            "transferencias_recebidas",
+            "transferencia_recebida",
+            "credito_conta",
+            "credito_em_conta",
+            "crédito_em_conta",
+        }
+    )
+
+
+def _categoria_eh_despesa(categoria):
+    cat = str(categoria or "").lower()
+
+    return (
+        cat.startswith("despesa")
+        or cat.startswith("despesas")
+        or cat in {
+            "transferencias_enviadas",
+            "transferencia_enviada",
+            "impostos_federais",
+            "impostos_municipais",
+            "impostos_tributos",
+            "tributos",
+            "internet",
+            "telefonia",
+            "streaming",
+            "transporte_combustivel",
+            "transporte_pedagio",
+            "transporte_estacionamento",
+            "alimentacao_restaurante",
+            "alimentacao_mercado",
+            "supermercado",
+            "emprestimos",
+            "outras_despesas",
+            "tarifas_bancarias",
+            "fornecedores_servicos",
+            "fornecedores_mercadoria",
+        }
+    )
 
 
 # ============================================================
@@ -304,8 +355,6 @@ def get_dashboard_kpis():
                 "fim": data_fim.isoformat() if data_fim else None,
                 "tipo": periodo,
             },
-
-            # Contrato novo
             "saldo": _round(saldo),
             "entradas": _round(total_entradas),
             "saidas": _round(total_saidas),
@@ -318,10 +367,6 @@ def get_dashboard_kpis():
             "insight": insight,
             "total_registros": total_registros,
         }
-
-        # ========================================================
-        # Compatibilidade com JS antigo
-        # ========================================================
 
         response["kpis"] = {
             "total_vendas": _round(vendas_cartao_total),
@@ -362,25 +407,14 @@ def get_dashboard_kpis():
 # ============================================================
 
 def _agrupar_por_categoria(empresa_id, data_inicio, data_fim, tipo="receita"):
-    resultados = []
+    resultados_map = {}
 
-    query_banco = db.session.query(
-        MovBanco.categoria,
-        func.sum(func.abs(MovBanco.valor)).label("total"),
-        func.count().label("quantidade"),
-    ).filter(
+    query_banco = MovBanco.query.filter(
         MovBanco.empresa_id == empresa_id,
-        MovBanco.categoria.isnot(None),
-        MovBanco.categoria != "",
     )
 
     if hasattr(MovBanco, "ativo"):
         query_banco = query_banco.filter(MovBanco.ativo == True)
-
-    if tipo == "receita":
-        query_banco = query_banco.filter(MovBanco.valor > 0)
-    else:
-        query_banco = query_banco.filter(MovBanco.valor < 0)
 
     query_banco = _aplicar_periodo(
         query_banco,
@@ -389,16 +423,51 @@ def _agrupar_por_categoria(empresa_id, data_inicio, data_fim, tipo="receita"):
         data_fim,
     )
 
-    for categoria, total, quantidade in query_banco.group_by(MovBanco.categoria).all():
-        total_float = _to_float(total)
+    movimentos = query_banco.all()
 
-        if total_float > 0:
-            resultados.append({
-                "categoria": categoria or "outros",
-                "total": total_float,
-                "quantidade": quantidade or 0,
+    for mov in movimentos:
+        categoria = mov.categoria or "outros"
+        valor = _to_float(mov.valor)
+
+        if valor == 0:
+            continue
+
+        eh_receita = _categoria_eh_receita(categoria)
+        eh_despesa = _categoria_eh_despesa(categoria)
+
+        incluir = False
+        total = 0.0
+
+        if tipo == "receita":
+            if eh_receita:
+                incluir = True
+                total = abs(valor)
+            elif valor > 0 and not eh_despesa:
+                incluir = True
+                total = valor
+
+        else:
+            if eh_receita:
+                incluir = False
+            elif valor < 0:
+                incluir = True
+                total = abs(valor)
+
+        if not incluir:
+            continue
+
+        if categoria not in resultados_map:
+            resultados_map[categoria] = {
+                "categoria": categoria,
+                "total": 0.0,
+                "quantidade": 0,
                 "origem": "banco",
-            })
+            }
+
+        resultados_map[categoria]["total"] += total
+        resultados_map[categoria]["quantidade"] += 1
+
+    resultados = list(resultados_map.values())
 
     if tipo == "receita":
         query_adq = db.session.query(
@@ -511,12 +580,30 @@ def _montar_resumo_receitas(categorias, vendas_cartao_total):
         "transferencias_recebidas",
         "receitas_nao_classificadas",
         "credito_conta",
+        "credito_em_conta",
+        "crédito_em_conta",
     ])
+
+    outras_receitas = sum(
+        item["total"]
+        for item in categorias
+        if item["categoria"] not in {
+            "receitas_pix",
+            "pix_recebido",
+            "vendas_pix",
+            "transferencias_recebidas",
+            "receitas_nao_classificadas",
+            "credito_conta",
+            "credito_em_conta",
+            "crédito_em_conta",
+        }
+        and item["categoria"].startswith(("receita", "receitas"))
+    )
 
     return {
         "cartao": _round(vendas_cartao_total),
         "pix": _round(pix),
-        "transferencias": _round(transferencias),
+        "transferencias": _round(transferencias + outras_receitas),
     }
 
 
@@ -566,12 +653,18 @@ def _total_registros_dashboard(empresa_id):
     total = 0
 
     try:
-        total += MovBanco.query.filter_by(empresa_id=empresa_id).count()
+        query = MovBanco.query.filter_by(empresa_id=empresa_id)
+        if hasattr(MovBanco, "ativo"):
+            query = query.filter(MovBanco.ativo == True)
+        total += query.count()
     except Exception:
         pass
 
     try:
-        total += MovAdquirente.query.filter_by(empresa_id=empresa_id).count()
+        query = MovAdquirente.query.filter_by(empresa_id=empresa_id)
+        if hasattr(MovAdquirente, "ativo"):
+            query = query.filter(MovAdquirente.ativo == True)
+        total += query.count()
     except Exception:
         pass
 
@@ -605,6 +698,8 @@ def _nome_amigavel(categoria):
         "transferencias_recebidas": "Transferências Recebidas",
         "receitas_pix": "PIX Recebido",
         "receitas_nao_classificadas": "Outras Receitas",
+        "credito_conta": "Crédito em Conta",
+        "credito_em_conta": "Crédito em Conta",
         "vendas_cartao": "Vendas no Cartão",
         "vendas_pix": "Vendas via PIX",
         "vendas_boleto": "Vendas via Boleto",
@@ -670,29 +765,28 @@ def get_resumo_mensal():
             else:
                 data_fim = datetime(ano_atual, mes_atual + 1, 1).date() - timedelta(days=1)
 
-            entradas = db.session.query(
-                func.sum(MovBanco.valor)
-            ).filter(
-                MovBanco.empresa_id == empresa_id,
-                MovBanco.valor > 0,
-                MovBanco.data_movimento >= data_inicio,
-                MovBanco.data_movimento <= data_fim,
-            ).scalar() or Decimal("0")
+            entradas_categorias = _agrupar_por_categoria(
+                empresa_id,
+                data_inicio,
+                data_fim,
+                tipo="receita",
+            )
 
-            saidas = db.session.query(
-                func.sum(func.abs(MovBanco.valor))
-            ).filter(
-                MovBanco.empresa_id == empresa_id,
-                MovBanco.valor < 0,
-                MovBanco.data_movimento >= data_inicio,
-                MovBanco.data_movimento <= data_fim,
-            ).scalar() or Decimal("0")
+            saidas_categorias = _agrupar_por_categoria(
+                empresa_id,
+                data_inicio,
+                data_fim,
+                tipo="despesa",
+            )
+
+            entradas = sum(item["total"] for item in entradas_categorias)
+            saidas = sum(item["total"] for item in saidas_categorias)
 
             meses.append({
                 "mes": f"{mes_atual:02d}/{ano_atual}",
                 "entradas": _round(entradas),
                 "saidas": _round(saidas),
-                "saldo": _round(_to_float(entradas) - _to_float(saidas)),
+                "saldo": _round(entradas - saidas),
             })
 
         return jsonify({
