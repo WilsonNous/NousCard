@@ -1,5 +1,5 @@
 # services/importer_db_movimento.py
-# ✅ VERSÃO FINAL AJUSTADA: Conta bancária extraída do OFX + Classificador Financeiro
+# ✅ DEBUG PIPELINE: salvar_vendas / salvar_recebimentos / MovBanco
 
 from models import db, MovAdquirente, MovBanco, Adquirente, ContaBancaria
 from datetime import datetime, date, timezone
@@ -30,6 +30,7 @@ def to_date(valor):
 
     if isinstance(valor, str):
         valor = valor.strip()
+
         formatos = [
             "%Y-%m-%d",
             "%d/%m/%Y",
@@ -51,16 +52,23 @@ def to_decimal(valor, default=Decimal("0")):
     try:
         if valor is None:
             return default
+
         if isinstance(valor, Decimal):
             return valor
+
         return Decimal(str(valor))
+
     except (InvalidOperation, ValueError, TypeError):
+        logger.warning(f"⚠️ [MOVIMENTO] Valor decimal inválido: {valor}")
         return default
 
 
 def set_if_exists(obj, campo, valor):
     if hasattr(obj, campo):
         setattr(obj, campo, valor)
+        logger.debug(f"🧪 [MOVIMENTO] Campo extra setado: {campo}={valor}")
+    else:
+        logger.debug(f"🧪 [MOVIMENTO] Campo extra ignorado, não existe na model: {campo}")
 
 
 # ============================================================
@@ -68,20 +76,10 @@ def set_if_exists(obj, campo, valor):
 # ============================================================
 
 def _normalizar_dados_conta(dados_conta):
-    """
-    Normaliza dados extraídos do OFX.
-
-    Esperado de extrair_dados_conta_ofx():
-    {
-        banco,
-        agencia,
-        conta,
-        nome,
-        tipo
-    }
-    """
+    logger.info(f"🧪 [MOVIMENTO] _normalizar_dados_conta entrada={dados_conta}")
 
     if not dados_conta:
+        logger.warning("⚠️ [MOVIMENTO] dados_conta vazio ou None")
         return {}
 
     banco = (
@@ -116,7 +114,7 @@ def _normalizar_dados_conta(dados_conta):
         or f"Conta OFX {banco} {agencia} {conta or ''}".strip()
     )
 
-    return {
+    normalizado = {
         "banco": str(banco).strip()[:50] if banco else "OFX",
         "agencia": str(agencia).strip()[:20] if agencia else "0000",
         "conta": str(conta).strip()[:50] if conta else None,
@@ -124,17 +122,23 @@ def _normalizar_dados_conta(dados_conta):
         "nome": str(nome).strip()[:120] if nome else "Conta OFX",
     }
 
+    logger.info(f"🧪 [MOVIMENTO] dados_conta_normalizado={normalizado}")
+    return normalizado
+
 
 def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
-    """
-    Busca ou cria conta bancária com base nos dados do OFX.
-    Se dados_conta vier vazio, tenta usar primeira conta ativa.
-    """
+    logger.info("🏦 [MOVIMENTO] obter_ou_criar_conta_bancaria")
+    logger.info(f"🧪 [MOVIMENTO] empresa_id={empresa_id}, dados_conta={dados_conta}")
 
     dados = _normalizar_dados_conta(dados_conta)
 
-    # 1. Se veio conta do OFX, usar ela
     if dados.get("conta"):
+        logger.info(
+            f"🔍 [MOVIMENTO] Buscando conta OFX: "
+            f"empresa={empresa_id}, banco={dados['banco']}, "
+            f"agencia={dados['agencia']}, conta={dados['conta']}"
+        )
+
         conta = ContaBancaria.query.filter_by(
             empresa_id=empresa_id,
             banco=dados["banco"],
@@ -145,10 +149,13 @@ def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
 
         if conta:
             logger.info(
-                f"🏦 Conta OFX localizada: banco={dados['banco']} "
-                f"agencia={dados['agencia']} conta={dados['conta']} id={conta.id}"
+                f"✅ [MOVIMENTO] Conta OFX localizada: "
+                f"id={conta.id}, banco={getattr(conta, 'banco', None)}, "
+                f"agencia={getattr(conta, 'agencia', None)}, conta={getattr(conta, 'conta', None)}"
             )
             return conta
+
+        logger.info("➕ [MOVIMENTO] Conta OFX não existe. Criando...")
 
         conta = ContaBancaria(
             empresa_id=empresa_id,
@@ -164,13 +171,14 @@ def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
         db.session.flush()
 
         logger.info(
-            f"✅ Conta OFX criada: banco={dados['banco']} "
-            f"agencia={dados['agencia']} conta={dados['conta']} id={conta.id}"
+            f"✅ [MOVIMENTO] Conta OFX criada: "
+            f"id={conta.id}, banco={dados['banco']}, agencia={dados['agencia']}, conta={dados['conta']}"
         )
 
         return conta
 
-    # 2. Fallback: primeira conta ativa da empresa
+    logger.warning("⚠️ [MOVIMENTO] dados_conta sem número de conta. Tentando fallback.")
+
     conta = ContaBancaria.query.filter_by(
         empresa_id=empresa_id,
         ativo=True,
@@ -178,11 +186,14 @@ def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
 
     if conta:
         logger.warning(
-            f"⚠️ OFX sem conta identificada. Usando conta ativa existente id={conta.id}"
+            f"⚠️ [MOVIMENTO] Usando primeira conta ativa: "
+            f"id={conta.id}, banco={getattr(conta, 'banco', None)}, "
+            f"agencia={getattr(conta, 'agencia', None)}, conta={getattr(conta, 'conta', None)}"
         )
         return conta
 
-    # 3. Último fallback: criar conta técnica
+    logger.warning("⚠️ [MOVIMENTO] Nenhuma conta ativa. Criando conta técnica OFX.")
+
     conta = ContaBancaria(
         empresa_id=empresa_id,
         nome="Conta OFX não identificada",
@@ -197,7 +208,7 @@ def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
     db.session.flush()
 
     logger.warning(
-        f"⚠️ Conta OFX técnica criada para empresa {empresa_id}: id={conta.id}"
+        f"⚠️ [MOVIMENTO] Conta técnica criada: id={conta.id}, empresa={empresa_id}"
     )
 
     return conta
@@ -208,6 +219,15 @@ def obter_ou_criar_conta_bancaria(empresa_id, dados_conta=None):
 # ============================================================
 
 def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> dict:
+    inicio_total = time.time()
+
+    logger.info("💳 [MOVIMENTO] INÍCIO salvar_vendas")
+    logger.info(
+        f"🧪 [MOVIMENTO] empresa_id={empresa_id}, arquivo_id={arquivo_id}, "
+        f"total_registros={len(registros)}"
+    )
+    logger.info(f"🧪 [MOVIMENTO] primeira_venda={registros[0] if registros else None}")
+
     stats = {
         "sucesso": 0,
         "falhas": 0,
@@ -219,9 +239,8 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
     }
 
     if not registros:
+        logger.warning("⚠️ [MOVIMENTO] salvar_vendas chamado sem registros")
         return stats
-
-    logger.info(f"💾 Salvando {len(registros)} vendas para empresa {empresa_id}")
 
     adquirentes_cache = {}
     nomes_adquirentes = set()
@@ -230,6 +249,8 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         nome = reg.get("adquirente") or reg.get("nome_adquirente") or "Flow"
         nomes_adquirentes.add(nome)
 
+    logger.info(f"🧪 [MOVIMENTO] adquirentes_unicas={nomes_adquirentes}")
+
     for nome in nomes_adquirentes:
         try:
             adquirente = Adquirente.query.filter(
@@ -237,6 +258,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
             ).first()
 
             if not adquirente:
+                logger.info(f"➕ [MOVIMENTO] Criando adquirente: {nome}")
                 adquirente = Adquirente(
                     nome=nome[:100],
                     codigo=nome[:20].upper().replace(" ", "_"),
@@ -250,7 +272,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
             stats["adquirentes_processadas"].add(nome)
 
         except Exception as e:
-            logger.error(f"❌ Erro ao resolver adquirente '{nome}': {str(e)}", exc_info=True)
+            logger.error(f"❌ [MOVIMENTO] Erro ao resolver adquirente '{nome}': {str(e)}", exc_info=True)
             db.session.rollback()
 
     batch_size = 20
@@ -265,6 +287,8 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
         batch_falhas = 0
         batch_duplicados = 0
 
+        logger.info(f"📦 [MOVIMENTO] Batch vendas {batch_num + 1}/{total_batches}, registros={len(batch)}")
+
         try:
             for idx, reg in enumerate(batch):
                 try:
@@ -277,6 +301,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     adquirente = adquirentes_cache.get(adquirente_nome)
 
                     if not adquirente:
+                        logger.warning(f"⚠️ [MOVIMENTO] Adquirente não encontrada cache: {adquirente_nome}")
                         batch_falhas += 1
                         continue
 
@@ -297,6 +322,10 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     taxa_cobrada = to_decimal(reg.get("desconto") or reg.get("taxa_cobrada"))
 
                     if valor_bruto <= 0:
+                        logger.warning(
+                            f"⚠️ [MOVIMENTO] Venda ignorada valor_bruto<=0: "
+                            f"idx={inicio + idx + 1}, valor={valor_bruto}, reg={reg}"
+                        )
                         batch_falhas += 1
                         continue
 
@@ -308,6 +337,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                         ).first()
 
                         if duplicata:
+                            logger.info(f"🔁 [MOVIMENTO] Venda duplicada nsu={nsu}")
                             batch_duplicados += 1
                             continue
 
@@ -342,7 +372,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
 
                 except Exception as e:
                     logger.error(
-                        f"❌ Erro ao processar venda {inicio + idx + 1}: {str(e)}",
+                        f"❌ [MOVIMENTO] Erro ao processar venda {inicio + idx + 1}: {str(e)}",
                         exc_info=True,
                     )
                     batch_falhas += 1
@@ -350,8 +380,13 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
 
             if batch_sucesso > 0:
                 db.session.commit()
+                logger.info(
+                    f"✅ [MOVIMENTO] Commit vendas batch {batch_num + 1}: "
+                    f"sucesso={batch_sucesso}, falhas={batch_falhas}, duplicados={batch_duplicados}"
+                )
             else:
                 db.session.rollback()
+                logger.warning(f"⚠️ [MOVIMENTO] Batch vendas sem sucesso. Rollback batch={batch_num + 1}")
 
             stats["sucesso"] += batch_sucesso
             stats["falhas"] += batch_falhas
@@ -369,7 +404,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
                     pass
 
         except Exception as e:
-            logger.error(f"❌ Erro no batch vendas {batch_num + 1}: {str(e)}", exc_info=True)
+            logger.error(f"❌ [MOVIMENTO] Erro no batch vendas {batch_num + 1}: {str(e)}", exc_info=True)
             db.session.rollback()
             stats["falhas"] += len(batch)
             continue
@@ -377,6 +412,7 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
     if isinstance(stats.get("adquirentes_processadas"), set):
         stats["adquirentes_processadas"] = list(stats["adquirentes_processadas"])
 
+    logger.info(f"🏁 [MOVIMENTO] FIM salvar_vendas tempo={time.time() - inicio_total:.2f}s stats={stats}")
     return stats
 
 
@@ -387,10 +423,13 @@ def salvar_vendas(registros: list, empresa_id: int, arquivo_id: int = None) -> d
 def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dados_conta=None):
     inicio_total = time.time()
 
-    logger.info(
-        f"🔍 Início importação recebimentos: empresa={empresa_id}, "
-        f"registros={len(registros)}, dados_conta={dados_conta}"
-    )
+    logger.info("🏦 [MOVIMENTO] INÍCIO salvar_recebimentos")
+    logger.info(f"🧪 [MOVIMENTO] empresa_id={empresa_id}")
+    logger.info(f"🧪 [MOVIMENTO] arquivo_id={arquivo_id}")
+    logger.info(f"🧪 [MOVIMENTO] usuario_id={usuario_id}")
+    logger.info(f"🧪 [MOVIMENTO] total_registros={len(registros)}")
+    logger.info(f"🧪 [MOVIMENTO] dados_conta={dados_conta}")
+    logger.info(f"🧪 [MOVIMENTO] primeiro_registro={registros[0] if registros else None}")
 
     estatisticas = {
         "total": len(registros),
@@ -405,31 +444,52 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
         conta = obter_ou_criar_conta_bancaria(empresa_id, dados_conta)
         conta_id = conta.id
         estatisticas["conta_id"] = conta_id
+
+        logger.info(
+            f"🧪 [MOVIMENTO] CONTA USADA: id={conta_id}, "
+            f"banco={getattr(conta, 'banco', None)}, "
+            f"agencia={getattr(conta, 'agencia', None)}, "
+            f"conta={getattr(conta, 'conta', None)}"
+        )
+
     except Exception as e:
-        logger.error(f"❌ Erro fatal ao obter/criar conta bancária: {str(e)}", exc_info=True)
+        logger.error(f"❌ [MOVIMENTO] Erro fatal ao obter/criar conta bancária: {str(e)}", exc_info=True)
         estatisticas["falhas"] = len(registros)
         return estatisticas
 
     for i in range(0, len(registros), BATCH_SIZE):
         batch = registros[i:i + BATCH_SIZE]
 
+        logger.info(f"📦 [MOVIMENTO] Batch recebimentos {i // BATCH_SIZE + 1}, registros={len(batch)}")
+        logger.info(f"🧪 [MOVIMENTO] Primeiro registro batch={batch[0] if batch else None}")
+
         try:
-            for r in batch:
+            for r_idx, r in enumerate(batch, 1):
                 try:
                     valor = to_decimal(r.get("valor"))
 
                     if valor == 0:
+                        logger.warning(f"⚠️ [MOVIMENTO] Recebimento inválido valor=0: {r}")
                         estatisticas["invalidos"] += 1
                         continue
 
                     data_movimento = to_date(r.get("data") or r.get("data_movimento"))
 
                     if not data_movimento:
+                        logger.warning(f"⚠️ [MOVIMENTO] Recebimento sem data válida: {r}")
                         estatisticas["invalidos"] += 1
                         continue
 
                     categoria = str(r.get("categoria") or "outros").strip()[:100]
                     tipo_pagamento = str(r.get("tipo_pagamento") or "outros").strip()[:50]
+
+                    if estatisticas["sucesso"] == 0:
+                        logger.info(
+                            f"🧪 [MOVIMENTO] PRIMEIRO INSERT MOVBANCO: "
+                            f"conta_id={conta_id}, data={data_movimento}, valor={valor}, "
+                            f"categoria={categoria}, tipo_pagamento={tipo_pagamento}, "
+                            f"descricao={str(r.get('descricao') or '')[:150]}"
+                        )
 
                     mov = MovBanco(
                         empresa_id=empresa_id,
@@ -464,37 +524,44 @@ def salvar_recebimentos(registros, empresa_id, arquivo_id, usuario_id=None, dado
                     estatisticas["sucesso"] += 1
 
                 except Exception as e:
-                    logger.error(f"⚠️ Erro ao processar recebimento: {str(e)}", exc_info=True)
+                    logger.error(
+                        f"⚠️ [MOVIMENTO] Erro ao preparar recebimento "
+                        f"batch_idx={r_idx}, arquivo_id={arquivo_id}: {str(e)}",
+                        exc_info=True,
+                    )
+                    logger.error(f"⚠️ [MOVIMENTO] Registro com erro={r}")
                     estatisticas["falhas"] += 1
                     continue
 
             db.session.commit()
 
             logger.info(
-                f"✅ Batch recebimentos {i // BATCH_SIZE + 1}: "
-                f"{len(batch)} registros processados"
+                f"🧪 [MOVIMENTO] COMMIT OK BATCH {i // BATCH_SIZE + 1}: "
+                f"sucesso={estatisticas['sucesso']}, "
+                f"falhas={estatisticas['falhas']}, "
+                f"invalidos={estatisticas['invalidos']}"
             )
 
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(
-                f"❌ Erro SQL no batch recebimentos {i // BATCH_SIZE + 1}: {str(e)}",
-                exc_info=True,
-            )
+            logger.error("❌ [MOVIMENTO] ERRO SQL AO SALVAR MOVBANCO", exc_info=True)
+            logger.error(f"❌ [MOVIMENTO] Batch index={i}, arquivo_id={arquivo_id}, empresa_id={empresa_id}")
+            logger.error(f"❌ [MOVIMENTO] Conta usada={conta_id}")
+            logger.error(f"❌ [MOVIMENTO] Primeiro registro do batch={batch[0] if batch else None}")
             estatisticas["falhas"] += len(batch)
 
         except Exception as e:
             db.session.rollback()
-            logger.error(
-                f"❌ Erro inesperado no batch recebimentos {i // BATCH_SIZE + 1}: {str(e)}",
-                exc_info=True,
-            )
+            logger.error("❌ [MOVIMENTO] ERRO INESPERADO AO SALVAR MOVBANCO", exc_info=True)
+            logger.error(f"❌ [MOVIMENTO] Erro={str(e)}")
+            logger.error(f"❌ [MOVIMENTO] Batch index={i}, arquivo_id={arquivo_id}, empresa_id={empresa_id}")
+            logger.error(f"❌ [MOVIMENTO] Conta usada={conta_id}")
+            logger.error(f"❌ [MOVIMENTO] Primeiro registro do batch={batch[0] if batch else None}")
             estatisticas["falhas"] += len(batch)
 
-    tempo_total = time.time() - inicio_total
-
     logger.info(
-        f"✅ Fim importação recebimentos: {estatisticas} em {tempo_total:.2f}s"
+        f"🏁 [MOVIMENTO] FIM salvar_recebimentos tempo={time.time() - inicio_total:.2f}s "
+        f"stats={estatisticas}"
     )
 
     return estatisticas
