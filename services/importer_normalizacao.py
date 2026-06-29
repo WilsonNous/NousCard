@@ -348,17 +348,52 @@ class ImportadorNormalizado:
         return None
 
     def _verificar_duplicata(self, normalizacao: Normalizacao) -> bool:
+        """
+        Verifica duplicidade na camada de normalização.
+    
+        Regra:
+        - Para vendas/adquirentes: bloqueia duplicidade por empresa + nsu + data + tipo.
+        - Para recebimento/pagamento/extrato bancário: NÃO bloqueia na normalização.
+          Motivo: o extrato precisa seguir para mov_banco. A duplicidade bancária deve ser
+          tratada na tabela final ou por arquivo_origem, não aqui.
+        """
+    
         if not normalizacao.nsu:
+            logger.info(
+                f"🧪 [NORMALIZACAO] Sem NSU/FITID. Não será tratado como duplicado. "
+                f"arquivo={normalizacao.arquivo_origem_id}, tipo={normalizacao.tipo_movimento}"
+            )
             return False
-
+    
+        if normalizacao.tipo_movimento in ["recebimento", "pagamento", "extrato"]:
+            logger.info(
+                f"🧪 [NORMALIZACAO] Duplicidade ignorada para extrato bancário. "
+                f"arquivo={normalizacao.arquivo_origem_id}, nsu={normalizacao.nsu}, "
+                f"data={normalizacao.data_movimento}, valor={normalizacao.valor_bruto}"
+            )
+            return False
+    
         try:
-            duplicata = Normalizacao.query.filter_by(
-                empresa_id=self.empresa_id,
-                nsu=normalizacao.nsu,
-                data_movimento=normalizacao.data_movimento
+            duplicata = Normalizacao.query.filter(
+                Normalizacao.empresa_id == self.empresa_id,
+                Normalizacao.nsu == normalizacao.nsu,
+                Normalizacao.data_movimento == normalizacao.data_movimento,
+                Normalizacao.tipo_movimento == normalizacao.tipo_movimento,
+                Normalizacao.arquivo_origem_id != normalizacao.arquivo_origem_id
             ).first()
-
+    
+            if duplicata:
+                logger.warning(
+                    f"⚠️ [NORMALIZACAO] Duplicata encontrada para venda. "
+                    f"normalizacao_id={duplicata.id}, nsu={normalizacao.nsu}, "
+                    f"data={normalizacao.data_movimento}"
+                )
+    
             return duplicata is not None
-
-        except Exception:
+    
+        except Exception as e:
+            logger.error(
+                f"❌ [NORMALIZACAO] Erro ao verificar duplicidade: {str(e)}",
+                exc_info=True
+            )
             return False
