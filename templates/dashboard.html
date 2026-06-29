@@ -690,7 +690,32 @@ const formatBRL = (value) => {
         maximumFractionDigits: 2
     }).format(num);
 };
+    
+const formatPercent = (value) => {
+    const num = Number(value || 0);
 
+    return new Intl.NumberFormat('pt-BR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+    }).format(num) + '%';
+};
+
+const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+};
+
+const renderList = (containerId, items, emptyText, renderItem) => {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!items || !items.length) {
+        container.innerHTML = `<li>${emptyText}</li>`;
+        return;
+    }
+
+    container.innerHTML = items.map(renderItem).join('');
+};
 // Função principal de atualização do Dashboard
 async function atualizarDashboard(periodo) {
     // Mostrar estado de carregamento
@@ -739,6 +764,68 @@ async function atualizarDashboard(periodo) {
         
         const cartaoEl = document.getElementById('kpi-cartao');
         if (cartaoEl) cartaoEl.textContent = formatBRL(data.vendas_cartao);
+
+        // KPIs Gerenciais
+        setText('kpi-margem', formatPercent(data.margem_caixa || 0));
+        setText('kpi-indice-despesa', formatPercent(data.indice_despesa || 0));
+        
+        const maiorReceita = data.diagnostico?.resumo?.maior_receita || data.top_receitas?.[0];
+        const maiorDespesa = data.diagnostico?.resumo?.maior_despesa || data.top_despesas?.[0];
+        
+        setText('kpi-maior-receita', maiorReceita ? maiorReceita.nome : '—');
+        setText(
+            'kpi-maior-receita-sub',
+            maiorReceita ? `${formatBRL(maiorReceita.valor)} • ${formatPercent(maiorReceita.percentual)}` : 'Principal origem'
+        );
+        
+        setText('kpi-maior-despesa', maiorDespesa ? maiorDespesa.nome : '—');
+        setText(
+            'kpi-maior-despesa-sub',
+            maiorDespesa ? `${formatBRL(maiorDespesa.valor)} • ${formatPercent(maiorDespesa.percentual)}` : 'Principal saída'
+        );
+        
+        // Diagnóstico
+        const diagnostico = data.diagnostico || {};
+        const diagnosticoCard = document.getElementById('diagnostico-card');
+        
+        if (diagnosticoCard) {
+            diagnosticoCard.classList.remove('atencao', 'critico', 'saudavel');
+            if (diagnostico.nivel) diagnosticoCard.classList.add(diagnostico.nivel);
+        }
+        
+        setText('diagnostico-titulo', diagnostico.titulo || 'Diagnóstico indisponível');
+        setText(
+            'diagnostico-mensagem',
+            diagnostico.mensagem_principal || data.insight || 'Continue acompanhando seu fluxo de caixa.'
+        );
+        
+        renderList(
+            'diagnostico-alertas',
+            diagnostico.alertas || [],
+            'Nenhum alerta crítico no período.',
+            item => `<li>${item}</li>`
+        );
+        
+        renderList(
+            'diagnostico-oportunidades',
+            diagnostico.oportunidades || [],
+            'Nenhuma oportunidade identificada.',
+            item => `<li>${item}</li>`
+        );
+        
+        renderList(
+            'diagnostico-positivos',
+            diagnostico.pontos_positivos || [],
+            'Nenhum ponto positivo identificado.',
+            item => `<li>${item}</li>`
+        );
+        
+        // Despesas por Grupo
+        renderDespesasPorGrupo(data.despesas_por_grupo || []);
+        
+        // Top Receitas e Despesas
+        renderTopList('top-receitas', data.top_receitas || [], 'Nenhuma receita encontrada.');
+        renderTopList('top-despesas', data.top_despesas || [], 'Nenhuma despesa encontrada.');
         
         // ✅ Atualizar KPIs de Vendas por Bandeira
         const bandeiras = data.vendas_por_bandeira || {};
@@ -824,7 +911,73 @@ async function atualizarDashboard(periodo) {
                 bg: '#f0f2f5' 
             }
         ]);
+        function renderDespesasPorGrupo(grupos) {
+            const container = document.getElementById('despesas-grupos');
+            if (!container) return;
         
+            if (!grupos || !grupos.length) {
+                container.innerHTML = `
+                    <div class="group-item">
+                        <div class="group-header">
+                            <div>
+                                <div class="group-name">Nenhuma despesa encontrada</div>
+                                <div class="group-meta">Importe movimentos para visualizar</div>
+                            </div>
+                            <div class="group-value">—</div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+        
+            container.innerHTML = grupos.map(grupo => `
+                <div class="group-item">
+                    <div class="group-header">
+                        <div>
+                            <div class="group-name">${grupo.icone || '📦'} ${grupo.nome}</div>
+                            <div class="group-meta">
+                                ${grupo.quantidade || 0} lançamento(s) • ${formatPercent(grupo.percentual || 0)}
+                            </div>
+                        </div>
+                        <div class="group-value">${formatBRL(grupo.valor || 0)}</div>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: ${Math.min(grupo.percentual || 0, 100)}%; background: var(--error);"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        
+        function renderTopList(containerId, items, emptyText) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+        
+            if (!items || !items.length) {
+                container.innerHTML = `
+                    <div class="top-row">
+                        <div>
+                            <div class="top-name">${emptyText}</div>
+                            <div class="top-percent">Sem dados</div>
+                        </div>
+                        <div class="top-value">—</div>
+                    </div>
+                `;
+                return;
+            }
+        
+            container.innerHTML = items.map(item => `
+                <div class="top-row">
+                    <div>
+                        <div class="top-name">${item.nome}</div>
+                        <div class="top-percent">
+                            ${item.quantidade || 0} lançamento(s) • ${formatPercent(item.percentual || 0)}
+                        </div>
+                    </div>
+                    <div class="top-value">${formatBRL(item.valor || 0)}</div>
+                </div>
+            `).join('');
+        }
         // Atualizar Insight
         const insightEl = document.getElementById('insight-text');
         if (insightEl) {
