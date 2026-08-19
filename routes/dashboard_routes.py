@@ -29,6 +29,7 @@ from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from utils.auth_middleware import login_required, empresa_required
+from services.dashboard_service import calcular_kpis_gestao
 import logging
 import time
 
@@ -229,18 +230,6 @@ def dashboard():
     except Exception:
         db.session.rollback()
 
-    try:
-        tem_dados = (
-            MovAdquirente.query.filter_by(empresa_id=empresa_id).limit(1).count() > 0
-            or MovBanco.query.filter_by(empresa_id=empresa_id).limit(1).count() > 0
-            or ArquivoImportado.query.filter_by(empresa_id=empresa_id).limit(1).count() > 0
-        )
-
-        if not tem_dados:
-            return redirect(url_for("operacoes.importar_page"))
-
-    except Exception:
-        pass
 
     contexto = {
         "usuario": usuario,
@@ -274,6 +263,45 @@ def dashboard():
 @empresa_required
 def dre_resumo():
     return redirect(url_for("dashboard.dashboard"))
+
+
+
+
+# ============================================================
+# API: KPIs DE GESTÃO (CLIENTES / ORÇAMENTOS / OS)
+# ============================================================
+
+@dashboard_api_bp.route("/gestao", methods=["GET"])
+@login_required
+@empresa_required
+def get_dashboard_gestao():
+    """Retorna a visão comercial e operacional da empresa atual."""
+    try:
+        empresa_id = g.user.empresa_id
+
+        if not empresa_id:
+            return jsonify({
+                "ok": False,
+                "error": "Usuário sem empresa vinculada"
+            }), 403
+
+        data = calcular_kpis_gestao(empresa_id)
+
+        return jsonify({
+            "ok": True,
+            **data,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 200
+
+    except Exception as e:
+        logger.error(
+            f"❌ Erro ao carregar dashboard de gestão: {str(e)}",
+            exc_info=True
+        )
+        return jsonify({
+            "ok": False,
+            "error": "Erro ao processar dados de gestão do dashboard"
+        }), 500
 
 
 # ============================================================
