@@ -157,7 +157,7 @@ a {
 .nc-hero h1 {
     margin: 0.9rem 0 1.2rem;
     color: #111827;
-    font-size: clamp(2.7rem, 6vw, 4.8rem);
+    font-size: clamp(2.4rem, 5vw, 4.1rem);
     line-height: 0.98;
     letter-spacing: -0.055em;
 }
@@ -981,5 +981,208 @@ a {
     *::after {
         transition: none !important;
         animation: none !important;
+    }
+}
+
+
+/* ============================================================
+   CTA COMERCIAL INTERMEDIÁRIO
+   ============================================================ */
+.nc-public-mid-cta {
+    width: min(1180px, 90vw);
+    margin: 0 auto 1rem;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2rem;
+    border: 1px solid var(--auth-border);
+    border-radius: 22px;
+    background:
+        linear-gradient(135deg, rgba(244,247,251,.96), rgba(255,255,255,.98));
+    box-shadow: var(--auth-shadow-sm);
+}
+
+.nc-public-mid-cta > div > span {
+    color: var(--auth-primary-mid);
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .1em;
+}
+
+.nc-public-mid-cta h2 {
+    margin: .5rem 0 .7rem;
+    color: #111827;
+    font-size: clamp(1.6rem, 3vw, 2.35rem);
+    line-height: 1.08;
+    letter-spacing: -.03em;
+}
+
+.nc-public-mid-cta p {
+    margin: 0;
+    max-width: 760px;
+    color: var(--auth-muted);
+    line-height: 1.65;
+}
+
+/* ============================================================
+   PAINEL COMERCIAL • LEADS
+   ============================================================ */
+.nc-interest-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1220;
+    background: rgba(11,18,32,.44);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .2s ease, visibility .2s ease;
+}
+
+.nc-interest-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.nc-interest-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 1230;
+
+    width: min(500px, 96vw);
+    height: 100vh;
+    overflow-y: auto;
+
+    padding: 2rem;
+
+    background: #fff;
+    box-shadow: -18px 0 60px rgba(16,24,40,.2);
+
+    transform: translateX(105%);
+    transition: transform .25s ease;
+}
+
+.nc-interest-panel.open {
+    transform: translateX(0);
+}
+
+.nc-interest-fieldset {
+    border: 1px solid var(--auth-border);
+    border-radius: 12px;
+    padding: .9rem 1rem;
+    margin: 0 0 1rem;
+}
+
+.nc-interest-fieldset legend {
+    padding: 0 .35rem;
+    color: var(--auth-primary);
+    font-weight: 800;
+    font-size: .86rem;
+}
+
+.nc-interest-fieldset label {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    margin: .58rem 0;
+    color: var(--auth-muted);
+    font-size: .86rem;
+    cursor: pointer;
+}
+
+.nc-interest-fieldset input {
+    accent-color: var(--auth-primary);
+}
+
+.nc-interest-panel textarea {
+    width: 100%;
+    padding: .8rem .9rem;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    resize: vertical;
+    color: var(--auth-text);
+    font: inherit;
+}
+
+.nc-interest-panel textarea:focus {
+    outline: none;
+    border-color: var(--auth-primary-mid);
+    box-shadow: 0 0 0 3px rgba(61,92,149,.12);
+}
+
+.nc-interest-success {
+    text-align: center;
+    padding: 2rem .5rem;
+}
+
+.nc-interest-success-icon {
+    font-size: 3rem;
+    margin-bottom: .75rem;
+}
+
+.nc-interest-success h3 {
+    margin: 0 0 .7rem;
+    color: var(--auth-primary);
+    font-size: 1.5rem;
+}
+
+.nc-interest-success p {
+    margin: 0 0 1.35rem;
+    color: var(--auth-muted);
+    line-height: 1.6;
+}
+
+.nc-interest-close-success {
+    margin-top: .8rem;
+    border: none;
+    background: transparent;
+    color: var(--auth-primary);
+    font: inherit;
+    font-size: .83rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nc-interest-privacy {
+    margin: .85rem 0 0;
+    color: #98a2b3;
+    font-size: .72rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.nc-honeypot {
+    position: absolute !important;
+    left: -10000px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}
+
+/* O botão claro final agora também pode ser button */
+button.nc-btn-public-light {
+    border: 1px solid rgba(255,255,255,.6);
+}
+
+@media (max-width: 980px) {
+    .nc-public-mid-cta {
+        grid-template-columns: 1fr;
+    }
+
+    .nc-public-mid-cta .nc-btn-public-primary {
+        justify-self: start;
+    }
+}
+
+@media (max-width: 680px) {
+    .nc-public-mid-cta {
+        width: 92vw;
+        padding: 1.4rem;
+    }
+
+    .nc-interest-panel {
+        width: 100vw;
+        padding: 1.4rem;
     }
 }
