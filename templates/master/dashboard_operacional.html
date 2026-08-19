@@ -382,7 +382,13 @@
     
     <!-- Leads Recentes -->
     <div class="detail-card">
-        <h3>📝 Leads Recentes</h3>
+        <h3>
+            📝 Leads Recentes
+            <a href="{{ url_for('master.leads_listar') }}"
+               style="margin-left:auto;font-size:.78rem;font-weight:700;color:#1877F2;text-decoration:none;">
+                Ver todos →
+            </a>
+        </h3>
         <div class="table-responsive">
             <table class="ops-table">
                 <thead>
@@ -448,6 +454,12 @@ const formatDateTimeBrasilia = (dateStr) => {
         return dateStr;
     }
 };
+
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+}
 
 async function carregarDashboard() {
     try {
@@ -519,14 +531,25 @@ async function carregarDashboard() {
             leadsTable.innerHTML = kpis.leads_recentes.map(lead => `
                 <tr>
                     <td>
-                        <strong>${lead.empresa}</strong><br>
-                        <small style="color: #65676B;">${lead.cnpj}</small>
+                        <strong>${escapeHtml(lead.empresa || '-')}</strong><br>
+                        <small style="color: #65676B;">
+                            ${escapeHtml(lead.controle_atual_label || '')}
+                        </small>
                     </td>
                     <td>
-                        ${lead.nome}<br>
-                        <small style="color: #65676B;">${lead.email}</small>
+                        ${escapeHtml(lead.nome || '-')}<br>
+                        <small style="color: #65676B;">
+                            ${escapeHtml(lead.email || lead.telefone || '')}
+                        </small>
                     </td>
-                    <td><span class="status-badge ${lead.status}">${lead.status}</span></td>
+                    <td>
+                        <a href="/master/lead/${lead.id}"
+                           style="text-decoration:none;">
+                            <span class="status-badge ${escapeHtml(lead.status || 'novo')}">
+                                ${escapeHtml(lead.status || 'novo')}
+                            </span>
+                        </a>
+                    </td>
                 </tr>
             `).join('');
         }

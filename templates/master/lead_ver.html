@@ -5,104 +5,139 @@
 {% block extra_head %}
 <style>
     .lead-detail-grid {
-        display:grid;
-        grid-template-columns:1.1fr .9fr;
-        gap:1.5rem;
+        display: grid;
+        grid-template-columns: 1.1fr .9fr;
+        gap: 1.5rem;
     }
-    .lead-card {
-        background:white;
-        border:1px solid var(--gray-border);
-        border-radius:12px;
-        padding:1.5rem;
+
+    .lead-detail-card {
+        padding: 1.5rem;
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 12px;
+        box-shadow: var(--shadow-sm);
     }
-    .lead-card h3 {
-        margin-top:0;
+
+    .lead-detail-card h3 {
+        margin: 0 0 1.25rem;
     }
+
     .lead-field {
-        margin-bottom:1rem;
+        margin-bottom: 1rem;
     }
+
     .lead-field small {
-        display:block;
-        color:var(--text-muted);
-        text-transform:uppercase;
-        font-size:.68rem;
-        font-weight:700;
-        margin-bottom:.2rem;
+        display: block;
+        margin-bottom: .22rem;
+        color: var(--text-muted);
+        font-size: .68rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .05em;
     }
-    .lead-field strong,.lead-field span {
-        color:var(--text);
+
+    .lead-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .45rem;
     }
-    .interest-tags {
-        display:flex;
-        flex-wrap:wrap;
-        gap:.5rem;
+
+    .lead-tags span {
+        padding: .4rem .65rem;
+        border-radius: 999px;
+        background: var(--gray-light);
+        color: var(--primary);
+        font-size: .76rem;
+        font-weight: 700;
     }
-    .interest-tags span {
-        padding:.4rem .65rem;
-        background:var(--gray-light);
-        border-radius:999px;
-        font-size:.78rem;
-        color:var(--primary);
-        font-weight:700;
+
+    .lead-message {
+        padding: 1rem;
+        border-radius: 10px;
+        background: var(--gray-light);
+        color: var(--text);
+        line-height: 1.6;
+        white-space: pre-wrap;
     }
+
+    .lead-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .55rem;
+        margin-top: 1rem;
+    }
+
     @media (max-width: 850px) {
-        .lead-detail-grid { grid-template-columns:1fr; }
+        .lead-detail-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <section class="nc-section">
+
     <div class="nc-section-header">
         <div>
-            <h2>📣 {{ lead.empresa }}</h2>
-            <p class="nc-muted">Lead #{{ lead.id }} • {{ lead.criado_em.strftime('%d/%m/%Y %H:%M') if lead.criado_em else '—' }}</p>
+            <h2>📣 {{ lead.empresa | e }}</h2>
+            <p class="nc-muted">
+                Lead #{{ lead.id }}
+                •
+                {{ lead.criado_em | hora_brasil if lead.criado_em else '—' }}
+            </p>
         </div>
-        <a href="{{ url_for('master.leads_listar') }}" class="nc-btn nc-btn-outline">← Voltar</a>
+
+        <a href="{{ url_for('master.leads_listar') }}"
+           class="nc-btn nc-btn-outline">
+            ← Voltar
+        </a>
     </div>
 
     <div class="lead-detail-grid">
-        <div class="lead-card">
+
+        <div class="lead-detail-card">
             <h3>Dados do interessado</h3>
 
             <div class="lead-field">
                 <small>Nome</small>
-                <strong>{{ lead.nome }}</strong>
+                <strong>{{ lead.nome | e }}</strong>
             </div>
 
             <div class="lead-field">
                 <small>Empresa</small>
-                <strong>{{ lead.empresa }}</strong>
+                <strong>{{ lead.empresa | e }}</strong>
             </div>
 
             <div class="lead-field">
                 <small>WhatsApp</small>
-                <span>{{ lead.telefone }}</span>
+                <span>{{ lead.telefone | e }}</span>
             </div>
 
             {% if lead.email %}
             <div class="lead-field">
                 <small>E-mail</small>
-                <span>{{ lead.email }}</span>
+                <span>{{ lead.email | e }}</span>
             </div>
             {% endif %}
 
             {% if lead.cnpj %}
             <div class="lead-field">
                 <small>CNPJ</small>
-                <span>{{ lead.cnpj }}</span>
+                <span>{{ lead.cnpj | e }}</span>
             </div>
             {% endif %}
 
             <div class="lead-field">
                 <small>Como controla hoje</small>
-                <span>{{ lead.controle_atual|capitalize if lead.controle_atual else 'Não informado' }}</span>
+                <span>{{ lead.controle_atual_label }}</span>
             </div>
 
             <div class="lead-field">
-                <small>Interesses</small>
-                <div class="interest-tags">
-                    {% for interesse in lead.interesses_lista %}
+                <small>O que quer organizar</small>
+
+                <div class="lead-tags">
+                    {% for interesse in lead.interesses_labels %}
                     <span>{{ interesse }}</span>
                     {% else %}
                     <span>Não informado</span>
@@ -113,43 +148,65 @@
             {% if lead.mensagem %}
             <div class="lead-field">
                 <small>Mensagem</small>
-                <p>{{ lead.mensagem }}</p>
+                <div class="lead-message">
+                    {{ lead.mensagem | e }}
+                </div>
             </div>
             {% endif %}
         </div>
 
-        <div class="lead-card">
+        <div class="lead-detail-card">
             <h3>Funil comercial</h3>
 
             <div class="lead-field">
                 <small>Status atual</small>
-                <strong>{{ lead.status|capitalize }}</strong>
+                <strong>{{ lead.status | capitalize }}</strong>
             </div>
 
             <form method="POST"
                   action="{{ url_for('master.lead_status_atualizar', lead_id=lead.id) }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-                <label class="nc-form-label" for="status">Alterar status</label>
-                <select id="status" name="status" class="nc-form-input" style="width:100%;margin:.5rem 0 1rem;">
-                    {% for s in ['novo','contato','qualificado','cliente','perdido'] %}
-                    <option value="{{ s }}" {% if lead.status == s %}selected{% endif %}>{{ s|capitalize }}</option>
+                <input type="hidden"
+                       name="csrf_token"
+                       value="{{ csrf_token }}">
+
+                <label for="status"
+                       class="nc-form-label">
+                    Alterar status
+                </label>
+
+                <select id="status"
+                        name="status"
+                        class="nc-form-input"
+                        style="width:100%;margin:.5rem 0 1rem;">
+
+                    {% for s in ['novo', 'contato', 'qualificado', 'cliente', 'perdido'] %}
+                    <option value="{{ s }}"
+                            {% if lead.status == s %}selected{% endif %}>
+                        {{ s | capitalize }}
+                    </option>
                     {% endfor %}
                 </select>
 
-                <button type="submit" class="nc-btn nc-btn-primary">Salvar status</button>
+                <button type="submit"
+                        class="nc-btn nc-btn-primary">
+                    Salvar status
+                </button>
             </form>
 
-            <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem;">
+            <div class="lead-actions">
                 {% if lead.whatsapp_url %}
-                <a href="{{ lead.whatsapp_url }}" target="_blank" rel="noopener"
+                <a href="{{ lead.whatsapp_url }}"
+                   target="_blank"
+                   rel="noopener"
                    class="nc-btn nc-btn-success">
                     💬 Abrir WhatsApp
                 </a>
                 {% endif %}
 
                 {% if lead.email %}
-                <a href="mailto:{{ lead.email }}" class="nc-btn nc-btn-outline">
+                <a href="mailto:{{ lead.email }}"
+                   class="nc-btn nc-btn-outline">
                     ✉️ Enviar e-mail
                 </a>
                 {% endif %}
@@ -159,19 +216,33 @@
 
             <div class="lead-field">
                 <small>Origem</small>
-                <span>{{ lead.origem }}</span>
+                <span>{{ lead.origem | e }}</span>
             </div>
 
             <div class="lead-field">
                 <small>Primeiro contato registrado</small>
-                <span>{{ lead.contacted_at.strftime('%d/%m/%Y %H:%M') if lead.contacted_at else '—' }}</span>
+                <span>
+                    {{ lead.contacted_at | hora_brasil if lead.contacted_at else '—' }}
+                </span>
             </div>
 
             <div class="lead-field">
                 <small>Convertido em</small>
-                <span>{{ lead.converted_at.strftime('%d/%m/%Y %H:%M') if lead.converted_at else '—' }}</span>
+                <span>
+                    {{ lead.converted_at | hora_brasil if lead.converted_at else '—' }}
+                </span>
             </div>
+
+            {% if lead.empresa_convertida %}
+            <div class="lead-field">
+                <small>Empresa vinculada no NousCard</small>
+                <a href="{{ url_for('master.empresa_ver', empresa_id=lead.empresa_convertida.id) }}">
+                    {{ lead.empresa_convertida.nome | e }}
+                </a>
+            </div>
+            {% endif %}
         </div>
+
     </div>
 </section>
 {% endblock %}
