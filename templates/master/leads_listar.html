@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Leads - Master - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+    .leads-header {
+        display:flex;
+        justify-content:space-between;
+        gap:1rem;
+        align-items:center;
+        margin-bottom:1.5rem;
+    }
+    .lead-kpis {
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+        gap:1rem;
+        margin-bottom:1.5rem;
+    }
+    .lead-kpi {
+        background:white;
+        border:1px solid var(--gray-border);
+        border-radius:12px;
+        padding:1rem;
+        border-left:4px solid var(--primary);
+    }
+    .lead-kpi strong {
+        display:block;
+        font-size:1.6rem;
+        color:var(--primary);
+    }
+    .lead-kpi span {
+        font-size:.78rem;
+        color:var(--text-muted);
+        text-transform:uppercase;
+        font-weight:700;
+    }
+    .lead-filters {
+        display:flex;
+        flex-wrap:wrap;
+        gap:.75rem;
+        align-items:center;
+        margin-bottom:1rem;
+    }
+    .lead-filters input,.lead-filters select {
+        min-height:42px;
+        padding:.65rem .75rem;
+        border:1px solid var(--gray-border);
+        border-radius:8px;
+        background:white;
+    }
+    .lead-status {
+        display:inline-block;
+        padding:.3rem .65rem;
+        border-radius:999px;
+        font-size:.72rem;
+        font-weight:700;
+        text-transform:uppercase;
+    }
+    .lead-status.novo { background:#e8f5e9;color:#1b5e20; }
+    .lead-status.contato { background:#fff8e1;color:#8a5b00; }
+    .lead-status.qualificado { background:#e3f2fd;color:#0d47a1; }
+    .lead-status.cliente { background:#e0f2f1;color:#00695c; }
+    .lead-status.perdido { background:#ffebee;color:#b71c1c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nc-section">
+    <div class="leads-header">
+        <div>
+            <h2>📣 Leads NousCard</h2>
+            <p class="nc-muted">Funil comercial da Nous Tecnologia.</p>
+        </div>
+        <a href="{{ url_for('master.dashboard_operacional_page') }}" class="nc-btn nc-btn-outline">
+            ← Dashboard Operacional
+        </a>
+    </div>
+
+    <div class="lead-kpis">
+        <div class="lead-kpi"><strong>{{ contagens.novo }}</strong><span>Novos</span></div>
+        <div class="lead-kpi"><strong>{{ contagens.contato }}</strong><span>Contato</span></div>
+        <div class="lead-kpi"><strong>{{ contagens.qualificado }}</strong><span>Qualificados</span></div>
+        <div class="lead-kpi"><strong>{{ contagens.cliente }}</strong><span>Clientes</span></div>
+        <div class="lead-kpi"><strong>{{ contagens.perdido }}</strong><span>Perdidos</span></div>
+    </div>
+
+    <form method="GET" class="lead-filters">
+        <input type="search" name="search" value="{{ search }}" placeholder="Nome, empresa, e-mail ou WhatsApp">
+        <select name="status">
+            <option value="">Todos os status</option>
+            {% for s in ['novo','contato','qualificado','cliente','perdido'] %}
+            <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s|capitalize }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="nc-btn nc-btn-primary">Filtrar</button>
+        <a href="{{ url_for('master.leads_listar') }}" class="nc-btn nc-btn-outline">Limpar</a>
+    </form>
+
+    <div class="nc-table-container" style="overflow-x:auto;">
+        <table class="nc-table">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Empresa</th>
+                    <th>Contato</th>
+                    <th>WhatsApp</th>
+                    <th>Interesse</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in leads.items %}
+                <tr>
+                    <td>{{ lead.criado_em.strftime('%d/%m/%Y %H:%M') if lead.criado_em else '—' }}</td>
+                    <td>
+                        <strong>{{ lead.empresa }}</strong>
+                        {% if lead.controle_atual %}
+                        <br><small class="nc-muted">{{ lead.controle_atual|capitalize }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ lead.nome }}
+                        {% if lead.email %}
+                        <br><small class="nc-muted">{{ lead.email }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ lead.telefone }}</td>
+                    <td>
+                        {% if lead.interesses_lista %}
+                            {{ lead.interesses_lista | join(', ') }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td><span class="lead-status {{ lead.status }}">{{ lead.status }}</span></td>
+                    <td>
+                        <a class="nc-btn nc-btn-sm nc-btn-outline"
+                           href="{{ url_for('master.lead_ver', lead_id=lead.id) }}">Ver</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align:center;color:var(--text-muted);">
+                        Nenhum lead encontrado.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if leads.pages > 1 %}
+    <nav class="nc-pagination" style="margin-top:1rem;">
+        {% if leads.has_prev %}
+        <a class="nc-btn nc-btn-sm"
+           href="{{ url_for('master.leads_listar', page=leads.prev_num, search=search, status=status) }}">← Anterior</a>
+        {% endif %}
+        <span>Página {{ leads.page }} de {{ leads.pages }}</span>
+        {% if leads.has_next %}
+        <a class="nc-btn nc-btn-sm"
+           href="{{ url_for('master.leads_listar', page=leads.next_num, search=search, status=status) }}">Próxima →</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% endblock %}
