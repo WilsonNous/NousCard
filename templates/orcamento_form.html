@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar orçamento' if orcamento else 'Novo orçamento' }} - NousCard{% endblock %}
+{% block extra_head %}
+<style>
+.mgt-wrap{max-width:1180px;margin:0 auto}.mgt-card{background:var(--white);border:1px solid var(--gray-border);border-radius:12px;padding:1.1rem;box-shadow:var(--shadow-sm);margin:1rem 0}.mgt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.mgt-field.full{grid-column:1/-1}.mgt-field label{display:block;font-weight:650;margin-bottom:.35rem}.mgt-field input,.mgt-field select,.mgt-field textarea{width:100%;padding:.68rem;border:1px solid var(--gray-border);border-radius:8px;background:var(--white);color:var(--text)}.mgt-section-title{margin:.2rem 0 1rem;font-size:1.05rem}.item-card{border:1px solid var(--gray-border);border-radius:10px;padding:1rem;margin:.85rem 0;background:var(--gray-light)}.item-head{display:flex;justify-content:space-between;align-items:center;gap:.7rem;margin-bottom:.7rem}.item-grid{display:grid;grid-template-columns:2fr .7fr 1fr;gap:.75rem}.item-grid .full{grid-column:1/-1}.internal{margin-top:.8rem;padding-top:.8rem;border-top:1px dashed var(--gray-border)}.internal summary{font-weight:700;cursor:pointer;color:var(--text-muted)}.cost-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-top:.75rem}.mgt-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.65rem .9rem;border-radius:8px;border:1px solid var(--gray-border);background:var(--white);color:var(--text);text-decoration:none;font-weight:650;cursor:pointer}.mgt-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}.mgt-btn.danger{color:var(--error)}.mgt-actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem}.summary-box{display:flex;justify-content:flex-end}.summary-inner{min-width:310px;border:1px solid var(--gray-border);border-radius:10px;padding:1rem}.summary-row{display:flex;justify-content:space-between;gap:1rem;padding:.25rem 0}.summary-row.total{font-size:1.15rem;font-weight:800;border-top:1px solid var(--gray-border);margin-top:.35rem;padding-top:.65rem}.image-preview{max-width:180px;max-height:110px;display:block;margin-top:.5rem;border-radius:8px;border:1px solid var(--gray-border);object-fit:cover}@media(max-width:780px){.mgt-grid,.item-grid,.cost-grid{grid-template-columns:1fr}.mgt-field.full,.item-grid .full{grid-column:auto}.summary-inner{width:100%;min-width:0}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="mgt-wrap">
+  <h1>{{ '✏️ Editar orçamento #' ~ orcamento.numero_formatado if orcamento else '＋ Novo orçamento' }}</h1>
+  <form method="post" enctype="multipart/form-data" id="orcamentoForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="mgt-card">
+      <h2 class="mgt-section-title">Dados comerciais</h2>
+      <div class="mgt-grid">
+        <div class="mgt-field full"><label>Cliente *</label><select name="cliente_id" required><option value="">Selecione...</option>{% for c in clientes %}<option value="{{ c.id }}" {% if (orcamento and orcamento.cliente_id==c.id) or (not orcamento and cliente_pre==c.id) %}selected{% endif %}>{{ c.nome|e }}</option>{% endfor %}</select><small><a href="{{ url_for('clientes.novo', next='orcamento') }}">Cadastrar novo cliente</a></small></div>
+        <div class="mgt-field"><label>Data de emissão</label><input type="date" name="data_emissao" value="{{ orcamento.data_emissao.isoformat() if orcamento else (hoje.isoformat() if hoje else '') }}"></div>
+        <div class="mgt-field"><label>Validade</label><input type="date" name="validade_ate" value="{{ orcamento.validade_ate.isoformat() if orcamento and orcamento.validade_ate else (validade_padrao.isoformat() if not orcamento and validade_padrao else '') }}"></div>
+        <div class="mgt-field full"><label>Condições de pagamento</label><textarea name="condicoes_pagamento" rows="2" placeholder="Ex.: 50% de sinal e saldo na entrega">{{ orcamento.condicoes_pagamento if orcamento and orcamento.condicoes_pagamento else '' }}</textarea></div>
+        <div class="mgt-field"><label>Prazo estimado</label><input name="prazo_estimado" value="{{ orcamento.prazo_estimado if orcamento and orcamento.prazo_estimado else '' }}" placeholder="Ex.: 10 dias úteis"></div>
+        <div class="mgt-field"><label>Desconto (R$)</label><input class="money recalc" name="desconto" value="{{ orcamento.desconto if orcamento else '0,00' }}"></div>
+        <div class="mgt-field full"><label>Observações que aparecem para o cliente</label><textarea name="observacoes_cliente" rows="3">{{ orcamento.observacoes_cliente if orcamento and orcamento.observacoes_cliente else '' }}</textarea></div>
+        <div class="mgt-field full"><label>Observações internas</label><textarea name="observacoes_internas" rows="3" placeholder="Não aparecem no documento do cliente">{{ orcamento.observacoes_internas if orcamento and orcamento.observacoes_internas else '' }}</textarea></div>
+      </div>
+    </div>
+
+    <div class="mgt-card">
+      <div class="item-head"><h2 class="mgt-section-title" style="margin:0">Itens do orçamento</h2><button type="button" class="mgt-btn" id="addItem">＋ Adicionar item</button></div>
+      <div id="itemsContainer">
+        {% set itens = orcamento.itens if orcamento and orcamento.itens else [None] %}
+        {% for item in itens %}
+        <div class="item-card">
+          <div class="item-head"><strong>Item <span class="item-number">{{ loop.index }}</span></strong><button class="mgt-btn danger remove-item" type="button">Remover</button></div>
+          <input type="hidden" name="item_id[]" value="{{ item.id if item else '' }}">
+          <div class="item-grid">
+            <div class="mgt-field"><label>Descrição *</label><input name="item_descricao[]" required value="{{ item.descricao if item else '' }}" placeholder="Ex.: Espelhos para academia"></div>
+            <div class="mgt-field"><label>Quantidade</label><input class="qty recalc" name="item_quantidade[]" value="{{ item.quantidade if item else '1' }}"></div>
+            <div class="mgt-field"><label>Valor unitário (R$)</label><input class="money unit recalc" name="item_valor_unitario[]" value="{{ item.valor_unitario if item else '0,00' }}"></div>
+            <div class="mgt-field full"><label>Detalhamento comercial</label><textarea name="item_detalhamento[]" rows="3" placeholder="Texto que o cliente verá">{{ item.detalhamento if item and item.detalhamento else '' }}</textarea></div>
+            <div class="mgt-field full"><label>Imagem comercial</label><input type="file" name="item_imagem[]" accept="image/jpeg,image/png,image/webp">{% if item and item.imagem_base64 %}<img class="image-preview" src="{{ item.imagem_base64 }}" alt="Imagem do item">{% endif %}</div>
+          </div>
+          <details class="internal" {% if item and (item.medidas or item.informacoes_tecnicas or item.custo_material or item.custo_instalacao or item.outros_custos) %}open{% endif %}>
+            <summary>🔒 Informações internas / técnicas</summary>
+            <div class="mgt-grid" style="margin-top:.75rem">
+              <div class="mgt-field"><label>Medidas</label><input name="item_medidas[]" value="{{ item.medidas if item and item.medidas else '' }}" placeholder="Ex.: 920 x 950 mm"></div>
+              <div class="mgt-field"><label>Informações técnicas</label><input name="item_informacoes_tecnicas[]" value="{{ item.informacoes_tecnicas if item and item.informacoes_tecnicas else '' }}" placeholder="Ex.: cristal incolor 8 mm"></div>
+            </div>
+            <div class="cost-grid">
+              <div class="mgt-field"><label>Custo material (R$)</label><input class="money" name="item_custo_material[]" value="{{ item.custo_material if item else '0,00' }}"></div>
+              <div class="mgt-field"><label>Custo instalação (R$)</label><input class="money" name="item_custo_instalacao[]" value="{{ item.custo_instalacao if item else '0,00' }}"></div>
+              <div class="mgt-field"><label>Outros custos (R$)</label><input class="money" name="item_outros_custos[]" value="{{ item.outros_custos if item else '0,00' }}"></div>
+            </div>
+          </details>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="summary-box"><div class="summary-inner"><div class="summary-row"><span>Subtotal</span><strong id="subtotalView">R$ 0,00</strong></div><div class="summary-row"><span>Desconto</span><strong id="descontoView">R$ 0,00</strong></div><div class="summary-row total"><span>Total</span><strong id="totalView">R$ 0,00</strong></div></div></div>
+    </div>
+    <div class="mgt-actions"><button class="mgt-btn primary" type="submit">💾 Salvar orçamento</button><a class="mgt-btn" href="{{ url_for('orcamentos.listar') }}">Cancelar</a></div>
+  </form>
+</div>
+<template id="itemTemplate">
+<div class="item-card">
+  <div class="item-head"><strong>Item <span class="item-number"></span></strong><button class="mgt-btn danger remove-item" type="button">Remover</button></div>
+  <input type="hidden" name="item_id[]">
+  <div class="item-grid">
+    <div class="mgt-field"><label>Descrição *</label><input name="item_descricao[]" required></div>
+    <div class="mgt-field"><label>Quantidade</label><input class="qty recalc" name="item_quantidade[]" value="1"></div>
+    <div class="mgt-field"><label>Valor unitário (R$)</label><input class="money unit recalc" name="item_valor_unitario[]" value="0,00"></div>
+    <div class="mgt-field full"><label>Detalhamento comercial</label><textarea name="item_detalhamento[]" rows="3"></textarea></div>
+    <div class="mgt-field full"><label>Imagem comercial</label><input type="file" name="item_imagem[]" accept="image/jpeg,image/png,image/webp"></div>
+  </div>
+  <details class="internal"><summary>🔒 Informações internas / técnicas</summary><div class="mgt-grid" style="margin-top:.75rem"><div class="mgt-field"><label>Medidas</label><input name="item_medidas[]"></div><div class="mgt-field"><label>Informações técnicas</label><input name="item_informacoes_tecnicas[]"></div></div><div class="cost-grid"><div class="mgt-field"><label>Custo material (R$)</label><input class="money" name="item_custo_material[]" value="0,00"></div><div class="mgt-field"><label>Custo instalação (R$)</label><input class="money" name="item_custo_instalacao[]" value="0,00"></div><div class="mgt-field"><label>Outros custos (R$)</label><input class="money" name="item_outros_custos[]" value="0,00"></div></div></details>
+</div>
+</template>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(function(){
+ const container=document.getElementById('itemsContainer'), tpl=document.getElementById('itemTemplate');
+ function num(v){let s=(v||'').toString().trim().replace(/R\$/g,'').replace(/\s/g,''); if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.'); const n=parseFloat(s); return isNaN(n)?0:n}
+ function brl(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+ function renumber(){container.querySelectorAll('.item-card').forEach((el,i)=>el.querySelector('.item-number').textContent=i+1)}
+ function recalc(){let subtotal=0; container.querySelectorAll('.item-card').forEach(el=>{subtotal+=num(el.querySelector('.qty')?.value)*num(el.querySelector('.unit')?.value)}); const d=Math.min(Math.max(num(document.querySelector('[name=desconto]').value),0),subtotal); document.getElementById('subtotalView').textContent=brl(subtotal);document.getElementById('descontoView').textContent=brl(d);document.getElementById('totalView').textContent=brl(subtotal-d)}
+ document.getElementById('addItem').addEventListener('click',()=>{container.appendChild(tpl.content.cloneNode(true));renumber();recalc()});
+ container.addEventListener('click',e=>{if(e.target.classList.contains('remove-item')){if(container.querySelectorAll('.item-card').length===1){alert('O orçamento precisa ter pelo menos um item.');return}e.target.closest('.item-card').remove();renumber();recalc()}});
+ document.addEventListener('input',e=>{if(e.target.classList.contains('recalc'))recalc()});renumber();recalc();
+})();
+</script>
+{% endblock %}

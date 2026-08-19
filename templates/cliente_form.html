@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar cliente' if cliente else 'Novo cliente' }} - NousCard{% endblock %}
+{% block extra_head %}
+<style>
+.mgt-wrap{max-width:950px;margin:0 auto}.mgt-card{background:var(--white);border:1px solid var(--gray-border);border-radius:12px;padding:1.2rem;box-shadow:var(--shadow-sm);margin:1rem 0}.mgt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.mgt-field.full{grid-column:1/-1}.mgt-field label{display:block;font-weight:600;margin-bottom:.35rem}.mgt-field input,.mgt-field select,.mgt-field textarea{width:100%;padding:.7rem;border:1px solid var(--gray-border);border-radius:8px;background:var(--white);color:var(--text)}.mgt-actions{display:flex;gap:.6rem;margin-top:1.2rem}.mgt-btn{padding:.7rem 1rem;border:1px solid var(--gray-border);border-radius:8px;background:var(--white);color:var(--text);text-decoration:none;font-weight:600;cursor:pointer}.mgt-btn.primary{background:var(--primary);color:white;border-color:var(--primary)}@media(max-width:700px){.mgt-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="mgt-wrap">
+  <h1>{{ '✏️ Editar cliente' if cliente else '＋ Novo cliente' }}</h1>
+  <form class="mgt-card" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="mgt-grid">
+      <div class="mgt-field full"><label>Nome / Razão social *</label><input name="nome" required maxlength="180" value="{{ cliente.nome if cliente else '' }}"></div>
+      <div class="mgt-field"><label>Tipo</label><select name="tipo_pessoa"><option value="PF" {% if not cliente or cliente.tipo_pessoa=='PF' %}selected{% endif %}>Pessoa física</option><option value="PJ" {% if cliente and cliente.tipo_pessoa=='PJ' %}selected{% endif %}>Pessoa jurídica</option></select></div>
+      <div class="mgt-field"><label>CPF / CNPJ</label><input name="documento" maxlength="20" value="{{ cliente.documento if cliente and cliente.documento else '' }}"></div>
+      <div class="mgt-field"><label>Telefone / WhatsApp</label><input name="telefone" maxlength="30" value="{{ cliente.telefone if cliente and cliente.telefone else '' }}"></div>
+      <div class="mgt-field"><label>E-mail</label><input type="email" name="email" maxlength="150" value="{{ cliente.email if cliente and cliente.email else '' }}"></div>
+      <div class="mgt-field full"><label>Endereço</label><input name="endereco" maxlength="255" value="{{ cliente.endereco if cliente and cliente.endereco else '' }}"></div>
+      <div class="mgt-field"><label>Cidade</label><input name="cidade" maxlength="100" value="{{ cliente.cidade if cliente and cliente.cidade else '' }}"></div>
+      <div class="mgt-field"><label>UF</label><input name="uf" maxlength="2" value="{{ cliente.uf if cliente and cliente.uf else '' }}"></div>
+      <div class="mgt-field full"><label>Observações internas</label><textarea name="observacoes" rows="3">{{ cliente.observacoes if cliente and cliente.observacoes else '' }}</textarea></div>
+    </div>
+    <div class="mgt-actions"><button class="mgt-btn primary" type="submit">Salvar cliente</button><a class="mgt-btn" href="{{ url_for('clientes.listar') }}">Cancelar</a></div>
+  </form>
+</div>
+{% endblock %}
