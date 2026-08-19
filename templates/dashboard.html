@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard Financeiro - NousCard{% endblock %}
+{% block title %}Dashboard de Gestão - NousCard{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -385,6 +385,224 @@
             grid-template-columns: 1fr;
         }
     }
+
+    /* ============================================================
+       GESTÃO COMERCIAL / OPERACIONAL
+       ============================================================ */
+    .gestao-section {
+        margin-bottom: 2rem;
+    }
+
+    .gestao-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .gestao-title-row h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        color: var(--text);
+    }
+
+    .quick-actions {
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    .quick-action {
+        text-decoration: none;
+        border: 1px solid var(--gray-border);
+        background: var(--white);
+        color: var(--text);
+        padding: 0.65rem 0.9rem;
+        border-radius: 9px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        box-shadow: var(--shadow-sm);
+        transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+
+    .quick-action:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--primary);
+    }
+
+    .quick-action.primary {
+        background: var(--primary);
+        color: var(--white);
+        border-color: var(--primary);
+    }
+
+    .gestao-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .gestao-kpi {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 12px;
+        padding: 1.1rem;
+        box-shadow: var(--shadow-sm);
+        min-width: 0;
+    }
+
+    .gestao-kpi-label {
+        color: var(--text-muted);
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .35px;
+        margin-bottom: .45rem;
+    }
+
+    .gestao-kpi-value {
+        font-size: 1.65rem;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.2;
+    }
+
+    .gestao-kpi-sub {
+        font-size: .78rem;
+        color: var(--text-muted);
+        margin-top: .35rem;
+    }
+
+    .gestao-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .gestao-card {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 12px;
+        padding: 1.15rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .gestao-card h4 {
+        margin: 0 0 1rem 0;
+        font-size: 1rem;
+        color: var(--text);
+    }
+
+    .status-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+        align-items: center;
+        padding: .62rem 0;
+        border-bottom: 1px solid var(--gray-border);
+    }
+
+    .status-row:last-child {
+        border-bottom: none;
+    }
+
+    .status-name {
+        font-size: .88rem;
+        color: var(--text);
+    }
+
+    .status-value {
+        font-weight: 800;
+        color: var(--text);
+    }
+
+    .gestao-highlight {
+        margin-top: .9rem;
+        padding-top: .9rem;
+        border-top: 1px dashed var(--gray-border);
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .gestao-highlight strong {
+        display: block;
+        font-size: 1.05rem;
+        color: var(--primary);
+    }
+
+    .gestao-highlight span {
+        font-size: .75rem;
+        color: var(--text-muted);
+    }
+
+    .attention-card {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 12px;
+        padding: 1.15rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+    }
+
+    .attention-card h4 {
+        margin: 0 0 .8rem 0;
+        font-size: 1rem;
+    }
+
+    .attention-list {
+        display: flex;
+        flex-direction: column;
+        gap: .55rem;
+    }
+
+    .attention-item {
+        padding: .75rem .85rem;
+        border-radius: 8px;
+        background: var(--gray-light);
+        font-size: .86rem;
+    }
+
+    .attention-item.warning { border-left: 4px solid var(--warning); }
+    .attention-item.danger { border-left: 4px solid var(--error); }
+    .attention-item.info { border-left: 4px solid var(--primary); }
+    .attention-item.success { border-left: 4px solid var(--success); }
+
+    .section-divider-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin: 1.75rem 0 1rem;
+        padding-top: 1.4rem;
+        border-top: 1px solid var(--gray-border);
+    }
+
+    .section-divider-title h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        color: var(--text);
+    }
+
+    @media (max-width: 1000px) {
+        .gestao-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+        .gestao-columns { grid-template-columns: 1fr; }
+        .gestao-kpi-grid { grid-template-columns: 1fr; }
+        .quick-actions { width: 100%; }
+        .quick-action { flex: 1; text-align: center; }
+    }
+
 </style>
 {% endblock %}
 
@@ -396,9 +614,99 @@
         <div>
             <h2>Olá, {{ usuario.nome.split(' ')[0] }}! 👋</h2>
             <p style="margin: 0.25rem 0 0 0; color: var(--text-muted);">
-                Aqui está o resumo financeiro da <strong>{{ empresa_nome }}</strong>
+                Acompanhe a operação e os resultados da <strong>{{ empresa_nome }}</strong>
             </p>
         </div>
+    </div>
+
+
+    <!-- ============================================================
+         GESTÃO COMERCIAL / OPERACIONAL
+         ============================================================ -->
+    <div class="gestao-section">
+        <div class="gestao-title-row">
+            <h3>🏢 Gestão da Empresa</h3>
+            <div class="quick-actions">
+                <a class="quick-action" href="{{ url_for('clientes.novo') }}">+ Novo Cliente</a>
+                <a class="quick-action primary" href="{{ url_for('orcamentos.novo') }}">+ Novo Orçamento</a>
+            </div>
+        </div>
+
+        <div class="gestao-kpi-grid">
+            <div class="gestao-kpi">
+                <div class="gestao-kpi-label">👥 Clientes</div>
+                <div class="gestao-kpi-value" id="gestao-clientes">—</div>
+                <div class="gestao-kpi-sub">Cadastrados na empresa</div>
+            </div>
+            <div class="gestao-kpi">
+                <div class="gestao-kpi-label">🧾 Orçamentos em aberto</div>
+                <div class="gestao-kpi-value" id="gestao-orcamentos-abertos">—</div>
+                <div class="gestao-kpi-sub" id="gestao-valor-aberto">R$ 0,00 em propostas</div>
+            </div>
+            <div class="gestao-kpi">
+                <div class="gestao-kpi-label">✅ Orçamentos aprovados</div>
+                <div class="gestao-kpi-value" id="gestao-aprovados">—</div>
+                <div class="gestao-kpi-sub" id="gestao-conversao">Conversão: 0,0%</div>
+            </div>
+            <div class="gestao-kpi">
+                <div class="gestao-kpi-label">🛠️ OS em andamento</div>
+                <div class="gestao-kpi-value" id="gestao-os-andamento">—</div>
+                <div class="gestao-kpi-sub" id="gestao-os-atrasadas">Nenhuma OS atrasada</div>
+            </div>
+        </div>
+
+        <div class="gestao-columns">
+            <div class="gestao-card">
+                <h4>🧾 Comercial — Orçamentos</h4>
+                <div class="status-row"><span class="status-name">Rascunho</span><span class="status-value" id="orc-rascunho">—</span></div>
+                <div class="status-row"><span class="status-name">Enviados</span><span class="status-value" id="orc-enviado">—</span></div>
+                <div class="status-row"><span class="status-name">Aprovados</span><span class="status-value" id="orc-aprovado">—</span></div>
+                <div class="status-row"><span class="status-name">Recusados</span><span class="status-value" id="orc-recusado">—</span></div>
+                <div class="gestao-highlight">
+                    <div>
+                        <strong id="orc-valor-aberto">R$ 0,00</strong>
+                        <span>Valor em propostas abertas</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <strong id="orc-valor-aprovado">R$ 0,00</strong>
+                        <span>Valor total aprovado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gestao-card">
+                <h4>🛠️ Operação — Ordens de Serviço</h4>
+                <div class="status-row"><span class="status-name">Aguardando material</span><span class="status-value" id="os-aguardando">—</span></div>
+                <div class="status-row"><span class="status-name">Material recebido</span><span class="status-value" id="os-material">—</span></div>
+                <div class="status-row"><span class="status-name">Agendado</span><span class="status-value" id="os-agendado">—</span></div>
+                <div class="status-row"><span class="status-name">Em execução</span><span class="status-value" id="os-execucao">—</span></div>
+                <div class="status-row"><span class="status-name">Concluídas</span><span class="status-value" id="os-concluido">—</span></div>
+                <div class="gestao-highlight">
+                    <div>
+                        <strong id="os-em-andamento">0</strong>
+                        <span>OS em andamento</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <strong id="os-atrasadas">0</strong>
+                        <span>OS atrasadas</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="attention-card">
+            <h4>⚠️ Precisa de atenção</h4>
+            <div class="attention-list" id="gestao-atencao">
+                <div class="attention-item info">Carregando pendências operacionais...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         FINANCEIRO
+         ============================================================ -->
+    <div class="section-divider-title">
+        <h3>💰 Visão Financeira</h3>
         <div class="period-selector">
             <span>📅 Período:</span>
             <select id="periodoSelect" onchange="atualizarDashboard(this.value)">
@@ -716,6 +1024,90 @@ const renderList = (containerId, items, emptyText, renderItem) => {
 
     container.innerHTML = items.map(renderItem).join('');
 };
+
+// ============================================================
+// GESTÃO COMERCIAL / OPERACIONAL
+// ============================================================
+async function carregarGestao() {
+    const atencao = document.getElementById('gestao-atencao');
+
+    try {
+        const response = await fetch('/api/v1/dashboard/gestao', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erro na API de gestão: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.ok) {
+            throw new Error(data.error || 'Erro ao carregar gestão');
+        }
+
+        const clientes = data.clientes || {};
+        const orc = data.orcamentos || {};
+        const os = data.ordens_servico || {};
+
+        setText('gestao-clientes', clientes.total ?? 0);
+        setText('gestao-orcamentos-abertos', orc.abertos ?? 0);
+        setText('gestao-valor-aberto', `${formatBRL(orc.valor_aberto || 0)} em propostas`);
+        setText('gestao-aprovados', orc.aprovado ?? 0);
+        setText('gestao-conversao', `Conversão: ${formatPercent(orc.taxa_conversao || 0)}`);
+        setText('gestao-os-andamento', os.em_andamento ?? 0);
+        setText(
+            'gestao-os-atrasadas',
+            (os.atrasadas || 0) > 0
+                ? `${os.atrasadas} OS atrasada(s)`
+                : 'Nenhuma OS atrasada'
+        );
+
+        setText('orc-rascunho', orc.rascunho ?? 0);
+        setText('orc-enviado', orc.enviado ?? 0);
+        setText('orc-aprovado', orc.aprovado ?? 0);
+        setText('orc-recusado', orc.recusado ?? 0);
+        setText('orc-valor-aberto', formatBRL(orc.valor_aberto || 0));
+        setText('orc-valor-aprovado', formatBRL(orc.valor_aprovado || 0));
+
+        setText('os-aguardando', os.aguardando_material ?? 0);
+        setText('os-material', os.material_recebido ?? 0);
+        setText('os-agendado', os.agendado ?? 0);
+        setText('os-execucao', os.em_execucao ?? 0);
+        setText('os-concluido', os.concluido ?? 0);
+        setText('os-em-andamento', os.em_andamento ?? 0);
+        setText('os-atrasadas', os.atrasadas ?? 0);
+
+        if (atencao) {
+            const items = data.atencao || [];
+
+            if (!items.length) {
+                atencao.innerHTML = `
+                    <div class="attention-item success">
+                        ✅ Nenhuma pendência operacional crítica no momento.
+                    </div>
+                `;
+            } else {
+                atencao.innerHTML = items.map(item => `
+                    <div class="attention-item ${item.nivel || 'info'}">
+                        ${item.mensagem || ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+    } catch (error) {
+        console.error('Erro ao carregar visão de gestão:', error);
+        if (atencao) {
+            atencao.innerHTML = `
+                <div class="attention-item danger">
+                    Não foi possível carregar os indicadores de gestão.
+                </div>
+            `;
+        }
+    }
+}
+
 // Função principal de atualização do Dashboard
 async function atualizarDashboard(periodo) {
     // Mostrar estado de carregamento
@@ -1043,9 +1435,10 @@ function updateBreakdown(containerId, items) {
 
 // Carregar dados ao iniciar a página
 document.addEventListener('DOMContentLoaded', () => {
-    // ✅ NOVO: Pegar o valor selecionado no select (padrão: 12meses)
     const periodoSelect = document.getElementById('periodoSelect');
     const periodoSelecionado = periodoSelect ? periodoSelect.value : '12meses';
+
+    carregarGestao();
     atualizarDashboard(periodoSelecionado);
 });
 </script>
