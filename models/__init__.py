@@ -12,17 +12,13 @@ from .log_auditoria import LogAuditoria
 from .lead import Lead
 from .contrato import Contrato
 from .normalizacao import Normalizacao
+from .cliente import Cliente
+from .orcamento import Orcamento, OrcamentoItem, OrcamentoAnexo
+from .ordem_servico import OrdemServico
 
 __all__ = [
-    'db',
-    'Empresa',
-    'ContaBancaria',
-    'Adquirente',
-    'ContratoTaxa',
-    'MovAdquirente',
-    'MovBanco',
-    'Conciliacao',
-    'Usuario',
-    'ArquivoImportado',
-    'LogAuditoria'
+    "db", "Empresa", "ContaBancaria", "Adquirente", "ContratoTaxa",
+    "MovAdquirente", "MovBanco", "Conciliacao", "Usuario",
+    "ArquivoImportado", "LogAuditoria", "Lead", "Contrato", "Normalizacao",
+    "Cliente", "Orcamento", "OrcamentoItem", "OrcamentoAnexo", "OrdemServico",
 ]
