@@ -3,160 +3,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - NousCard{% if error %} - Erro{% endif %}</title>
-    
+
+    <title>NousCard — Gestão simples. Operação organizada. Financeiro sob controle.</title>
+
+    <meta name="description"
+          content="NousCard é uma plataforma da Nous Tecnologia para gestão de clientes, orçamentos, ordens de serviço, financeiro, conciliação e DRE.">
+
     {% if csrf_token %}
     <meta name="csrf-token" content="{{ csrf_token }}">
     {% endif %}
-    
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
-    
-    <!-- ✅ Identidade visual NousCard - PALETA FACEBOOK ESCURA -->
-    <style>
-        .nc-login-body {
-            /* ✅ Gradiente com paleta oficial Facebook escura */
-            background: linear-gradient(135deg, #3d5c95 0%, #1d3469 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-        
-        .nc-login-box {
-            background: white;
-            border-radius: 12px;
-            padding: 2.5rem 2rem;
-            box-shadow: 0 10px 40px rgba(29, 52, 105, 0.3);
-            max-width: 420px;
-            width: 100%;
-        }
-        
-        .nc-login-logo {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-        
-        .nc-login-logo .logo-icon {
-            font-size: 3rem;
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-        
-        /* ✅ Cor do logo com azul Facebook escuro */
-        .nc-login-logo h1 {
-            color: #1d3469;
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin: 0;
-            letter-spacing: -0.5px;
-        }
-        
-        .nc-login-logo .tagline {
-            color: #6b7280;
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-        }
-        
-        h2[aria-hidden="true"] {
-            text-align: center;
-            color: #1a1a2e;
-            font-size: 1.5rem;
-            margin: 1.5rem 0 1rem 0;
-            font-weight: 600;
-        }
-        
-        /* ✅ Botão com gradiente Facebook */
-        .nc-btn-primary {
-            background: linear-gradient(135deg, #3d5c95 0%, #1d3469 100%) !important;
-            color: white !important;
-            border: none;
-            padding: 0.875rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
-        }
-        
-        /* ✅ Hover com azul mais claro da paleta */
-        .nc-btn-primary:hover {
-            background: linear-gradient(135deg, #5e80bf 0%, #3d5c95 100%) !important;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(29, 52, 105, 0.4);
-        }
-        
-        .nc-login-footer {
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-        }
-        
-        .nc-login-footer .nc-muted {
-            color: #6b7280;
-            font-size: 0.8rem;
-            margin: 0;
-        }
-        
-        /* ✅ Links com azul Facebook escuro */
-        .nc-login-footer .nc-link {
-            color: #1d3469;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .nc-login-footer .nc-link:hover {
-            text-decoration: underline;
-            color: #3d5c95;
-        }
-        
-        /* ✅ Badge com azul Facebook claro */
-        .nc-security-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            background: #e8edf5;
-            color: #1d3469;
-            padding: 0.375rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 500;
-            margin-top: 1rem;
-        }
-    </style>
-    
-    {% block extra_head %}{% endblock %}
+
+    <link rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href="{{ url_for('static', filename='img/favicon-32x32.png') }}"
+          onerror="this.style.display='none'">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/auth.css') }}">
 </head>
 
-<body class="nc-login-body">
-    <div class="nc-login-box" role="main">
-        <!-- ✅ Logo da marca NousCard (identidade azul Facebook) -->
-        <div class="nc-login-logo" aria-hidden="true">
-            <span class="logo-icon">💳</span>
-            <h1>NousCard</h1>
-            <div class="tagline">Conciliação inteligente de cartões</div>
+<body class="nc-public-body">
+
+    <header class="nc-public-header">
+        <div class="nc-public-brand">
+            <div class="nc-public-brand-icon" aria-hidden="true">💳</div>
+            <div>
+                <strong>NousCard</strong>
+                <span>Nous Tecnologia</span>
+            </div>
         </div>
-        
-        <h1 class="nc-sr-only">Login - NousCard</h1>
-        <h2 aria-hidden="true">Acesse sua conta</h2>
-        
-        <!-- Mensagens de erro -->
+
+        <button type="button"
+                class="nc-public-login-button"
+                id="openLoginPanel"
+                aria-controls="loginPanel"
+                aria-expanded="{% if error %}true{% else %}false{% endif %}">
+            🔐 Entrar
+        </button>
+    </header>
+
+    <main class="nc-public-main">
+
+        <section class="nc-hero">
+            <div class="nc-hero-copy">
+                <div class="nc-eyebrow">GESTÃO PARA PEQUENAS EMPRESAS</div>
+
+                <h1>Da proposta ao resultado.<br>Tudo em um só lugar.</h1>
+
+                <p class="nc-hero-lead">
+                    Clientes, orçamentos, ordens de serviço e financeiro integrados
+                    para você acompanhar a operação sem transformar a rotina em burocracia.
+                </p>
+
+                <div class="nc-hero-actions">
+                    <a href="#recursos" class="nc-btn-public-primary">
+                        Conhecer os recursos
+                    </a>
+
+                    <button type="button"
+                            class="nc-btn-public-secondary"
+                            data-open-login>
+                        Já sou cliente
+                    </button>
+                </div>
+
+                <div class="nc-hero-flow" aria-label="Fluxo principal do NousCard">
+                    <span>👤 Cliente</span>
+                    <b>→</b>
+                    <span>🧾 Orçamento</span>
+                    <b>→</b>
+                    <span>🛠️ OS</span>
+                    <b>→</b>
+                    <span>💰 Financeiro</span>
+                </div>
+            </div>
+
+            <div class="nc-hero-visual" aria-hidden="true">
+                <div class="nc-browser-mockup">
+                    <div class="nc-browser-bar">
+                        <span></span><span></span><span></span>
+                    </div>
+
+                    <div class="nc-mockup-title">
+                        <div>
+                            <small>VISÃO GERAL</small>
+                            <strong>Dashboard de Gestão</strong>
+                        </div>
+                        <div class="nc-mockup-badge">NousCard</div>
+                    </div>
+
+                    <div class="nc-mockup-kpis">
+                        <div>
+                            <small>Clientes</small>
+                            <strong>28</strong>
+                        </div>
+                        <div>
+                            <small>Orçamentos</small>
+                            <strong>7</strong>
+                        </div>
+                        <div>
+                            <small>OS em andamento</small>
+                            <strong>4</strong>
+                        </div>
+                        <div>
+                            <small>Resultado</small>
+                            <strong>R$ 10,5 mil</strong>
+                        </div>
+                    </div>
+
+                    <div class="nc-mockup-grid">
+                        <div class="nc-mockup-card">
+                            <small>Comercial</small>
+                            <div class="nc-mockup-line"><span>Rascunho</span><b>2</b></div>
+                            <div class="nc-mockup-line"><span>Enviados</span><b>3</b></div>
+                            <div class="nc-mockup-line"><span>Aprovados</span><b>2</b></div>
+                        </div>
+
+                        <div class="nc-mockup-card">
+                            <small>Operação</small>
+                            <div class="nc-mockup-line"><span>Aguardando material</span><b>1</b></div>
+                            <div class="nc-mockup-line"><span>Agendados</span><b>2</b></div>
+                            <div class="nc-mockup-line"><span>Em execução</span><b>1</b></div>
+                        </div>
+                    </div>
+
+                    <div class="nc-mockup-finance">
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="nc-trust-strip">
+            <div>
+                <strong>Simples de usar</strong>
+                <span>Sem excesso de telas e processos.</span>
+            </div>
+            <div>
+                <strong>Visão integrada</strong>
+                <span>Gestão e financeiro na mesma plataforma.</span>
+            </div>
+            <div>
+                <strong>Feito para crescer</strong>
+                <span>Do primeiro cliente ao controle da operação.</span>
+            </div>
+        </section>
+
+        <section class="nc-public-section" id="recursos">
+            <div class="nc-section-heading">
+                <span>RECURSOS</span>
+                <h2>O essencial para organizar a empresa</h2>
+                <p>
+                    O NousCard reúne o que pequenas empresas e prestadores de serviço
+                    realmente precisam para acompanhar o dia a dia.
+                </p>
+            </div>
+
+            <div class="nc-feature-grid">
+                <article class="nc-feature-card">
+                    <div class="nc-feature-icon">👥</div>
+                    <h3>Clientes</h3>
+                    <p>
+                        Mantenha contatos, documentos e informações comerciais
+                        organizados em uma base única.
+                    </p>
+                </article>
+
+                <article class="nc-feature-card">
+                    <div class="nc-feature-icon">🧾</div>
+                    <h3>Orçamentos</h3>
+                    <p>
+                        Crie propostas profissionais, acompanhe status
+                        e transforme aprovações em trabalho executável.
+                    </p>
+                </article>
+
+                <article class="nc-feature-card">
+                    <div class="nc-feature-icon">🛠️</div>
+                    <h3>Ordens de Serviço</h3>
+                    <p>
+                        Acompanhe material, agenda, execução, informações técnicas
+                        e conclusão dos serviços.
+                    </p>
+                </article>
+
+                <article class="nc-feature-card">
+                    <div class="nc-feature-icon">💰</div>
+                    <h3>Financeiro</h3>
+                    <p>
+                        Visualize entradas, saídas, fluxo de caixa,
+                        conciliação e DRE em uma visão gerencial.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <section class="nc-public-section nc-public-section-soft">
+            <div class="nc-section-heading">
+                <span>FLUXO</span>
+                <h2>Do primeiro contato ao resultado</h2>
+                <p>
+                    A informação acompanha o processo. Você reduz retrabalho
+                    e passa a enxergar comercial, operação e financeiro como partes da mesma empresa.
+                </p>
+            </div>
+
+            <div class="nc-process-grid">
+                <div class="nc-process-step">
+                    <strong>01</strong>
+                    <h3>Cadastre o cliente</h3>
+                    <p>Centralize os dados que serão utilizados nos próximos passos.</p>
+                </div>
+
+                <div class="nc-process-step">
+                    <strong>02</strong>
+                    <h3>Monte o orçamento</h3>
+                    <p>Descrição clara, imagens, valores, condições e apresentação profissional.</p>
+                </div>
+
+                <div class="nc-process-step">
+                    <strong>03</strong>
+                    <h3>Gere a OS</h3>
+                    <p>O orçamento aprovado vira execução sem redigitação desnecessária.</p>
+                </div>
+
+                <div class="nc-process-step">
+                    <strong>04</strong>
+                    <h3>Acompanhe o resultado</h3>
+                    <p>Conecte a operação aos dados financeiros e à visão gerencial.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="nc-public-section">
+            <div class="nc-segments-panel">
+                <div>
+                    <span class="nc-segments-kicker">PARA QUEM É</span>
+                    <h2>Pequenas empresas que precisam trabalhar, não administrar um sistema complicado.</h2>
+                </div>
+
+                <div class="nc-segment-tags">
+                    <span>Vidraçarias</span>
+                    <span>Construção</span>
+                    <span>Manutenção</span>
+                    <span>Climatização</span>
+                    <span>Marcenaria</span>
+                    <span>Prestadores de serviço</span>
+                    <span>Pequeno comércio</span>
+                    <span>Profissionais autônomos</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="nc-public-cta">
+            <div>
+                <span>NOUSCARD</span>
+                <h2>Gestão simples. Operação organizada. Financeiro sob controle.</h2>
+                <p>
+                    Uma solução da Nous Tecnologia pensada para transformar
+                    informação do dia a dia em visão de negócio.
+                </p>
+            </div>
+
+            <a href="mailto:contato@noustecnologia.com.br" class="nc-btn-public-light">
+                Falar com a Nous Tecnologia
+            </a>
+        </section>
+
+    </main>
+
+    <footer class="nc-public-footer">
+        <div>
+            <strong>NousCard</strong>
+            <span>© {{ current_year or 2026 }} Nous Tecnologia</span>
+        </div>
+
+        <a href="mailto:contato@noustecnologia.com.br">
+            contato@noustecnologia.com.br
+        </a>
+    </footer>
+
+    <div class="nc-login-overlay {% if error %}open{% endif %}"
+         id="loginOverlay"
+         aria-hidden="{% if error %}false{% else %}true{% endif %}"></div>
+
+    <aside class="nc-login-panel {% if error %}open{% endif %}"
+           id="loginPanel"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="loginPanelTitle"
+           aria-hidden="{% if error %}false{% else %}true{% endif %}">
+
+        <div class="nc-login-panel-header">
+            <div>
+                <span class="nc-login-panel-kicker">ÁREA DO CLIENTE</span>
+                <h2 id="loginPanelTitle">Acesse sua conta</h2>
+            </div>
+
+            <button type="button"
+                    class="nc-login-close"
+                    id="closeLoginPanel"
+                    aria-label="Fechar painel de login">
+                ×
+            </button>
+        </div>
+
+        <p class="nc-login-panel-lead">
+            Entre com seu e-mail e senha para acessar o NousCard.
+        </p>
+
         {% if error %}
-        <div class="nc-error" id="login-error" role="alert" aria-live="polite">
+        <div class="nc-error"
+             id="login-error"
+             role="alert"
+             aria-live="polite">
             <span aria-hidden="true">❌</span>
-            {{ error }}
-            {% if 'bloqueada' in error.lower() %}
-            <small class="nc-muted" style="display: block; margin-top: 0.5rem;">
-                ⏰ Aguarde alguns minutos antes de tentar novamente.
-            </small>
-            {% endif %}
+            <span>
+                {{ error }}
+                {% if 'bloqueada' in error.lower() %}
+                <small class="nc-muted nc-error-detail">
+                    Aguarde alguns minutos antes de tentar novamente.
+                </small>
+                {% endif %}
+            </span>
         </div>
+        {% else %}
+        <div class="nc-error"
+             id="login-error"
+             role="alert"
+             aria-live="polite"
+             style="display:none;"></div>
         {% endif %}
-        
-        <!-- Flash messages -->
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -166,173 +353,105 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        
-        <form method="POST" action="{{ url_for('auth.login_post') }}" 
-              id="loginForm" 
-              novalidate
-              aria-describedby="{% if error %}login-error{% endif %}">
-            
+
+        <form method="POST"
+              action="{{ url_for('auth.login_post') }}"
+              id="loginForm"
+              novalidate>
+
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            
-            <!-- Campo de Email -->
+
             <div class="nc-form-group">
-                <label for="email" class="nc-sr-only">E-mail</label>
-                <input 
-                    type="email" 
-                    id="email" 
-                    name="email" 
-                    placeholder="E-mail" 
-                    autocomplete="username" 
-                    required
-                    aria-invalid="{% if error %}true{% else %}false{% endif %}"
-                    aria-describedby="email-hint"
-                    autofocus
-                    value="{{ request.form.get('email', '') }}"
-                >
+                <label for="email">E-mail</label>
+                <input type="email"
+                       id="email"
+                       name="email"
+                       placeholder="seuemail@empresa.com.br"
+                       autocomplete="username"
+                       required
+                       aria-describedby="email-hint"
+                       value="{{ request.form.get('email', '') }}">
+
                 <small id="email-hint" class="nc-form-hint">
-                    Digite o e-mail cadastrado
+                    Use o e-mail cadastrado no NousCard.
                 </small>
-                <div class="nc-form-error" id="email-error" style="display:none;" role="alert"></div>
+
+                <div class="nc-form-error"
+                     id="email-error"
+                     role="alert"
+                     style="display:none;"></div>
             </div>
-            
-            <!-- Campo de Senha -->
+
             <div class="nc-form-group">
-                <label for="senha" class="nc-sr-only">Senha</label>
-                <div class="nc-password-wrapper" style="position: relative;">
-                    <input 
-                        type="password" 
-                        id="senha" 
-                        name="senha" 
-                        placeholder="Senha" 
-                        autocomplete="current-password" 
-                        required
-                        aria-invalid="{% if error %}true{% else %}false{% endif %}"
-                        aria-describedby="senha-hint"
-                        style="padding-right: 2.5rem;"
-                    >
-                    <button type="button" 
-                            id="toggleSenha" 
+                <label for="senha">Senha</label>
+
+                <div class="nc-password-wrapper">
+                    <input type="password"
+                           id="senha"
+                           name="senha"
+                           placeholder="Sua senha"
+                           autocomplete="current-password"
+                           required
+                           aria-describedby="senha-hint">
+
+                    <button type="button"
+                            id="toggleSenha"
                             class="nc-password-toggle"
-                            aria-label="Mostrar senha"
-                            style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.25rem;"
-                            tabindex="-1">
+                            aria-label="Mostrar senha">
                         👁️
                     </button>
                 </div>
+
                 <small id="senha-hint" class="nc-form-hint">
-                    Mínimo 8 caracteres
+                    Sua senha de acesso ao sistema.
                 </small>
-                <div class="nc-form-error" id="senha-error" style="display:none;" role="alert"></div>
+
+                <div class="nc-form-error"
+                     id="senha-error"
+                     role="alert"
+                     style="display:none;"></div>
             </div>
-            
-            <!-- Lembrar de mim e recuperação -->
-            <div class="nc-login-options" style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; flex-wrap: wrap; gap: 0.5rem;">
-                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+
+            <div class="nc-login-options">
+                <label class="nc-remember">
                     <input type="checkbox" name="lembrar" value="1">
                     <span>Lembrar de mim</span>
                 </label>
-                <a href="{{ url_for('auth.recuperar_senha') }}" class="nc-link" style="font-size: 0.875rem; color: #1d3469;">
+
+                <a href="{{ url_for('auth.recuperar_senha') }}">
                     Esqueci minha senha
                 </a>
             </div>
-            
-            <!-- Botão Submit -->
-            <button type="submit" class="nc-btn-primary" id="btn-login">
-                <span class="btn-text">🔐 Entrar</span>
+
+            <button type="submit"
+                    class="nc-btn-primary"
+                    id="btn-login">
+                <span class="btn-text">Entrar no NousCard</span>
+
                 <span class="btn-loading" style="display:none;">
-                    <span class="spinner" aria-hidden="true"></span> Entrando...
+                    <span class="spinner" aria-hidden="true"></span>
+                    Entrando...
                 </span>
             </button>
-            
-            <!-- Badge de segurança -->
-            <div style="text-align: center;">
-                <span class="nc-security-badge">
-                    🔒 Ambiente seguro • Dados protegidos
-                </span>
+
+            <div class="nc-login-security">
+                🔒 Ambiente seguro • Dados protegidos
             </div>
         </form>
-        
-        <!-- ✅ Footer corporativo (SEM link de criar conta) -->
-        <div class="nc-login-footer">
-            <p class="nc-muted">
-                Acesso exclusivo para usuários autorizados.<br>
-                <strong>Precisa de uma conta?</strong> Entre em contato com o administrador da sua empresa.
+
+        <div class="nc-login-help">
+            <strong>Ainda não possui acesso?</strong>
+            <p>
+                Fale com a Nous Tecnologia para conhecer o NousCard
+                e avaliar a melhor configuração para sua empresa.
             </p>
-            <p style="margin-top: 1rem; font-size: 0.8rem;">
-                <a href="mailto:contato@noustecnologia.com.br" class="nc-link">
-                    📧 contato@noustecnologia.com.br
-                </a>
-            </p>
+
+            <a href="mailto:contato@noustecnologia.com.br">
+                contato@noustecnologia.com.br
+            </a>
         </div>
-    </div>
-    
-    <!-- Scripts -->
+    </aside>
+
     <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
-    
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('loginForm');
-        const btnLogin = document.getElementById('btn-login');
-        const emailInput = document.getElementById('email');
-        const senhaInput = document.getElementById('senha');
-        const toggleSenha = document.getElementById('toggleSenha');
-        
-        if (toggleSenha && senhaInput) {
-            toggleSenha.addEventListener('click', function() {
-                const isPassword = senhaInput.type === 'password';
-                senhaInput.type = isPassword ? 'text' : 'password';
-                toggleSenha.textContent = isPassword ? '🙈' : '👁️';
-                toggleSenha.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
-                senhaInput.focus();
-            });
-        }
-        
-        if (emailInput) {
-            emailInput.addEventListener('blur', function() {
-                const email = this.value.trim();
-                const errorDiv = document.getElementById('email-error');
-                
-                if (email && !isValidEmail(email)) {
-                    errorDiv.textContent = '⚠️ Digite um e-mail válido';
-                    errorDiv.style.display = 'block';
-                    this.setAttribute('aria-invalid', 'true');
-                } else {
-                    errorDiv.style.display = 'none';
-                    this.setAttribute('aria-invalid', 'false');
-                }
-            });
-        }
-        
-        if (form && btnLogin) {
-            form.addEventListener('submit', function(e) {
-                if (!emailInput.value.trim()) {
-                    e.preventDefault();
-                    const errorDiv = document.getElementById('email-error');
-                    errorDiv.textContent = '⚠️ E-mail é obrigatório';
-                    errorDiv.style.display = 'block';
-                    emailInput.focus();
-                    return;
-                }
-                
-                if (!senhaInput.value) {
-                    e.preventDefault();
-                    const errorDiv = document.getElementById('senha-error');
-                    errorDiv.textContent = '⚠️ Senha é obrigatória';
-                    errorDiv.style.display = 'block';
-                    senhaInput.focus();
-                    return;
-                }
-                
-                btnLogin.disabled = true;
-                btnLogin.querySelector('.btn-text').style.display = 'none';
-                btnLogin.querySelector('.btn-loading').style.display = 'inline';
-            });
-        }
-        
-        function isValidEmail(email) {
-            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-        }
-    });
-    </script>
 </body>
 </html>

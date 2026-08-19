@@ -4,43 +4,143 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NousCard{% endblock %}</title>
-    
-    <!-- SEO e Social -->
-    <meta name="description" content="NousCard: Conciliação simples de cartões para micro e pequenas empresas">
-    
-    <!-- ✅ CSRF Token para formulários e fetch -->
+
+    <meta name="description" content="NousCard: gestão comercial, operacional e financeira para pequenas empresas e prestadores de serviço">
+
     {% if csrf_token %}
     <meta name="csrf-token" content="{{ csrf_token }}">
     {% endif %}
-    
-    <!-- ✅ Debug flag para JS (opcional) -->
+
     {% if debug %}
     <meta name="app-debug" content="true">
     {% endif %}
-    
-    <!-- Favicon (com fallback para evitar 404) -->
-    <link rel="icon" type="image/png" sizes="32x32" 
-          href="{{ url_for('static', filename='img/favicon-32x32.png') }}" 
+
+    <link rel="icon" type="image/png" sizes="32x32"
+          href="{{ url_for('static', filename='img/favicon-32x32.png') }}"
           onerror="this.style.display='none'">
-    
-    <!-- ✅ CSS com handlers de carga robustos e cache bypass -->
-    <link rel="stylesheet" 
+
+    <link rel="stylesheet"
           href="{{ url_for('static', filename='css/style.css') }}?v={{ current_year }}"
           onload="this.onload=null;console.log('✅ CSS style.css carregado')"
           onerror="console.error('❌ Falha ao carregar style.css'); this.rel='stylesheet'; this.href=this.href.split('?')[0]">
-    
-    <!-- CSS específico da página (se houver) -->
+
     {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
-    
-    <!-- ✅ Verificação de CSS crítico aplicado -->
+
+    <style>
+        /* ============================================================
+           MENU AGRUPADO • GESTÃO / FINANCEIRO
+           ============================================================ */
+        .nc-nav-group {
+            position: relative;
+        }
+
+        .nc-nav-group-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: transparent;
+            border: none;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+            padding: 0.75rem 0.9rem;
+            border-radius: 8px;
+        }
+
+        .nc-nav-group-toggle:hover,
+        .nc-nav-group-toggle.active,
+        .nc-nav-group:focus-within .nc-nav-group-toggle {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .nc-nav-caret {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            transition: transform 0.18s ease;
+        }
+
+        .nc-nav-group.open .nc-nav-caret {
+            transform: rotate(180deg);
+        }
+
+        .nc-nav-dropdown {
+            position: absolute;
+            top: calc(100% + 0.45rem);
+            left: 0;
+            min-width: 230px;
+            background: var(--white);
+            color: var(--text);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-md);
+            padding: 0.5rem;
+            display: none;
+            z-index: 1100;
+        }
+
+        .nc-nav-group.open .nc-nav-dropdown {
+            display: block;
+        }
+
+        .nc-nav-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.7rem 0.8rem;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .nc-nav-dropdown a:hover,
+        .nc-nav-dropdown a.active {
+            background: var(--gray-light);
+            color: var(--primary);
+        }
+
+        .nc-nav-dropdown small {
+            display: block;
+            margin-left: 2.05rem;
+            margin-top: -0.35rem;
+            margin-bottom: 0.45rem;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+        }
+
+        @media (max-width: 900px) {
+            .nc-nav-group {
+                width: 100%;
+            }
+
+            .nc-nav-group-toggle {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .nc-nav-dropdown {
+                position: static;
+                min-width: 0;
+                width: 100%;
+                box-shadow: none;
+                border: none;
+                border-radius: 8px;
+                margin-top: 0.25rem;
+            }
+        }
+    </style>
+
     <script>
     (function() {
         function checkCssLoaded() {
             const body = document.body;
+            if (!body) return;
+
             const computed = window.getComputedStyle(body);
             const primary = computed.getPropertyValue('--primary')?.trim();
-            
+
             if (!primary) {
                 console.warn('⚠️ CSS variables não aplicadas - tentando recarregar...');
                 const link = document.createElement('link');
@@ -49,7 +149,7 @@
                 document.head.appendChild(link);
             }
         }
-        
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', checkCssLoaded);
         } else {
@@ -60,21 +160,17 @@
 </head>
 
 <body class="nc-body">
-    
-    <!-- Skip Link para Acessibilidade -->
+
     <a href="#main-content" class="skip-link">Pular para o conteúdo</a>
-    
-    <!-- ✅ Loading Global (oculto por padrão, mostrado via JS) -->
+
     <div id="global-loading" class="nc-loading-overlay" hidden aria-live="polite" aria-busy="true">
         <div class="nc-loading-spinner" role="status">
             <span class="sr-only">Carregando...</span>
         </div>
     </div>
-    
-    <!-- ===================== TOPBAR ===================== -->
+
     <header class="nc-topbar" role="banner">
         <div class="nc-topbar-left">
-            {# ✅ Logo adaptada por perfil de usuário #}
             {% if g.user and g.user.master %}
                 <a href="{{ url_for('master.dashboard_operacional_page') }}" class="nc-logo" aria-label="NousCard - Dashboard Operacional">
                     🎯 NousCard <small style="font-size:0.7rem;opacity:0.7;">Master</small>
@@ -85,123 +181,138 @@
                 </a>
             {% endif %}
         </div>
-        
-        <!-- ✅ Navegação semântica com lista - Menu adaptado por perfil -->
+
         <nav class="nc-topbar-nav" role="navigation" aria-label="Navegação principal">
             <ul class="nc-nav-list">
-                
-                {# ============================================================
-                   MENU DO CLIENTE (oculto para Master)
-                   ============================================================ #}
+
                 {% if not (g.user and g.user.master) %}
-                    <li>
-                        <a href="{{ url_for('dashboard.dashboard') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
-                           aria-label="Ir para Dashboard"
-                           {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}>
-                            📊 Dashboard
-                        </a>
+                    {% set endpoint = request.endpoint or '' %}
+                    {% set gestao_active =
+                        endpoint == 'dashboard.dashboard'
+                        or endpoint.startswith('clientes.')
+                        or endpoint.startswith('orcamentos.')
+                        or endpoint.startswith('ordens_servico.')
+                    %}
+                    {% set financeiro_active =
+                        endpoint == 'operacoes.importar_page'
+                        or endpoint == 'operacoes.arquivos_importados_page'
+                        or endpoint == 'operacoes.conciliar_page'
+                        or endpoint == 'dashboard.dre_resumo'
+                    %}
+
+                    <li class="nc-nav-group" data-nav-group>
+                        <button type="button"
+                                class="nc-topbar-item nc-nav-group-toggle {% if gestao_active %}active{% endif %}"
+                                aria-expanded="false"
+                                aria-haspopup="true">
+                            🧭 Gestão
+                            <span class="nc-nav-caret">▼</span>
+                        </button>
+
+                        <div class="nc-nav-dropdown" role="menu">
+                            <a href="{{ url_for('dashboard.dashboard') }}"
+                               class="{% if endpoint == 'dashboard.dashboard' %}active{% endif %}"
+                               role="menuitem">
+                                📊 Dashboard
+                            </a>
+                            <small>Visão geral da empresa</small>
+
+                            <a href="{{ url_for('clientes.listar') }}"
+                               class="{% if endpoint.startswith('clientes.') %}active{% endif %}"
+                               role="menuitem">
+                                👥 Clientes
+                            </a>
+                            <small>Base comercial</small>
+
+                            <a href="{{ url_for('orcamentos.listar') }}"
+                               class="{% if endpoint.startswith('orcamentos.') %}active{% endif %}"
+                               role="menuitem">
+                                🧾 Orçamentos
+                            </a>
+                            <small>Propostas e aprovações</small>
+
+                            <a href="{{ url_for('ordens_servico.listar') }}"
+                               class="{% if endpoint.startswith('ordens_servico.') %}active{% endif %}"
+                               role="menuitem">
+                                🛠️ Ordens de Serviço
+                            </a>
+                            <small>Execução e acompanhamento</small>
+                        </div>
                     </li>
-                    <li>
-                        <a href="{{ url_for('clientes.listar') }}"
-                           class="nc-topbar-item {% if request.endpoint and request.endpoint.startswith('clientes.') %}active{% endif %}"
-                           aria-label="Clientes">
-                            👥 Clientes
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('orcamentos.listar') }}"
-                           class="nc-topbar-item {% if request.endpoint and request.endpoint.startswith('orcamentos.') %}active{% endif %}"
-                           aria-label="Orçamentos">
-                            🧾 Orçamentos
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('ordens_servico.listar') }}"
-                           class="nc-topbar-item {% if request.endpoint and request.endpoint.startswith('ordens_servico.') %}active{% endif %}"
-                           aria-label="Ordens de Serviço">
-                            🛠️ OS
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('operacoes.importar_page') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'operacoes.importar_page' %}active{% endif %}"
-                           aria-label="Importar arquivos"
-                           {% if request.endpoint == 'operacoes.importar_page' %}aria-current="page"{% endif %}>
-                            ⬆️ Importar
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('operacoes.arquivos_importados_page') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
-                           aria-label="Ver arquivos importados"
-                           {% if request.endpoint == 'operacoes.arquivos_importados_page' %}aria-current="page"{% endif %}>
-                            📂 Arquivos
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ url_for('operacoes.conciliar_page') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
-                           aria-label="Executar conciliação"
-                           {% if request.endpoint == 'operacoes.conciliar_page' %}aria-current="page"{% endif %}>
-                            ✔️ Conciliação
-                        </a>
-                    </li>
-                    
-                    {# ✅ NOVO: Link do DRE - Demonstrativo de Resultado #}
-                    <li>
-                        <a href="{{ url_for('dashboard.dre_resumo') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'dashboard.dre_resumo' %}active{% endif %}"
-                           aria-label="Ver DRE - Demonstrativo de Resultado"
-                           {% if request.endpoint == 'dashboard.dre_resumo' %}aria-current="page"{% endif %}>
-                            📈 DRE
-                        </a>
+
+                    <li class="nc-nav-group" data-nav-group>
+                        <button type="button"
+                                class="nc-topbar-item nc-nav-group-toggle {% if financeiro_active %}active{% endif %}"
+                                aria-expanded="false"
+                                aria-haspopup="true">
+                            💰 Financeiro
+                            <span class="nc-nav-caret">▼</span>
+                        </button>
+
+                        <div class="nc-nav-dropdown" role="menu">
+                            <a href="{{ url_for('operacoes.importar_page') }}"
+                               class="{% if endpoint == 'operacoes.importar_page' %}active{% endif %}"
+                               role="menuitem">
+                                ⬆️ Importar
+                            </a>
+                            <small>Extratos e arquivos financeiros</small>
+
+                            <a href="{{ url_for('operacoes.arquivos_importados_page') }}"
+                               class="{% if endpoint == 'operacoes.arquivos_importados_page' %}active{% endif %}"
+                               role="menuitem">
+                                📂 Arquivos
+                            </a>
+                            <small>Histórico de importações</small>
+
+                            <a href="{{ url_for('operacoes.conciliar_page') }}"
+                               class="{% if endpoint == 'operacoes.conciliar_page' %}active{% endif %}"
+                               role="menuitem">
+                                ✔️ Conciliação
+                            </a>
+                            <small>Banco e adquirentes</small>
+
+                            <a href="{{ url_for('dashboard.dre_resumo') }}"
+                               class="{% if endpoint == 'dashboard.dre_resumo' %}active{% endif %}"
+                               role="menuitem">
+                                📈 DRE
+                            </a>
+                            <small>Resultado financeiro</small>
+                        </div>
                     </li>
                 {% endif %}
-                
-                {# ============================================================
-                   MENU EXCLUSIVO DO MASTER
-                   ============================================================ #}
+
                 {% if g.user and g.user.master %}
                     <li>
-                        <a href="{{ url_for('master.dashboard_operacional_page') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'master.dashboard_operacional_page' %}active{% endif %}"
-                           aria-label="Dashboard Operacional"
-                           {% if request.endpoint == 'master.dashboard_operacional_page' %}aria-current="page"{% endif %}>
+                        <a href="{{ url_for('master.dashboard_operacional_page') }}"
+                           class="nc-topbar-item {% if request.endpoint == 'master.dashboard_operacional_page' %}active{% endif %}">
                             🎯 Dashboard Operacional
                         </a>
                     </li>
+
                     <li>
-                        <a href="{{ url_for('empresas.listar_empresas') }}" 
-                           class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}"
-                           aria-label="Gerenciar empresas"
-                           {% if request.endpoint == 'empresas.listar_empresas' %}aria-current="page"{% endif %}>
+                        <a href="{{ url_for('empresas.listar_empresas') }}"
+                           class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}">
                             🏢 Empresas
                         </a>
                     </li>
+
                     <li>
-                        <a href="{{ url_for('usuarios.listar_usuarios') }}" 
-                           class="nc-topbar-item {% if request.endpoint and 'usuarios' in request.endpoint %}active{% endif %}"
-                           aria-label="Gerenciar usuários"
-                           {% if request.endpoint and 'usuarios' in request.endpoint %}aria-current="page"{% endif %}>
+                        <a href="{{ url_for('usuarios.listar_usuarios') }}"
+                           class="nc-topbar-item {% if request.endpoint and 'usuarios' in request.endpoint %}active{% endif %}">
                             👥 Usuários
                         </a>
                     </li>
+
                     <li>
-                        <a href="{{ url_for('master.teste_ofx_page') }}" 
-                           class="nc-topbar-item {% if request.endpoint and 'teste_ofx' in request.endpoint %}active{% endif %}"
-                           aria-label="Teste OFX"
-                           {% if request.endpoint and 'teste_ofx' in request.endpoint %}aria-current="page"{% endif %}>
+                        <a href="{{ url_for('master.teste_ofx_page') }}"
+                           class="nc-topbar-item {% if request.endpoint and 'teste_ofx' in request.endpoint %}active{% endif %}">
                             🧪 Teste OFX
                         </a>
                     </li>
                 {% endif %}
-                
-                {# ============================================================
-                   LINK DE SAIR (comum a todos)
-                   ============================================================ #}
+
                 <li>
-                    <a href="{{ url_for('auth.logout') }}" 
+                    <a href="{{ url_for('auth.logout') }}"
                        class="nc-topbar-item logout"
                        aria-label="Sair da conta">
                         🚪 Sair
@@ -210,26 +321,24 @@
             </ul>
         </nav>
     </header>
-    
-    <!-- ===================== CONTEÚDO ===================== -->
+
     <main id="main-content" class="nc-content" role="main" tabindex="-1">
-        
-        <!-- ✅ Barra de Status do Usuário + Logo da Empresa (AMPLIADA) -->
+
         {% if usuario %}
         <div class="nc-user-status-bar" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:0.75rem 1.25rem;">
-            
-            <!-- ✅ LOGO DA EMPRESA - AMPLIADA 2/3 (40px → 64px) -->
+
             {% if not is_master and usuario.empresa and usuario.empresa.logo_base64 %}
             <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;border:2px solid var(--gray-border);background:var(--white);box-shadow:var(--shadow-sm);">
-                <img src="{{ usuario.empresa.logo_base64 }}" alt="Logo {{ usuario.empresa.nome | e }}" style="width:100%;height:100%;object-fit:contain;padding:4px;">
+                <img src="{{ usuario.empresa.logo_base64 }}"
+                     alt="Logo {{ usuario.empresa.nome | e }}"
+                     style="width:100%;height:100%;object-fit:contain;padding:4px;">
             </div>
             {% endif %}
-            
-            <!-- Info do Usuário -->
+
             <div style="flex:1;min-width:150px;">
                 <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                     <strong style="color:var(--text);">👤 {{ usuario.nome | e }}</strong>
-                    <!-- ✅ Badge padronizado com variáveis globais -->
+
                     <span style="font-size:0.7rem;font-weight:600;padding:0.15rem 0.5rem;border-radius:50px;
                                  {% if is_master %}background:var(--error-bg);color:var(--error);
                                  {% elif usuario.admin %}background:var(--primary-light);color:var(--primary);
@@ -237,8 +346,7 @@
                         {% if is_master %}MASTER{% elif usuario.admin %}ADMIN{% else %}Usuário{% endif %}
                     </span>
                 </div>
-                
-                <!-- Empresa -->
+
                 <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.15rem;">
                     <span style="font-weight:500;">Empresa:</span>
                     <strong style="color:var(--text);">
@@ -254,18 +362,16 @@
                     </strong>
                 </div>
             </div>
-            
-            <!-- ✅ Último acesso com horário de Brasília -->
+
             {% if usuario.ultimo_login %}
-            <div style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;" 
+            <div style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;"
                  title="{{ usuario.ultimo_login | hora_brasil_full }}">
                 📅 {{ usuario.ultimo_login | hora_brasil }}
             </div>
             {% endif %}
         </div>
         {% endif %}
-        
-        <!-- Flash Messages -->
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="nc-flash-messages" role="alert" aria-live="polite">
@@ -275,49 +381,83 @@
                 </div>
             {% endif %}
         {% endwith %}
-        
-        <!-- Conteúdo da Página -->
+
         {% block content %}{% endblock %}
     </main>
-    
-    <!-- ===================== RODAPÉ ===================== -->
+
     <footer class="nc-footer" role="contentinfo">
         NousCard © {{ current_year }} — Desenvolvido por <strong>Nous Tecnologia</strong> •
         <a href="mailto:contato@noustecnologia.com.br" aria-label="Enviar email para Nous Tecnologia">Fale Conosco</a>
     </footer>
-    
-    <!-- ✅ Scripts Globais com defer para não bloquear render -->
+
     <script src="{{ url_for('static', filename='js/app.js') }}?v={{ current_year }}" defer></script>
-    
+
     {% block extra_scripts %}{% endblock %}
-    
-    <!-- ✅ Error Handler Global e Helpers para JavaScript -->
+
     <script>
     window.addEventListener('error', function(e) {
         if (e.target !== window && e.target?.tagName) return;
         console.error('❌ Erro global:', e.message, 'em', e.filename + ':' + e.lineno);
     });
-    
+
     window.showLoading = function() {
         const loader = document.getElementById('global-loading');
         if (loader) loader.hidden = false;
     };
-    
+
     window.hideLoading = function() {
         const loader = document.getElementById('global-loading');
         if (loader) loader.hidden = true;
     };
-    
+
     window.getCsrfToken = function() {
-        return document.querySelector('meta[name="csrf-token"]')?.content || 
-               document.querySelector('input[name="csrf_token"]')?.value || 
+        return document.querySelector('meta[name="csrf-token"]')?.content ||
+               document.querySelector('input[name="csrf_token"]')?.value ||
                '';
     };
-    
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const groups = Array.from(document.querySelectorAll('[data-nav-group]'));
+
+        function closeAll(except = null) {
+            groups.forEach(group => {
+                if (group === except) return;
+                group.classList.remove('open');
+                const button = group.querySelector('.nc-nav-group-toggle');
+                if (button) button.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        groups.forEach(group => {
+            const button = group.querySelector('.nc-nav-group-toggle');
+            if (!button) return;
+
+            button.addEventListener('click', function(event) {
+                event.stopPropagation();
+                const willOpen = !group.classList.contains('open');
+                closeAll(group);
+                group.classList.toggle('open', willOpen);
+                button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            });
+        });
+
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('[data-nav-group]')) {
+                closeAll();
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAll();
+            }
+        });
+    });
+
     if (document.readyState === 'complete' && typeof window.initApp === 'function') {
         window.initApp();
     }
     </script>
-    
+
 </body>
 </html>
