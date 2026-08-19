@@ -48,6 +48,9 @@ from .operacoes_routes import operacoes_bp
 from .conciliacao_api import bp_conc
 from .auditor_routes import auditor_bp  
 from routes.debug_routes import debug_bp
+from .clientes_routes import clientes_bp
+from .orcamentos_routes import orcamentos_bp
+from .ordens_servico_routes import ordens_servico_bp
 
 
 def register_blueprints(app: Flask):
@@ -99,6 +102,28 @@ def register_blueprints(app: Flask):
             'blueprint': operacoes_bp,
             'prefix': '/operacoes',
             'description': 'Operações (importar, conciliar, detalhar)',
+            'access': 'authenticated',
+            'required': True
+        },
+        
+        {
+            'blueprint': clientes_bp,
+            'prefix': '/clientes',
+            'description': 'Gestão de clientes',
+            'access': 'authenticated',
+            'required': True
+        },
+        {
+            'blueprint': orcamentos_bp,
+            'prefix': '/orcamentos',
+            'description': 'Orçamentos comerciais',
+            'access': 'authenticated',
+            'required': True
+        },
+        {
+            'blueprint': ordens_servico_bp,
+            'prefix': '/ordens-servico',
+            'description': 'Ordens de Serviço',
             'access': 'authenticated',
             'required': True
         },
