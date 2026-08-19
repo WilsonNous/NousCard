@@ -60,14 +60,10 @@
                 </p>
 
                 <div class="nc-hero-actions">
-                    <a href="#recursos" class="nc-btn-public-primary">
-                        Conhecer os recursos
-                    </a>
-
                     <button type="button"
-                            class="nc-btn-public-secondary"
-                            data-open-login>
-                        Já sou cliente
+                            class="nc-btn-public-primary"
+                            data-open-interest>
+                        Quero conhecer o NousCard
                     </button>
                 </div>
 
@@ -207,6 +203,24 @@
             </div>
         </section>
 
+
+        <section class="nc-public-mid-cta">
+            <div>
+                <span>COMECE PELO SEU CENÁRIO</span>
+                <h2>Sua empresa ainda depende de caderno, planilhas ou vários aplicativos?</h2>
+                <p>
+                    Conte rapidamente como você trabalha hoje.
+                    A Nous Tecnologia pode mostrar como o NousCard se encaixa na sua operação.
+                </p>
+            </div>
+
+            <button type="button"
+                    class="nc-btn-public-primary"
+                    data-open-interest>
+                Quero ver como funcionaria na minha empresa
+            </button>
+        </section>
+
         <section class="nc-public-section nc-public-section-soft">
             <div class="nc-section-heading">
                 <span>FLUXO</span>
@@ -274,9 +288,11 @@
                 </p>
             </div>
 
-            <a href="mailto:contato@noustecnologia.com.br" class="nc-btn-public-light">
-                Falar com a Nous Tecnologia
-            </a>
+            <button type="button"
+                    class="nc-btn-public-light"
+                    data-open-interest>
+                Quero conhecer o NousCard
+            </button>
         </section>
 
     </main>
@@ -451,6 +467,218 @@
             </a>
         </div>
     </aside>
+
+
+    <!-- ============================================================
+         PAINEL COMERCIAL • QUERO CONHECER O NOUSCARD
+         ============================================================ -->
+    <div class="nc-interest-overlay"
+         id="interestOverlay"
+         aria-hidden="true"></div>
+
+    <aside class="nc-interest-panel"
+           id="interestPanel"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="interestPanelTitle"
+           aria-hidden="true">
+
+        <div class="nc-login-panel-header">
+            <div>
+                <span class="nc-login-panel-kicker">CONHEÇA O NOUSCARD</span>
+                <h2 id="interestPanelTitle">Vamos conhecer sua empresa</h2>
+            </div>
+
+            <button type="button"
+                    class="nc-login-close"
+                    id="closeInterestPanel"
+                    aria-label="Fechar painel comercial">
+                ×
+            </button>
+        </div>
+
+        <p class="nc-login-panel-lead">
+            Leva menos de um minuto. Conte como você trabalha hoje e o que gostaria de organizar.
+        </p>
+
+        <div id="interestSuccess"
+             class="nc-interest-success"
+             style="display:none;"
+             aria-live="polite">
+            <div class="nc-interest-success-icon">✅</div>
+            <h3>Recebemos seu interesse!</h3>
+            <p>
+                A Nous Tecnologia poderá entrar em contato para entender sua operação
+                e mostrar como o NousCard pode ajudar.
+            </p>
+
+            <a id="interestWhatsapp"
+               class="nc-btn-primary"
+               href="#"
+               target="_blank"
+               rel="noopener">
+                💬 Conversar agora pelo WhatsApp
+            </a>
+
+            <button type="button"
+                    class="nc-interest-close-success"
+                    data-close-interest>
+                Continuar conhecendo o site
+            </button>
+        </div>
+
+        <form id="interestForm" novalidate>
+            <!-- Honeypot antispam -->
+            <div class="nc-honeypot" aria-hidden="true">
+                <label for="interest_website">Website</label>
+                <input type="text"
+                       id="interest_website"
+                       name="website"
+                       tabindex="-1"
+                       autocomplete="off">
+            </div>
+
+            <div class="nc-form-group">
+                <label for="interest_nome">Seu nome *</label>
+                <input type="text"
+                       id="interest_nome"
+                       name="nome"
+                       maxlength="200"
+                       autocomplete="name"
+                       required>
+            </div>
+
+            <div class="nc-form-group">
+                <label for="interest_empresa">Empresa *</label>
+                <input type="text"
+                       id="interest_empresa"
+                       name="empresa"
+                       maxlength="200"
+                       autocomplete="organization"
+                       required>
+            </div>
+
+            <div class="nc-form-group">
+                <label for="interest_telefone">WhatsApp *</label>
+                <input type="text"
+                       id="interest_telefone"
+                       name="telefone"
+                       maxlength="30"
+                       inputmode="tel"
+                       autocomplete="tel"
+                       placeholder="(48) 99999-9999"
+                       required>
+            </div>
+
+            <div class="nc-form-group">
+                <label for="interest_email">E-mail</label>
+                <input type="email"
+                       id="interest_email"
+                       name="email"
+                       maxlength="200"
+                       autocomplete="email"
+                       placeholder="voce@empresa.com.br">
+            </div>
+
+            <fieldset class="nc-interest-fieldset">
+                <legend>Como você controla sua empresa hoje?</legend>
+
+                <label>
+                    <input type="radio"
+                           name="controle_atual"
+                           value="caderno">
+                    Caderno / papel
+                </label>
+
+                <label>
+                    <input type="radio"
+                           name="controle_atual"
+                           value="planilha">
+                    Planilhas
+                </label>
+
+                <label>
+                    <input type="radio"
+                           name="controle_atual"
+                           value="sistema">
+                    Outro sistema
+                </label>
+
+                <label>
+                    <input type="radio"
+                           name="controle_atual"
+                           value="misto">
+                    Um pouco de cada
+                </label>
+            </fieldset>
+
+            <fieldset class="nc-interest-fieldset">
+                <legend>O que você gostaria de organizar?</legend>
+
+                <label>
+                    <input type="checkbox"
+                           name="interesses"
+                           value="clientes">
+                    Clientes
+                </label>
+
+                <label>
+                    <input type="checkbox"
+                           name="interesses"
+                           value="orcamentos">
+                    Orçamentos
+                </label>
+
+                <label>
+                    <input type="checkbox"
+                           name="interesses"
+                           value="os">
+                    Ordens de Serviço
+                </label>
+
+                <label>
+                    <input type="checkbox"
+                           name="interesses"
+                           value="financeiro">
+                    Financeiro
+                </label>
+            </fieldset>
+
+            <div class="nc-form-group">
+                <label for="interest_mensagem">Quer nos contar algo?</label>
+                <textarea id="interest_mensagem"
+                          name="mensagem"
+                          rows="3"
+                          maxlength="2000"
+                          placeholder="Opcional"></textarea>
+            </div>
+
+            <div id="interestError"
+                 class="nc-error"
+                 style="display:none;"
+                 role="alert"
+                 aria-live="polite"></div>
+
+            <button type="submit"
+                    class="nc-btn-primary"
+                    id="interestSubmit">
+                <span class="btn-text">Quero conhecer o NousCard</span>
+
+                <span class="btn-loading"
+                      style="display:none;">
+                    <span class="spinner"
+                          aria-hidden="true"></span>
+                    Enviando...
+                </span>
+            </button>
+
+            <p class="nc-interest-privacy">
+                Ao enviar, você autoriza a Nous Tecnologia a utilizar esses dados
+                para responder ao seu interesse no NousCard.
+            </p>
+        </form>
+    </aside>
+
 
     <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
 </body>

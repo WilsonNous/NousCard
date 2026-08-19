@@ -289,6 +289,14 @@
                         </a>
                     </li>
 
+
+                    <li>
+                        <a href="{{ url_for('master.leads_listar') }}"
+                           class="nc-topbar-item {% if request.endpoint and request.endpoint.startswith('master.lead') %}active{% endif %}">
+                            📣 Leads
+                        </a>
+                    </li>
+
                     <li>
                         <a href="{{ url_for('empresas.listar_empresas') }}"
                            class="nc-topbar-item {% if request.endpoint == 'empresas.listar_empresas' %}active{% endif %}">
