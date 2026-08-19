@@ -51,6 +51,7 @@ from routes.debug_routes import debug_bp
 from .clientes_routes import clientes_bp
 from .orcamentos_routes import orcamentos_bp
 from .ordens_servico_routes import ordens_servico_bp
+from .public_leads_routes import public_leads_bp
 
 
 def register_blueprints(app: Flask):
@@ -128,7 +129,16 @@ def register_blueprints(app: Flask):
             'required': True
         },
         
-        # 4️⃣ APIs (versionadas para frontend/mobile)
+        # 4️⃣ API PÚBLICA COMERCIAL
+        {
+            'blueprint': public_leads_bp,
+            'prefix': '/api/public',
+            'description': 'Captação pública de leads do NousCard',
+            'access': 'public',
+            'required': True
+        },
+
+        # 5️⃣ APIs (versionadas para frontend/mobile)
         {
             'blueprint': dashboard_api_bp,
             'prefix': '/api/v1/dashboard',
@@ -153,7 +163,7 @@ def register_blueprints(app: Flask):
             'feature_flag': 'FEATURE_AUDITORIA_ENABLED'
         },
         
-        # 5️⃣ ÁREA ADMINISTRATIVA
+        # 6️⃣ ÁREA ADMINISTRATIVA
         {
             'blueprint': master_bp,
             'prefix': '/master',
@@ -170,7 +180,7 @@ def register_blueprints(app: Flask):
             'feature_flag': 'FEATURE_ASSISTANT_ENABLED'
         },
         
-        # 6️⃣ DEBUG
+        # 7️⃣ DEBUG
         {
             'blueprint': debug_bp,
             'prefix': '/debug',

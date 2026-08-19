@@ -2,7 +2,7 @@
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, g, abort, jsonify, session
 from utils.auth_middleware import master_required
-from models import db, Empresa, Usuario, LogAuditoria, MovAdquirente, MovBanco
+from models import db, Empresa, Usuario, LogAuditoria, MovAdquirente, MovBanco, Lead
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy import or_, func
@@ -669,6 +669,187 @@ def teste_ofx_processar():
     
     return jsonify(resultados), 200
 
+
+# ============================================================
+# 📣 LEADS COMERCIAIS DO NOUSCARD
+# ============================================================
+
+@master_bp.route("/leads")
+@master_required
+def leads_listar():
+    """Lista e filtra leads comerciais da Nous Tecnologia."""
+    if not check_master_rate_limit(str(g.user.id), "leads_listar"):
+        flash("Muitas requisições. Aguarde alguns segundos.", "warning")
+        return redirect(url_for("master.dashboard_operacional_page"))
+
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = min(
+        max(10, request.args.get("per_page", 25, type=int)),
+        100
+    )
+
+    search = (request.args.get("search") or "").strip()
+    status = (request.args.get("status") or "").strip().lower()
+
+    query = Lead.query.filter(Lead.ativo.is_(True))
+
+    if search:
+        query = query.filter(
+            or_(
+                Lead.nome.ilike(f"%{search}%"),
+                Lead.empresa.ilike(f"%{search}%"),
+                Lead.email.ilike(f"%{search}%"),
+                Lead.telefone.ilike(f"%{search}%"),
+            )
+        )
+
+    if status in Lead.STATUS_VALIDOS:
+        query = query.filter(Lead.status == status)
+
+    leads = query.order_by(
+        Lead.criado_em.desc()
+    ).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False,
+    )
+
+    contagens = {
+        "total": Lead.query.filter_by(ativo=True).count(),
+        "novo": Lead.query.filter_by(
+            ativo=True, status="novo"
+        ).count(),
+        "contato": Lead.query.filter_by(
+            ativo=True, status="contato"
+        ).count(),
+        "qualificado": Lead.query.filter_by(
+            ativo=True, status="qualificado"
+        ).count(),
+        "cliente": Lead.query.filter_by(
+            ativo=True, status="cliente"
+        ).count(),
+        "perdido": Lead.query.filter_by(
+            ativo=True, status="perdido"
+        ).count(),
+    }
+
+    return render_template(
+        "master/leads_listar.html",
+        leads=leads,
+        search=search,
+        status=status,
+        contagens=contagens,
+    )
+
+
+@master_bp.route("/lead/<int:lead_id>")
+@master_required
+def lead_ver(lead_id):
+    """Exibe os dados completos de uma oportunidade comercial."""
+    lead = Lead.query.filter_by(
+        id=lead_id,
+        ativo=True,
+    ).first_or_404()
+
+    return render_template(
+        "master/lead_ver.html",
+        lead=lead,
+    )
+
+
+@master_bp.route(
+    "/lead/<int:lead_id>/status",
+    methods=["POST"]
+)
+@master_required
+def lead_status_atualizar(lead_id):
+    """Atualiza o estágio do lead no funil comercial."""
+    if not validar_csrf_token():
+        flash(
+            "Erro de segurança. Recarregue a página.",
+            "error"
+        )
+        return redirect(
+            url_for("master.lead_ver", lead_id=lead_id)
+        )
+
+    lead = Lead.query.filter_by(
+        id=lead_id,
+        ativo=True,
+    ).first_or_404()
+
+    novo_status = (
+        request.form.get("status") or ""
+    ).strip().lower()
+
+    if novo_status not in Lead.STATUS_VALIDOS:
+        flash("Status inválido.", "error")
+        return redirect(
+            url_for("master.lead_ver", lead_id=lead.id)
+        )
+
+    status_anterior = lead.status
+    agora = datetime.now(timezone.utc)
+
+    lead.status = novo_status
+
+    if (
+        novo_status in ("contato", "qualificado", "cliente")
+        and not lead.contacted_at
+    ):
+        lead.contacted_at = agora
+
+    if novo_status == "cliente":
+        if not lead.converted_at:
+            lead.converted_at = agora
+    elif status_anterior == "cliente":
+        # Se o status foi revertido, mantém o histórico da conversão.
+        # Não apagamos converted_at.
+        pass
+
+    try:
+        log_acao_master(
+            "master_atualizou_lead",
+            (
+                f"Lead {lead.id} - {lead.empresa}: "
+                f"{status_anterior} -> {novo_status}"
+            ),
+            empresa_id=lead.empresa_id,
+        )
+
+        db.session.commit()
+
+        flash(
+            f"Lead atualizado para '{novo_status}'.",
+            "success"
+        )
+
+        logger.info(
+            "✅ Master atualizou lead %s: %s -> %s",
+            lead.id,
+            status_anterior,
+            novo_status,
+        )
+
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+
+        logger.error(
+            "❌ Erro ao atualizar lead %s: %s",
+            lead.id,
+            str(exc),
+            exc_info=True,
+        )
+
+        flash(
+            "Erro ao atualizar o status do lead.",
+            "error"
+        )
+
+    return redirect(
+        url_for("master.lead_ver", lead_id=lead.id)
+    )
+
 # ============================================================
 # 🎯 DASHBOARD OPERACIONAL DO MASTER
 # ============================================================
@@ -714,12 +895,13 @@ def dashboard_operacional_api():
         # ============================================================
         # KPI 2: LEADS
         # ============================================================
-        total_leads = Lead.query.count()
-        leads_novos = Lead.query.filter_by(status='novo').count()
+        total_leads = Lead.query.filter_by(ativo=True).count()
+        leads_novos = Lead.query.filter_by(ativo=True, status='novo').count()
         leads_ultimos_7d = Lead.query.filter(
+            Lead.ativo.is_(True),
             Lead.criado_em >= hoje - timedelta(days=7)
         ).count()
-        leads_convertidos = Lead.query.filter_by(status='cliente').count()
+        leads_convertidos = Lead.query.filter_by(ativo=True, status='cliente').count()
         
         # ============================================================
         # KPI 3: VOLUME DE TRANSAÇÕES
@@ -801,7 +983,9 @@ def dashboard_operacional_api():
         # ============================================================
         # KPI 7: NOVOS LEADS (lista detalhada)
         # ============================================================
-        leads_recentes = Lead.query.order_by(
+        leads_recentes = Lead.query.filter_by(
+            ativo=True
+        ).order_by(
             Lead.criado_em.desc()
         ).limit(10).all()
         
