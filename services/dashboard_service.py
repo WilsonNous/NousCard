@@ -20,6 +20,9 @@ from models import (
     MovAdquirente,
     MovBanco,
     Adquirente,
+    Cliente,
+    Orcamento,
+    OrdemServico,
 )
 
 logger = logging.getLogger(__name__)
@@ -509,3 +512,185 @@ def calcular_resumo_rapido(empresa_id):
     except Exception as e:
         logger.error(f"❌ Erro ao calcular resumo rápido: {str(e)}")
         return {"ok": False, "error": str(e)}
+
+# ============================================================
+# KPIs DE GESTÃO — CLIENTES / ORÇAMENTOS / ORDENS DE SERVIÇO
+# ============================================================
+
+def calcular_kpis_gestao(empresa_id):
+    """
+    Retorna a visão operacional/comercial atual da empresa.
+
+    Observações importantes do MVP:
+    - O modelo de Orcamento ainda não possui data_aprovacao/data_envio.
+      Por isso não inferimos há quantos dias um orçamento está "ENVIADO".
+    - A taxa de conversão considera apenas decisões concluídas:
+      APROVADO / (APROVADO + RECUSADO).
+    - OS atrasada = data_prevista anterior a hoje e status não finalizado.
+    """
+    try:
+        hoje = datetime.now().date()
+
+        # ----------------------------
+        # CLIENTES
+        # ----------------------------
+        clientes_total = Cliente.query.filter(
+            Cliente.empresa_id == empresa_id
+        ).count()
+
+        # ----------------------------
+        # ORÇAMENTOS
+        # ----------------------------
+        orcamentos_query = Orcamento.query.filter(
+            Orcamento.empresa_id == empresa_id
+        )
+
+        status_orc = dict(
+            db.session.query(
+                Orcamento.status,
+                func.count(Orcamento.id)
+            )
+            .filter(Orcamento.empresa_id == empresa_id)
+            .group_by(Orcamento.status)
+            .all()
+        )
+
+        def qtd_orc(status):
+            return int(status_orc.get(status, 0) or 0)
+
+        rascunho = qtd_orc("RASCUNHO")
+        enviado = qtd_orc("ENVIADO")
+        aprovado = qtd_orc("APROVADO")
+        recusado = qtd_orc("RECUSADO")
+        cancelado = qtd_orc("CANCELADO")
+
+        abertos = rascunho + enviado
+
+        valor_aberto = db.session.query(
+            func.coalesce(func.sum(Orcamento.total), 0)
+        ).filter(
+            Orcamento.empresa_id == empresa_id,
+            Orcamento.status.in_(["RASCUNHO", "ENVIADO"])
+        ).scalar() or 0
+
+        valor_aprovado = db.session.query(
+            func.coalesce(func.sum(Orcamento.total), 0)
+        ).filter(
+            Orcamento.empresa_id == empresa_id,
+            Orcamento.status == "APROVADO"
+        ).scalar() or 0
+
+        decididos = aprovado + recusado
+        taxa_conversao = (
+            (aprovado / decididos) * 100
+            if decididos > 0 else 0
+        )
+
+        # ----------------------------
+        # ORDENS DE SERVIÇO
+        # ----------------------------
+        status_os = dict(
+            db.session.query(
+                OrdemServico.status,
+                func.count(OrdemServico.id)
+            )
+            .filter(OrdemServico.empresa_id == empresa_id)
+            .group_by(OrdemServico.status)
+            .all()
+        )
+
+        def qtd_os(status):
+            return int(status_os.get(status, 0) or 0)
+
+        aguardando_material = qtd_os("AGUARDANDO_MATERIAL")
+        material_recebido = qtd_os("MATERIAL_RECEBIDO")
+        agendado = qtd_os("AGENDADO")
+        em_execucao = qtd_os("EM_EXECUCAO")
+        concluido = qtd_os("CONCLUIDO")
+        cancelado_os = qtd_os("CANCELADO")
+
+        os_em_andamento = (
+            aguardando_material
+            + material_recebido
+            + agendado
+            + em_execucao
+        )
+
+        atrasadas = OrdemServico.query.filter(
+            OrdemServico.empresa_id == empresa_id,
+            OrdemServico.data_prevista.isnot(None),
+            OrdemServico.data_prevista < hoje,
+            OrdemServico.status.notin_(["CONCLUIDO", "CANCELADO"])
+        ).count()
+
+        # ----------------------------
+        # ATENÇÃO / PENDÊNCIAS
+        # ----------------------------
+        atencao = []
+
+        if enviado > 0:
+            atencao.append({
+                "tipo": "orcamento",
+                "nivel": "warning",
+                "quantidade": enviado,
+                "mensagem": (
+                    f"{enviado} orçamento(s) enviado(s) aguardando retorno do cliente."
+                )
+            })
+
+        if atrasadas > 0:
+            atencao.append({
+                "tipo": "os",
+                "nivel": "danger",
+                "quantidade": atrasadas,
+                "mensagem": (
+                    f"{atrasadas} ordem(ns) de serviço com data prevista vencida."
+                )
+            })
+
+        if aguardando_material > 0:
+            atencao.append({
+                "tipo": "os",
+                "nivel": "info",
+                "quantidade": aguardando_material,
+                "mensagem": (
+                    f"{aguardando_material} OS aguardando material."
+                )
+            })
+
+        return {
+            "clientes": {
+                "total": int(clientes_total or 0),
+            },
+            "orcamentos": {
+                "total": int(orcamentos_query.count() or 0),
+                "rascunho": rascunho,
+                "enviado": enviado,
+                "aprovado": aprovado,
+                "recusado": recusado,
+                "cancelado": cancelado,
+                "abertos": abertos,
+                "valor_aberto": float(valor_aberto or 0),
+                "valor_aprovado": float(valor_aprovado or 0),
+                "taxa_conversao": round(taxa_conversao, 1),
+            },
+            "ordens_servico": {
+                "total": int(sum(status_os.values()) or 0),
+                "aguardando_material": aguardando_material,
+                "material_recebido": material_recebido,
+                "agendado": agendado,
+                "em_execucao": em_execucao,
+                "concluido": concluido,
+                "cancelado": cancelado_os,
+                "em_andamento": os_em_andamento,
+                "atrasadas": int(atrasadas or 0),
+            },
+            "atencao": atencao,
+        }
+
+    except Exception as e:
+        logger.error(
+            f"❌ Erro ao calcular KPIs de gestão: empresa={empresa_id}, erro={str(e)}",
+            exc_info=True
+        )
+        raise
