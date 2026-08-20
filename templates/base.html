@@ -7,6 +7,15 @@
 
     <meta name="description" content="NousCard: gestão comercial, operacional e financeira para pequenas empresas e prestadores de serviço">
 
+    <!-- Google tag (gtag.js) - Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-X3KK2D50EG"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-X3KK2D50EG');
+    </script>
+
     {% if csrf_token %}
     <meta name="csrf-token" content="{{ csrf_token }}">
     {% endif %}
