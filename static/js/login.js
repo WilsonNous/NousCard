@@ -1,4 +1,42 @@
 // ============================================================
+//  GOOGLE ANALYTICS 4 • FUNIL COMERCIAL
+// ============================================================
+
+(function () {
+    'use strict';
+
+    /**
+     * Envia eventos para o GA4 sem quebrar a experiência
+     * caso o Analytics esteja indisponível.
+     *
+     * IMPORTANTE:
+     * Não enviamos nome, e-mail, telefone ou empresa ao GA4.
+     */
+    window.ncTrackEvent = function (eventName, params = {}) {
+        try {
+            if (typeof window.gtag !== 'function') {
+                return;
+            }
+
+            window.gtag('event', eventName, {
+                page_path: window.location.pathname,
+                page_location: window.location.href,
+                ...params
+            });
+
+        } catch (error) {
+            console.warn(
+                '⚠️ Falha ao registrar evento GA4:',
+                eventName,
+                error
+            );
+        }
+    };
+
+})();
+
+
+// ============================================================
 //  LOGIN • NousCard
 //  Landing pública + painel lateral de autenticação
 // ============================================================
@@ -22,234 +60,537 @@
 
     let lastFocusedElement = null;
 
+
+    // ========================================================
+    // HELPERS
+    // ========================================================
+
     function qs(selector) {
         return document.querySelector(selector);
     }
 
+
     function qsa(selector) {
-        return Array.from(document.querySelectorAll(selector));
+        return Array.from(
+            document.querySelectorAll(selector)
+        );
     }
+
 
     function isValidEmail(email) {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
 
+
+    // ========================================================
+    // ABRIR PAINEL LOGIN
+    // ========================================================
+
     function openPanel() {
+
         const panel = qs(selectors.panel);
         const overlay = qs(selectors.overlay);
         const openButton = qs(selectors.openButton);
 
-        if (!panel || !overlay) return;
+        if (!panel || !overlay) {
+            return;
+        }
 
         lastFocusedElement = document.activeElement;
 
         panel.classList.add('open');
         overlay.classList.add('open');
 
-        panel.setAttribute('aria-hidden', 'false');
-        overlay.setAttribute('aria-hidden', 'false');
+        panel.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        overlay.setAttribute(
+            'aria-hidden',
+            'false'
+        );
 
         if (openButton) {
-            openButton.setAttribute('aria-expanded', 'true');
+            openButton.setAttribute(
+                'aria-expanded',
+                'true'
+            );
         }
 
-        document.body.classList.add('login-panel-open');
+        document.body.classList.add(
+            'login-panel-open'
+        );
 
         const email = qs(selectors.email);
+
         if (email) {
-            window.setTimeout(() => email.focus(), 160);
+            window.setTimeout(
+                () => email.focus(),
+                160
+            );
         }
     }
 
+
+    // ========================================================
+    // FECHAR PAINEL LOGIN
+    // ========================================================
+
     function closePanel() {
+
         const panel = qs(selectors.panel);
         const overlay = qs(selectors.overlay);
         const openButton = qs(selectors.openButton);
 
-        if (!panel || !overlay) return;
+        if (!panel || !overlay) {
+            return;
+        }
 
         panel.classList.remove('open');
         overlay.classList.remove('open');
 
-        panel.setAttribute('aria-hidden', 'true');
-        overlay.setAttribute('aria-hidden', 'true');
+        panel.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        overlay.setAttribute(
+            'aria-hidden',
+            'true'
+        );
 
         if (openButton) {
-            openButton.setAttribute('aria-expanded', 'false');
+            openButton.setAttribute(
+                'aria-expanded',
+                'false'
+            );
         }
 
-        document.body.classList.remove('login-panel-open');
+        document.body.classList.remove(
+            'login-panel-open'
+        );
 
-        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+        if (
+            lastFocusedElement
+            && typeof lastFocusedElement.focus === 'function'
+        ) {
             lastFocusedElement.focus();
         }
     }
 
+
+    // ========================================================
+    // ERROS DE CAMPO
+    // ========================================================
+
     function showFieldError(input, message) {
-        if (!input) return;
 
-        input.setAttribute('aria-invalid', 'true');
+        if (!input) {
+            return;
+        }
 
-        const error = document.getElementById(`${input.id}-error`);
+        input.setAttribute(
+            'aria-invalid',
+            'true'
+        );
+
+        const error = document.getElementById(
+            `${input.id}-error`
+        );
+
         if (error) {
             error.textContent = message;
             error.style.display = 'block';
         }
     }
 
+
     function clearFieldError(input) {
-        if (!input) return;
 
-        input.setAttribute('aria-invalid', 'false');
+        if (!input) {
+            return;
+        }
 
-        const error = document.getElementById(`${input.id}-error`);
+        input.setAttribute(
+            'aria-invalid',
+            'false'
+        );
+
+        const error = document.getElementById(
+            `${input.id}-error`
+        );
+
         if (error) {
             error.textContent = '';
             error.style.display = 'none';
         }
     }
 
-    function setLoading(isLoading) {
-        const button = qs(selectors.submit);
-        if (!button) return;
 
-        const text = button.querySelector('.btn-text');
-        const loading = button.querySelector('.btn-loading');
+    // ========================================================
+    // LOADING LOGIN
+    // ========================================================
+
+    function setLoading(isLoading) {
+
+        const button = qs(selectors.submit);
+
+        if (!button) {
+            return;
+        }
+
+        const text = button.querySelector(
+            '.btn-text'
+        );
+
+        const loading = button.querySelector(
+            '.btn-loading'
+        );
 
         button.disabled = isLoading;
-        button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+
+        button.setAttribute(
+            'aria-busy',
+            isLoading ? 'true' : 'false'
+        );
 
         if (text) {
-            text.style.display = isLoading ? 'none' : 'inline';
+            text.style.display =
+                isLoading ? 'none' : 'inline';
         }
 
         if (loading) {
-            loading.style.display = isLoading ? 'inline-flex' : 'none';
+            loading.style.display =
+                isLoading ? 'inline-flex' : 'none';
         }
     }
+
+
+    // ========================================================
+    // EVENTOS PAINEL LOGIN
+    // ========================================================
 
     function setupPanel() {
-        const openButton = qs(selectors.openButton);
-        const closeButton = qs(selectors.closeButton);
-        const overlay = qs(selectors.overlay);
-        const panel = qs(selectors.panel);
+
+        const openButton = qs(
+            selectors.openButton
+        );
+
+        const closeButton = qs(
+            selectors.closeButton
+        );
+
+        const overlay = qs(
+            selectors.overlay
+        );
+
+        const panel = qs(
+            selectors.panel
+        );
+
 
         if (openButton) {
-            openButton.addEventListener('click', openPanel);
+
+            openButton.addEventListener(
+                'click',
+                function () {
+
+                    window.ncTrackEvent?.(
+                        'login_click',
+                        {
+                            source: 'header'
+                        }
+                    );
+
+                    openPanel();
+                }
+            );
         }
 
-        qsa(selectors.openLinks).forEach(button => {
-            button.addEventListener('click', openPanel);
+
+        qsa(
+            selectors.openLinks
+        ).forEach(button => {
+
+            button.addEventListener(
+                'click',
+                openPanel
+            );
         });
+
 
         if (closeButton) {
-            closeButton.addEventListener('click', closePanel);
+
+            closeButton.addEventListener(
+                'click',
+                closePanel
+            );
         }
+
 
         if (overlay) {
-            overlay.addEventListener('click', closePanel);
+
+            overlay.addEventListener(
+                'click',
+                closePanel
+            );
         }
 
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && panel?.classList.contains('open')) {
-                closePanel();
+
+        document.addEventListener(
+            'keydown',
+            event => {
+
+                if (
+                    event.key === 'Escape'
+                    && panel?.classList.contains('open')
+                ) {
+                    closePanel();
+                }
             }
-        });
+        );
 
-        if (panel?.classList.contains('open')) {
-            document.body.classList.add('login-panel-open');
 
-            const email = qs(selectors.email);
+        if (
+            panel?.classList.contains('open')
+        ) {
+
+            document.body.classList.add(
+                'login-panel-open'
+            );
+
+            const email = qs(
+                selectors.email
+            );
+
             if (email) {
-                window.setTimeout(() => email.focus(), 120);
+
+                window.setTimeout(
+                    () => email.focus(),
+                    120
+                );
             }
         }
     }
+
+
+    // ========================================================
+    // MOSTRAR / OCULTAR SENHA
+    // ========================================================
 
     function setupPasswordToggle() {
-        const button = qs(selectors.passwordToggle);
-        const password = qs(selectors.password);
 
-        if (!button || !password) return;
+        const button = qs(
+            selectors.passwordToggle
+        );
 
-        button.addEventListener('click', () => {
-            const show = password.type === 'password';
+        const password = qs(
+            selectors.password
+        );
 
-            password.type = show ? 'text' : 'password';
-            button.textContent = show ? '🙈' : '👁️';
-            button.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+        if (!button || !password) {
+            return;
+        }
 
-            password.focus();
-        });
+
+        button.addEventListener(
+            'click',
+            () => {
+
+                const show =
+                    password.type === 'password';
+
+
+                password.type =
+                    show
+                        ? 'text'
+                        : 'password';
+
+
+                button.textContent =
+                    show
+                        ? '🙈'
+                        : '👁️';
+
+
+                button.setAttribute(
+                    'aria-label',
+                    show
+                        ? 'Ocultar senha'
+                        : 'Mostrar senha'
+                );
+
+
+                password.focus();
+            }
+        );
     }
+
+
+    // ========================================================
+    // VALIDAÇÃO LOGIN
+    // ========================================================
 
     function setupValidation() {
-        const form = qs(selectors.form);
-        const email = qs(selectors.email);
-        const password = qs(selectors.password);
 
-        if (!form || !email || !password) return;
+        const form = qs(
+            selectors.form
+        );
 
-        email.addEventListener('input', () => clearFieldError(email));
-        password.addEventListener('input', () => clearFieldError(password));
+        const email = qs(
+            selectors.email
+        );
 
-        email.addEventListener('blur', () => {
-            const value = email.value.trim();
+        const password = qs(
+            selectors.password
+        );
 
-            if (value && !isValidEmail(value)) {
-                showFieldError(email, 'Digite um e-mail válido.');
+
+        if (
+            !form
+            || !email
+            || !password
+        ) {
+            return;
+        }
+
+
+        email.addEventListener(
+            'input',
+            () => clearFieldError(email)
+        );
+
+
+        password.addEventListener(
+            'input',
+            () => clearFieldError(password)
+        );
+
+
+        email.addEventListener(
+            'blur',
+            () => {
+
+                const value =
+                    email.value.trim();
+
+
+                if (
+                    value
+                    && !isValidEmail(value)
+                ) {
+
+                    showFieldError(
+                        email,
+                        'Digite um e-mail válido.'
+                    );
+                }
             }
-        });
+        );
 
-        form.addEventListener('submit', event => {
-            let valid = true;
 
-            const emailValue = email.value.trim();
-            const passwordValue = password.value;
+        form.addEventListener(
+            'submit',
+            event => {
 
-            clearFieldError(email);
-            clearFieldError(password);
+                let valid = true;
 
-            if (!emailValue) {
-                showFieldError(email, 'E-mail é obrigatório.');
-                valid = false;
-            } else if (!isValidEmail(emailValue)) {
-                showFieldError(email, 'Digite um e-mail válido.');
-                valid = false;
-            }
 
-            if (!passwordValue) {
-                showFieldError(password, 'Senha é obrigatória.');
-                valid = false;
-            }
+                const emailValue =
+                    email.value.trim();
 
-            if (!valid) {
-                event.preventDefault();
-                openPanel();
 
-                if (!emailValue || !isValidEmail(emailValue)) {
-                    email.focus();
-                } else {
-                    password.focus();
+                const passwordValue =
+                    password.value;
+
+
+                clearFieldError(email);
+                clearFieldError(password);
+
+
+                if (!emailValue) {
+
+                    showFieldError(
+                        email,
+                        'E-mail é obrigatório.'
+                    );
+
+                    valid = false;
+
+                } else if (
+                    !isValidEmail(emailValue)
+                ) {
+
+                    showFieldError(
+                        email,
+                        'Digite um e-mail válido.'
+                    );
+
+                    valid = false;
                 }
 
-                return;
-            }
 
-            /*
-             * Não usamos fetch aqui.
-             * O POST normal do formulário preserva o fluxo atual do Flask:
-             * login -> sessão segura -> redirect para dashboard/master.
-             */
-            setLoading(true);
-        });
+                if (!passwordValue) {
+
+                    showFieldError(
+                        password,
+                        'Senha é obrigatória.'
+                    );
+
+                    valid = false;
+                }
+
+
+                if (!valid) {
+
+                    event.preventDefault();
+
+                    openPanel();
+
+
+                    if (
+                        !emailValue
+                        || !isValidEmail(emailValue)
+                    ) {
+
+                        email.focus();
+
+                    } else {
+
+                        password.focus();
+                    }
+
+                    return;
+                }
+
+
+                /*
+                 * O login continua usando POST normal.
+                 * Não usamos fetch aqui.
+                 */
+
+                setLoading(true);
+            }
+        );
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        setupPanel();
-        setupPasswordToggle();
-        setupValidation();
-    });
+
+    // ========================================================
+    // INICIALIZAÇÃO LOGIN
+    // ========================================================
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+
+            setupPanel();
+
+            setupPasswordToggle();
+
+            setupValidation();
+        }
+    );
 
 })();
 
@@ -261,277 +602,820 @@
 (function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', function () {
-        const panel = document.getElementById('interestPanel');
-        const overlay = document.getElementById('interestOverlay');
-        const closeButton = document.getElementById('closeInterestPanel');
-        const form = document.getElementById('interestForm');
-        const success = document.getElementById('interestSuccess');
-        const errorBox = document.getElementById('interestError');
-        const submitButton = document.getElementById('interestSubmit');
-        const whatsappButton = document.getElementById('interestWhatsapp');
 
-        if (!panel || !overlay || !form) {
-            return;
-        }
+    document.addEventListener(
+        'DOMContentLoaded',
+        function () {
 
-        let lastFocusedElement = null;
 
-        function openInterestPanel() {
-            lastFocusedElement = document.activeElement;
+            // ====================================================
+            // ELEMENTOS
+            // ====================================================
 
-            // Evitar dois painéis abertos ao mesmo tempo.
-            document.getElementById('loginPanel')?.classList.remove('open');
-            document.getElementById('loginOverlay')?.classList.remove('open');
+            const panel =
+                document.getElementById(
+                    'interestPanel'
+                );
 
-            panel.classList.add('open');
-            overlay.classList.add('open');
 
-            panel.setAttribute('aria-hidden', 'false');
-            overlay.setAttribute('aria-hidden', 'false');
+            const overlay =
+                document.getElementById(
+                    'interestOverlay'
+                );
 
-            document.body.classList.add('login-panel-open');
 
-            window.setTimeout(function () {
-                document.getElementById('interest_nome')?.focus();
-            }, 140);
-        }
+            const closeButton =
+                document.getElementById(
+                    'closeInterestPanel'
+                );
 
-        function closeInterestPanel() {
-            panel.classList.remove('open');
-            overlay.classList.remove('open');
 
-            panel.setAttribute('aria-hidden', 'true');
-            overlay.setAttribute('aria-hidden', 'true');
+            const form =
+                document.getElementById(
+                    'interestForm'
+                );
 
-            document.body.classList.remove('login-panel-open');
+
+            const success =
+                document.getElementById(
+                    'interestSuccess'
+                );
+
+
+            const errorBox =
+                document.getElementById(
+                    'interestError'
+                );
+
+
+            const submitButton =
+                document.getElementById(
+                    'interestSubmit'
+                );
+
+
+            const whatsappButton =
+                document.getElementById(
+                    'interestWhatsapp'
+                );
+
 
             if (
-                lastFocusedElement
-                && typeof lastFocusedElement.focus === 'function'
+                !panel
+                || !overlay
+                || !form
             ) {
-                lastFocusedElement.focus();
-            }
-        }
-
-        document.querySelectorAll('[data-open-interest]').forEach(function (element) {
-            element.addEventListener('click', openInterestPanel);
-        });
-
-        document.querySelectorAll('[data-close-interest]').forEach(function (element) {
-            element.addEventListener('click', closeInterestPanel);
-        });
-
-        closeButton?.addEventListener(
-            'click',
-            closeInterestPanel
-        );
-
-        overlay.addEventListener(
-            'click',
-            closeInterestPanel
-        );
-
-        document.addEventListener('keydown', function (event) {
-            if (
-                event.key === 'Escape'
-                && panel.classList.contains('open')
-            ) {
-                closeInterestPanel();
-            }
-        });
-
-        function setInterestLoading(isLoading) {
-            if (!submitButton) {
                 return;
             }
 
-            submitButton.disabled = isLoading;
 
-            const text = submitButton.querySelector('.btn-text');
-            const loading = submitButton.querySelector('.btn-loading');
+            let lastFocusedElement = null;
 
-            if (text) {
-                text.style.display = isLoading ? 'none' : 'inline';
-            }
+            let leadFormStarted = false;
 
-            if (loading) {
-                loading.style.display = isLoading
-                    ? 'inline-flex'
-                    : 'none';
-            }
-        }
 
-        function showInterestError(message) {
-            if (!errorBox) {
-                return;
-            }
+            // ====================================================
+            // GA4 • INÍCIO DO FORMULÁRIO
+            // ====================================================
 
-            errorBox.textContent = message;
-            errorBox.style.display = 'flex';
-        }
+            function trackLeadFormStart() {
 
-        function clearInterestError() {
-            if (!errorBox) {
-                return;
-            }
+                if (leadFormStarted) {
+                    return;
+                }
 
-            errorBox.textContent = '';
-            errorBox.style.display = 'none';
-        }
 
-        const phoneInput = document.getElementById(
-            'interest_telefone'
-        );
+                leadFormStarted = true;
 
-        phoneInput?.addEventListener('input', function () {
-            let value = this.value.replace(/\D/g, '').slice(0, 11);
 
-            if (value.length > 10) {
-                value = value.replace(
-                    /^(\d{2})(\d{5})(\d{4})$/,
-                    '($1) $2-$3'
-                );
-            } else if (value.length > 6) {
-                value = value.replace(
-                    /^(\d{2})(\d{4})(\d{0,4})$/,
-                    '($1) $2-$3'
-                );
-            } else if (value.length > 2) {
-                value = value.replace(
-                    /^(\d{2})(\d+)$/,
-                    '($1) $2'
-                );
-            } else if (value.length) {
-                value = value.replace(
-                    /^(\d{0,2})$/,
-                    '($1'
-                );
-            }
-
-            this.value = value;
-        });
-
-        form.addEventListener('submit', async function (event) {
-            event.preventDefault();
-            clearInterestError();
-
-            const nome = document.getElementById(
-                'interest_nome'
-            )?.value.trim() || '';
-
-            const empresa = document.getElementById(
-                'interest_empresa'
-            )?.value.trim() || '';
-
-            const telefone = document.getElementById(
-                'interest_telefone'
-            )?.value.trim() || '';
-
-            const email = document.getElementById(
-                'interest_email'
-            )?.value.trim() || '';
-
-            const mensagem = document.getElementById(
-                'interest_mensagem'
-            )?.value.trim() || '';
-
-            const website = document.getElementById(
-                'interest_website'
-            )?.value || '';
-
-            if (!nome || !empresa || !telefone) {
-                showInterestError(
-                    'Preencha nome, empresa e WhatsApp.'
-                );
-                return;
-            }
-
-            const phoneDigits = telefone.replace(/\D/g, '');
-
-            if (phoneDigits.length < 10) {
-                showInterestError(
-                    'Informe um WhatsApp válido com DDD.'
-                );
-                return;
-            }
-
-            if (
-                email
-                && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-            ) {
-                showInterestError(
-                    'Informe um e-mail válido ou deixe o campo vazio.'
-                );
-                return;
-            }
-
-            const controleAtual = form.querySelector(
-                'input[name="controle_atual"]:checked'
-            )?.value || '';
-
-            const interesses = Array.from(
-                form.querySelectorAll(
-                    'input[name="interesses"]:checked'
-                )
-            ).map(function (input) {
-                return input.value;
-            });
-
-            setInterestLoading(true);
-
-            try {
-                const response = await fetch(
-                    '/api/public/leads',
+                window.ncTrackEvent?.(
+                    'lead_form_start',
                     {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            nome: nome,
-                            empresa: empresa,
-                            telefone: telefone,
-                            email: email,
-                            controle_atual: controleAtual,
-                            interesses: interesses,
-                            mensagem: mensagem,
-                            website: website
-                        })
+                        form_name:
+                            'nouscard_interest'
+                    }
+                );
+            }
+
+
+            /*
+             * O foco automático no campo Nome
+             * não conta como início do formulário.
+             */
+
+            form.addEventListener(
+                'input',
+                function (event) {
+
+                    if (
+                        event.target?.name
+                        !== 'website'
+                    ) {
+                        trackLeadFormStart();
+                    }
+                }
+            );
+
+
+            form.addEventListener(
+                'change',
+                function (event) {
+
+                    if (
+                        event.target?.name
+                        !== 'website'
+                    ) {
+                        trackLeadFormStart();
+                    }
+                }
+            );
+
+
+            // ====================================================
+            // ABRIR PAINEL COMERCIAL
+            // ====================================================
+
+            function openInterestPanel() {
+
+                lastFocusedElement =
+                    document.activeElement;
+
+
+                /*
+                 * Evitar painel de Login
+                 * e painel Comercial abertos juntos.
+                 */
+
+                document
+                    .getElementById(
+                        'loginPanel'
+                    )
+                    ?.classList
+                    .remove('open');
+
+
+                document
+                    .getElementById(
+                        'loginOverlay'
+                    )
+                    ?.classList
+                    .remove('open');
+
+
+                panel.classList.add(
+                    'open'
+                );
+
+
+                overlay.classList.add(
+                    'open'
+                );
+
+
+                panel.setAttribute(
+                    'aria-hidden',
+                    'false'
+                );
+
+
+                overlay.setAttribute(
+                    'aria-hidden',
+                    'false'
+                );
+
+
+                document.body.classList.add(
+                    'login-panel-open'
+                );
+
+
+                window.setTimeout(
+                    function () {
+
+                        document
+                            .getElementById(
+                                'interest_nome'
+                            )
+                            ?.focus();
+
+                    },
+                    140
+                );
+            }
+
+
+            // ====================================================
+            // FECHAR PAINEL COMERCIAL
+            // ====================================================
+
+            function closeInterestPanel() {
+
+                panel.classList.remove(
+                    'open'
+                );
+
+
+                overlay.classList.remove(
+                    'open'
+                );
+
+
+                panel.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+
+                overlay.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+
+                document.body.classList.remove(
+                    'login-panel-open'
+                );
+
+
+                if (
+                    lastFocusedElement
+                    && typeof lastFocusedElement.focus
+                    === 'function'
+                ) {
+
+                    lastFocusedElement.focus();
+                }
+            }
+
+
+            // ====================================================
+            // CTAs • QUERO CONHECER
+            // ====================================================
+
+            document
+                .querySelectorAll(
+                    '[data-open-interest]'
+                )
+                .forEach(
+                    function (element) {
+
+                        element.addEventListener(
+                            'click',
+                            function () {
+
+                                window.ncTrackEvent?.(
+                                    'cta_quero_conhecer',
+                                    {
+                                        cta_position:
+                                            element
+                                                .dataset
+                                                .ctaPosition
+                                            || 'unknown',
+
+                                        cta_label:
+                                            element
+                                                .dataset
+                                                .ctaLabel
+                                            || 'unknown'
+                                    }
+                                );
+
+
+                                openInterestPanel();
+                            }
+                        );
                     }
                 );
 
-                const data = await response.json();
 
-                if (!response.ok || !data.ok) {
-                    throw new Error(
-                        data.error
-                        || 'Não foi possível registrar seu interesse.'
-                    );
-                }
+            // ====================================================
+            // FECHAR PAINEL
+            // ====================================================
 
-                form.style.display = 'none';
+            document
+                .querySelectorAll(
+                    '[data-close-interest]'
+                )
+                .forEach(
+                    function (element) {
 
-                if (success) {
-                    success.style.display = 'block';
-                }
-
-                if (
-                    whatsappButton
-                    && data.whatsapp_url
-                ) {
-                    whatsappButton.href = data.whatsapp_url;
-                }
-
-            } catch (error) {
-                showInterestError(
-                    error.message
-                    || 'Erro ao enviar. Tente novamente.'
+                        element.addEventListener(
+                            'click',
+                            closeInterestPanel
+                        );
+                    }
                 );
 
-            } finally {
-                setInterestLoading(false);
+
+            closeButton?.addEventListener(
+                'click',
+                closeInterestPanel
+            );
+
+
+            overlay.addEventListener(
+                'click',
+                closeInterestPanel
+            );
+
+
+            document.addEventListener(
+                'keydown',
+                function (event) {
+
+                    if (
+                        event.key === 'Escape'
+                        && panel.classList.contains(
+                            'open'
+                        )
+                    ) {
+
+                        closeInterestPanel();
+                    }
+                }
+            );
+
+
+            // ====================================================
+            // LOADING FORM COMERCIAL
+            // ====================================================
+
+            function setInterestLoading(
+                isLoading
+            ) {
+
+                if (!submitButton) {
+                    return;
+                }
+
+
+                submitButton.disabled =
+                    isLoading;
+
+
+                const text =
+                    submitButton.querySelector(
+                        '.btn-text'
+                    );
+
+
+                const loading =
+                    submitButton.querySelector(
+                        '.btn-loading'
+                    );
+
+
+                if (text) {
+
+                    text.style.display =
+                        isLoading
+                            ? 'none'
+                            : 'inline';
+                }
+
+
+                if (loading) {
+
+                    loading.style.display =
+                        isLoading
+                            ? 'inline-flex'
+                            : 'none';
+                }
             }
-        });
-    });
+
+
+            // ====================================================
+            // ERRO FORM COMERCIAL
+            // ====================================================
+
+            function showInterestError(
+                message
+            ) {
+
+                if (!errorBox) {
+                    return;
+                }
+
+
+                errorBox.textContent =
+                    message;
+
+
+                errorBox.style.display =
+                    'flex';
+            }
+
+
+            function clearInterestError() {
+
+                if (!errorBox) {
+                    return;
+                }
+
+
+                errorBox.textContent =
+                    '';
+
+
+                errorBox.style.display =
+                    'none';
+            }
+
+
+            // ====================================================
+            // MÁSCARA WHATSAPP
+            // ====================================================
+
+            const phoneInput =
+                document.getElementById(
+                    'interest_telefone'
+                );
+
+
+            phoneInput?.addEventListener(
+                'input',
+                function () {
+
+                    let value =
+                        this.value
+                            .replace(
+                                /\D/g,
+                                ''
+                            )
+                            .slice(
+                                0,
+                                11
+                            );
+
+
+                    if (
+                        value.length > 10
+                    ) {
+
+                        value =
+                            value.replace(
+                                /^(\d{2})(\d{5})(\d{4})$/,
+                                '($1) $2-$3'
+                            );
+
+                    } else if (
+                        value.length > 6
+                    ) {
+
+                        value =
+                            value.replace(
+                                /^(\d{2})(\d{4})(\d{0,4})$/,
+                                '($1) $2-$3'
+                            );
+
+                    } else if (
+                        value.length > 2
+                    ) {
+
+                        value =
+                            value.replace(
+                                /^(\d{2})(\d+)$/,
+                                '($1) $2'
+                            );
+
+                    } else if (
+                        value.length
+                    ) {
+
+                        value =
+                            value.replace(
+                                /^(\d{0,2})$/,
+                                '($1'
+                            );
+                    }
+
+
+                    this.value =
+                        value;
+                }
+            );
+
+
+            // ====================================================
+            // SUBMIT DO LEAD
+            // ====================================================
+
+            form.addEventListener(
+                'submit',
+                async function (event) {
+
+
+                    event.preventDefault();
+
+
+                    clearInterestError();
+
+
+                    // ============================================
+                    // DADOS
+                    // ============================================
+
+                    const nome =
+                        document
+                            .getElementById(
+                                'interest_nome'
+                            )
+                            ?.value
+                            .trim()
+                        || '';
+
+
+                    const empresa =
+                        document
+                            .getElementById(
+                                'interest_empresa'
+                            )
+                            ?.value
+                            .trim()
+                        || '';
+
+
+                    const telefone =
+                        document
+                            .getElementById(
+                                'interest_telefone'
+                            )
+                            ?.value
+                            .trim()
+                        || '';
+
+
+                    const email =
+                        document
+                            .getElementById(
+                                'interest_email'
+                            )
+                            ?.value
+                            .trim()
+                        || '';
+
+
+                    const mensagem =
+                        document
+                            .getElementById(
+                                'interest_mensagem'
+                            )
+                            ?.value
+                            .trim()
+                        || '';
+
+
+                    const website =
+                        document
+                            .getElementById(
+                                'interest_website'
+                            )
+                            ?.value
+                        || '';
+
+
+                    // ============================================
+                    // VALIDAÇÃO
+                    // ============================================
+
+                    if (
+                        !nome
+                        || !empresa
+                        || !telefone
+                    ) {
+
+                        showInterestError(
+                            'Preencha nome, empresa e WhatsApp.'
+                        );
+
+                        return;
+                    }
+
+
+                    const phoneDigits =
+                        telefone.replace(
+                            /\D/g,
+                            ''
+                        );
+
+
+                    if (
+                        phoneDigits.length < 10
+                    ) {
+
+                        showInterestError(
+                            'Informe um WhatsApp válido com DDD.'
+                        );
+
+                        return;
+                    }
+
+
+                    if (
+                        email
+                        && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                            email
+                        )
+                    ) {
+
+                        showInterestError(
+                            'Informe um e-mail válido ou deixe o campo vazio.'
+                        );
+
+                        return;
+                    }
+
+
+                    // ============================================
+                    // CONTROLE ATUAL
+                    // ============================================
+
+                    const controleAtual =
+                        form.querySelector(
+                            'input[name="controle_atual"]:checked'
+                        )
+                        ?.value
+                        || '';
+
+
+                    // ============================================
+                    // INTERESSES
+                    // ============================================
+
+                    const interesses =
+                        Array.from(
+                            form.querySelectorAll(
+                                'input[name="interesses"]:checked'
+                            )
+                        )
+                        .map(
+                            function (input) {
+                                return input.value;
+                            }
+                        );
+
+
+                    // ============================================
+                    // GA4 • ENVIO DO FORM
+                    // ============================================
+
+                    window.ncTrackEvent?.(
+                        'lead_submit',
+                        {
+                            form_name:
+                                'nouscard_interest',
+
+                            controle_atual:
+                                controleAtual
+                                || 'nao_informado',
+
+                            interesses_count:
+                                interesses.length,
+
+                            has_email:
+                                email
+                                    ? 'sim'
+                                    : 'nao'
+                        }
+                    );
+
+
+                    setInterestLoading(
+                        true
+                    );
+
+
+                    // ============================================
+                    // API
+                    // ============================================
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                '/api/public/leads',
+                                {
+                                    method:
+                                        'POST',
+
+                                    headers: {
+                                        'Content-Type':
+                                            'application/json'
+                                    },
+
+                                    body:
+                                        JSON.stringify({
+                                            nome:
+                                                nome,
+
+                                            empresa:
+                                                empresa,
+
+                                            telefone:
+                                                telefone,
+
+                                            email:
+                                                email,
+
+                                            controle_atual:
+                                                controleAtual,
+
+                                            interesses:
+                                                interesses,
+
+                                            mensagem:
+                                                mensagem,
+
+                                            website:
+                                                website
+                                        })
+                                }
+                            );
+
+
+                        const data =
+                            await response.json();
+
+
+                        if (
+                            !response.ok
+                            || !data.ok
+                        ) {
+
+                            throw new Error(
+                                data.error
+                                || 'Não foi possível registrar seu interesse.'
+                            );
+                        }
+
+
+                        // ========================================
+                        // GA4 • LEAD CONFIRMADO
+                        // ========================================
+
+                        window.ncTrackEvent?.(
+                            'lead_success',
+                            {
+                                form_name:
+                                    'nouscard_interest',
+
+                                controle_atual:
+                                    controleAtual
+                                    || 'nao_informado',
+
+                                interesses_count:
+                                    interesses.length,
+
+                                conversion_source:
+                                    'landing_nouscard'
+                            }
+                        );
+
+
+                        // ========================================
+                        // SUCESSO VISUAL
+                        // ========================================
+
+                        form.style.display =
+                            'none';
+
+
+                        if (success) {
+
+                            success.style.display =
+                                'block';
+                        }
+
+
+                        if (
+                            whatsappButton
+                            && data.whatsapp_url
+                        ) {
+
+                            whatsappButton.href =
+                                data.whatsapp_url;
+                        }
+
+
+                    } catch (error) {
+
+
+                        showInterestError(
+                            error.message
+                            || 'Erro ao enviar. Tente novamente.'
+                        );
+
+
+                    } finally {
+
+
+                        setInterestLoading(
+                            false
+                        );
+                    }
+                }
+            );
+        }
+    );
+
 })();
