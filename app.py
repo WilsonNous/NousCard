@@ -337,11 +337,20 @@ def create_app(config_class=Config):
         
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' "
+            "https://cdn.jsdelivr.net "
+            "https://www.googletagmanager.com "
+            "https://*.googletagmanager.com; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' https: data:; "
             "font-src 'self' data:; "
-            "connect-src 'self' https://cdn.jsdelivr.net;"
+            "connect-src 'self' "
+            "https://cdn.jsdelivr.net "
+            "https://www.googletagmanager.com "
+            "https://*.googletagmanager.com "
+            "https://www.google-analytics.com "
+            "https://*.google-analytics.com "
+            "https://region1.google-analytics.com;"
         )
         
         if request.path.startswith('/api/') or request.path.startswith('/auth/'):
