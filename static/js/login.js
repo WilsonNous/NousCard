@@ -1,28 +1,581 @@
 // ============================================================
+//  NOUSCARD • LANDING / LOGIN / I18N / GA4
+//  PT-BR + EN + origem comercial (?ref=...)
+// ============================================================
+
+(function () {
+    'use strict';
+
+    // ========================================================
+    // TRADUÇÕES
+    // ========================================================
+    const translations = {
+        pt: {
+            document_title: 'NousCard — Gestão simples. Operação organizada. Financeiro sob controle.',
+            meta_description: 'NousCard é uma plataforma da Nous Tecnologia para gestão de clientes, orçamentos, ordens de serviço, financeiro, conciliação e DRE.',
+
+            login_button: 'Entrar',
+            hero_eyebrow: 'GESTÃO PARA PEQUENAS EMPRESAS',
+            hero_title: 'Da proposta ao resultado.<br>Tudo em um só lugar.',
+            hero_lead: 'Clientes, orçamentos, ordens de serviço e financeiro integrados para você acompanhar a operação sem transformar a rotina em burocracia.',
+            cta_know: 'Quero conhecer o NousCard',
+
+            flow_client: '👤 Cliente',
+            flow_quote: '🧾 Orçamento',
+            flow_os: '🛠️ OS',
+            flow_finance: '💰 Financeiro',
+
+            trust_simple_title: 'Simples de usar',
+            trust_simple_text: 'Sem excesso de telas e processos.',
+            trust_integrated_title: 'Visão integrada',
+            trust_integrated_text: 'Gestão e financeiro na mesma plataforma.',
+            trust_grow_title: 'Feito para crescer',
+            trust_grow_text: 'Do primeiro cliente ao controle da operação.',
+
+            features_kicker: 'RECURSOS',
+            features_title: 'O essencial para organizar a empresa',
+            features_lead: 'O NousCard reúne o que pequenas empresas e prestadores de serviço realmente precisam para acompanhar o dia a dia.',
+            feature_clients_title: 'Clientes',
+            feature_clients_text: 'Mantenha contatos, documentos e informações comerciais organizados em uma base única.',
+            feature_quotes_title: 'Orçamentos',
+            feature_quotes_text: 'Crie propostas profissionais, acompanhe status e transforme aprovações em trabalho executável.',
+            feature_os_title: 'Ordens de Serviço',
+            feature_os_text: 'Acompanhe material, agenda, execução, informações técnicas e conclusão dos serviços.',
+            feature_finance_title: 'Financeiro',
+            feature_finance_text: 'Visualize entradas, saídas, fluxo de caixa, conciliação e DRE em uma visão gerencial.',
+
+            mid_kicker: 'COMECE PELO SEU CENÁRIO',
+            mid_title: 'Sua empresa ainda depende de caderno, planilhas ou vários aplicativos?',
+            mid_text: 'Conte rapidamente como você trabalha hoje. A Nous Tecnologia pode mostrar como o NousCard se encaixa na sua operação.',
+            mid_cta: 'Quero ver como funcionaria na minha empresa',
+
+            flow_kicker: 'FLUXO',
+            flow_section_title: 'Do primeiro contato ao resultado',
+            flow_section_text: 'A informação acompanha o processo. Você reduz retrabalho e passa a enxergar comercial, operação e financeiro como partes da mesma empresa.',
+            step1_title: 'Cadastre o cliente',
+            step1_text: 'Centralize os dados que serão utilizados nos próximos passos.',
+            step2_title: 'Monte o orçamento',
+            step2_text: 'Descrição clara, imagens, valores, condições e apresentação profissional.',
+            step3_title: 'Gere a OS',
+            step3_text: 'O orçamento aprovado vira execução sem redigitação desnecessária.',
+            step4_title: 'Acompanhe o resultado',
+            step4_text: 'Conecte a operação aos dados financeiros e à visão gerencial.',
+
+            segments_kicker: 'PARA QUEM É',
+            segments_title: 'Pequenas empresas que precisam trabalhar, não administrar um sistema complicado.',
+            segment_glass: 'Vidraçarias',
+            segment_construction: 'Construção',
+            segment_maintenance: 'Manutenção',
+            segment_hvac: 'Climatização',
+            segment_carpentry: 'Marcenaria',
+            segment_services: 'Prestadores de serviço',
+            segment_retail: 'Pequeno comércio',
+            segment_selfemployed: 'Profissionais autônomos',
+
+            final_title: 'Gestão simples. Operação organizada. Financeiro sob controle.',
+            final_text: 'Uma solução da Nous Tecnologia pensada para transformar informação do dia a dia em visão de negócio.',
+
+            login_kicker: 'ÁREA DO CLIENTE',
+            login_title: 'Acesse sua conta',
+            login_lead: 'Entre com seu e-mail e senha para acessar o NousCard.',
+            email_label: 'E-mail',
+            email_hint: 'Use o e-mail cadastrado no NousCard.',
+            password_label: 'Senha',
+            password_hint: 'Sua senha de acesso ao sistema.',
+            remember_me: 'Lembrar de mim',
+            forgot_password: 'Esqueci minha senha',
+            login_submit: 'Entrar no NousCard',
+            login_security: '🔒 Ambiente seguro • Dados protegidos',
+            no_access_title: 'Ainda não possui acesso?',
+            no_access_text: 'Fale com a Nous Tecnologia para conhecer o NousCard e avaliar a melhor configuração para sua empresa.',
+
+            interest_kicker: 'CONHEÇA O NOUSCARD',
+            interest_title: 'Vamos conhecer sua empresa',
+            interest_lead: 'Leva menos de um minuto. Conte como você trabalha hoje e o que gostaria de organizar.',
+            interest_success_title: 'Recebemos seu interesse!',
+            interest_success_text: 'A Nous Tecnologia poderá entrar em contato para entender sua operação e mostrar como o NousCard pode ajudar.',
+            interest_whatsapp: '💬 Conversar agora pelo WhatsApp',
+            interest_continue: 'Continuar conhecendo o site',
+            form_name_label: 'Seu nome *',
+            form_company_label: 'Empresa *',
+            form_whatsapp_label: 'WhatsApp *',
+            form_control_legend: 'Como você controla sua empresa hoje?',
+            control_notebook: 'Caderno / papel',
+            control_spreadsheets: 'Planilhas',
+            control_system: 'Outro sistema',
+            control_mixed: 'Um pouco de cada',
+            form_interest_legend: 'O que você gostaria de organizar?',
+            form_message_label: 'Quer nos contar algo?',
+            privacy_text: 'Ao enviar, você autoriza a Nous Tecnologia a utilizar esses dados para responder ao seu interesse no NousCard.',
+
+            login_email_placeholder: 'seuemail@empresa.com.br',
+            login_password_placeholder: 'Sua senha',
+            phone_placeholder: '(48) 99999-9999',
+            email_placeholder: 'voce@empresa.com.br',
+            optional_placeholder: 'Opcional',
+
+            validation_required: 'Preencha nome, empresa e WhatsApp.',
+            validation_phone: 'Informe um WhatsApp válido com DDD.',
+            validation_email: 'Informe um e-mail válido ou deixe o campo vazio.',
+            generic_error: 'Erro ao enviar. Tente novamente.'
+        },
+
+        en: {
+            document_title: 'NousCard — Simple management. Organized operations. Financial control.',
+            meta_description: 'NousCard helps small businesses manage customers, quotes, work orders and finances in one simple platform.',
+
+            login_button: 'Sign in',
+            hero_eyebrow: 'MANAGEMENT FOR SMALL BUSINESSES',
+            hero_title: 'From quote to payment.<br>Everything in one place.',
+            hero_lead: 'Customers, quotes, work orders and finances connected so you can run your business without unnecessary complexity.',
+            cta_know: 'Discover NousCard',
+
+            flow_client: '👤 Customer',
+            flow_quote: '🧾 Quote',
+            flow_os: '🛠️ Work Order',
+            flow_finance: '💰 Finance',
+
+            trust_simple_title: 'Simple to use',
+            trust_simple_text: 'No unnecessary screens or complicated processes.',
+            trust_integrated_title: 'Integrated view',
+            trust_integrated_text: 'Operations and finance in the same platform.',
+            trust_grow_title: 'Built to grow',
+            trust_grow_text: 'From your first customer to a more organized operation.',
+
+            features_kicker: 'FEATURES',
+            features_title: 'The essentials to organize your business',
+            features_lead: 'NousCard brings together what small businesses and service providers need to manage everyday operations.',
+            feature_clients_title: 'Customers',
+            feature_clients_text: 'Keep contacts, documents and business information organized in one place.',
+            feature_quotes_title: 'Quotes',
+            feature_quotes_text: 'Create professional quotes, track status and turn approvals into actionable work.',
+            feature_os_title: 'Work Orders',
+            feature_os_text: 'Track materials, schedules, execution details and service completion.',
+            feature_finance_title: 'Finance',
+            feature_finance_text: 'Track money in and out, cash flow, reconciliation and management results.',
+
+            mid_kicker: 'START WITH YOUR REALITY',
+            mid_title: 'Still running your business with notebooks, spreadsheets and scattered apps?',
+            mid_text: 'Tell us how you work today. Nous Tecnologia can show you how NousCard may fit your operation.',
+            mid_cta: 'Show me how it could work for my business',
+
+            flow_kicker: 'WORKFLOW',
+            flow_section_title: 'From first contact to business results',
+            flow_section_text: 'Information follows the process, reducing rework and connecting sales, operations and finance.',
+            step1_title: 'Add your customer',
+            step1_text: 'Centralize the information you will use throughout the workflow.',
+            step2_title: 'Create the quote',
+            step2_text: 'Clear descriptions, images, pricing, terms and a professional presentation.',
+            step3_title: 'Create the work order',
+            step3_text: 'Turn approved quotes into execution without unnecessary retyping.',
+            step4_title: 'Track the result',
+            step4_text: 'Connect operations with financial information and management insight.',
+
+            segments_kicker: 'WHO IT IS FOR',
+            segments_title: 'Small businesses that need to work — not spend the day managing complicated software.',
+            segment_glass: 'Glass services',
+            segment_construction: 'Construction',
+            segment_maintenance: 'Maintenance',
+            segment_hvac: 'HVAC',
+            segment_carpentry: 'Carpentry',
+            segment_services: 'Service providers',
+            segment_retail: 'Small retail',
+            segment_selfemployed: 'Self-employed professionals',
+
+            final_title: 'Simple management. Organized operations. Financial control.',
+            final_text: 'A Nous Tecnologia solution designed to turn everyday information into clearer business decisions.',
+
+            login_kicker: 'CLIENT AREA',
+            login_title: 'Sign in to your account',
+            login_lead: 'Use your email and password to access NousCard.',
+            email_label: 'Email',
+            email_hint: 'Use the email registered with NousCard.',
+            password_label: 'Password',
+            password_hint: 'Your NousCard access password.',
+            remember_me: 'Remember me',
+            forgot_password: 'Forgot your password?',
+            login_submit: 'Sign in to NousCard',
+            login_security: '🔒 Secure environment • Protected data',
+            no_access_title: 'Do not have access yet?',
+            no_access_text: 'Contact Nous Tecnologia to discover NousCard and find the right setup for your business.',
+
+            interest_kicker: 'DISCOVER NOUSCARD',
+            interest_title: 'Tell us about your business',
+            interest_lead: 'It takes less than a minute. Tell us how you work today and what you would like to organize.',
+            interest_success_title: 'We received your request!',
+            interest_success_text: 'Nous Tecnologia may contact you to understand your operation and show how NousCard can help.',
+            interest_whatsapp: '💬 Talk to us on WhatsApp',
+            interest_continue: 'Continue exploring the website',
+            form_name_label: 'Your name *',
+            form_company_label: 'Company *',
+            form_whatsapp_label: 'WhatsApp / Phone *',
+            form_control_legend: 'How do you manage your business today?',
+            control_notebook: 'Notebook / paper',
+            control_spreadsheets: 'Spreadsheets',
+            control_system: 'Another system',
+            control_mixed: 'A mix of these',
+            form_interest_legend: 'What would you like to organize?',
+            form_message_label: 'Anything else you would like to tell us?',
+            privacy_text: 'By submitting, you authorize Nous Tecnologia to use this information to respond to your interest in NousCard.',
+
+            login_email_placeholder: 'you@company.com',
+            login_password_placeholder: 'Your password',
+            phone_placeholder: '+351 912 345 678',
+            email_placeholder: 'you@company.com',
+            optional_placeholder: 'Optional',
+
+            validation_required: 'Please enter your name, company and phone number.',
+            validation_phone: 'Please enter a valid phone number with country code.',
+            validation_email: 'Please enter a valid email address or leave the field blank.',
+            generic_error: 'Unable to send. Please try again.'
+        }
+    };
+
+    // ========================================================
+    // HELPERS DE IDIOMA / ORIGEM
+    // ========================================================
+    function getReferralSource() {
+        const params = new URLSearchParams(window.location.search);
+
+        return (params.get('ref') || 'direct')
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, '')
+            .slice(0, 60) || 'direct';
+    }
+
+    function getInitialLanguage() {
+        const params = new URLSearchParams(window.location.search);
+        const queryLang = (params.get('lang') || '').toLowerCase();
+
+        if (queryLang === 'pt' || queryLang === 'en') {
+            return queryLang;
+        }
+
+        const saved = localStorage.getItem('nouscard_lang');
+
+        return saved === 'en' ? 'en' : 'pt';
+    }
+
+    function t(key) {
+        const lang = window.NOUSCARD_LANG || 'pt';
+
+        return translations[lang]?.[key]
+            ?? translations.pt[key]
+            ?? key;
+    }
+
+    function setText(selector, value) {
+        const el = document.querySelector(selector);
+
+        if (el && value !== undefined) {
+            el.textContent = value;
+        }
+    }
+
+    function applyLanguage(lang, track = true) {
+        const dict = translations[lang] || translations.pt;
+
+        window.NOUSCARD_LANG = lang;
+
+        document.documentElement.lang =
+            lang === 'en'
+                ? 'en'
+                : 'pt-BR';
+
+        // Elementos marcados no HTML
+        document
+            .querySelectorAll('[data-i18n]')
+            .forEach(function (el) {
+                const key = el.dataset.i18n;
+
+                if (dict[key] !== undefined) {
+                    el.textContent = dict[key];
+                }
+            });
+
+        document
+            .querySelectorAll('[data-i18n-html]')
+            .forEach(function (el) {
+                const key = el.dataset.i18nHtml;
+
+                if (dict[key] !== undefined) {
+                    el.innerHTML = dict[key];
+                }
+            });
+
+        document
+            .querySelectorAll('[data-i18n-placeholder]')
+            .forEach(function (el) {
+                const key = el.dataset.i18nPlaceholder;
+
+                if (dict[key] !== undefined) {
+                    el.placeholder = dict[key];
+                }
+            });
+
+        // Textos que não dependem de data-i18n no HTML
+        setText(
+            '.nc-hero-lead',
+            dict.hero_lead
+        );
+
+        setText(
+            '#recursos .nc-section-heading p',
+            dict.features_lead
+        );
+
+        setText(
+            '.nc-feature-card:nth-child(1) p',
+            dict.feature_clients_text
+        );
+
+        setText(
+            '.nc-feature-card:nth-child(2) p',
+            dict.feature_quotes_text
+        );
+
+        setText(
+            '.nc-feature-card:nth-child(3) p',
+            dict.feature_os_text
+        );
+
+        setText(
+            '.nc-feature-card:nth-child(4) p',
+            dict.feature_finance_text
+        );
+
+        setText(
+            '.nc-public-mid-cta p',
+            dict.mid_text
+        );
+
+        setText(
+            '.nc-public-section-soft .nc-section-heading p',
+            dict.flow_section_text
+        );
+
+        setText(
+            '.nc-public-cta p',
+            dict.final_text
+        );
+
+        setText(
+            '.nc-login-panel-lead',
+            dict.login_lead
+        );
+
+        setText(
+            '#email-hint',
+            dict.email_hint
+        );
+
+        setText(
+            '#senha-hint',
+            dict.password_hint
+        );
+
+        setText(
+            '.nc-login-security',
+            dict.login_security
+        );
+
+        setText(
+            '.nc-login-help p',
+            dict.no_access_text
+        );
+
+        setText(
+            '#interestSuccess p',
+            dict.interest_success_text
+        );
+
+        setText(
+            '#interestWhatsapp',
+            dict.interest_whatsapp
+        );
+
+        setText(
+            '.nc-interest-privacy',
+            dict.privacy_text
+        );
+
+        // Título e meta
+        document.title =
+            dict.document_title;
+
+        const meta =
+            document.querySelector(
+                'meta[name="description"]'
+            );
+
+        if (meta) {
+            meta.content =
+                dict.meta_description;
+        }
+
+        // Estado visual PT/EN
+        document
+            .querySelectorAll('[data-lang-switch]')
+            .forEach(function (btn) {
+                const active =
+                    btn.dataset.langSwitch === lang;
+
+                btn.style.background =
+                    active
+                        ? 'rgba(255,255,255,.14)'
+                        : 'transparent';
+
+                btn.setAttribute(
+                    'aria-pressed',
+                    active
+                        ? 'true'
+                        : 'false'
+                );
+            });
+
+        const hiddenLang =
+            document.getElementById(
+                'landing_language'
+            );
+
+        if (hiddenLang) {
+            hiddenLang.value =
+                lang;
+        }
+
+        localStorage.setItem(
+            'nouscard_lang',
+            lang
+        );
+
+        if (
+            track
+            && typeof window.ncTrackEvent === 'function'
+        ) {
+            window.ncTrackEvent(
+                'language_change',
+                {
+                    landing_language:
+                        lang,
+
+                    referral_source:
+                        window.NOUSCARD_REF
+                        || 'direct'
+                }
+            );
+        }
+    }
+
+    window.NOUSCARD_REF =
+        getReferralSource();
+
+    window.NOUSCARD_LANG =
+        getInitialLanguage();
+
+    window.ncI18n = {
+        t,
+        applyLanguage
+    };
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        function () {
+            const hiddenRef =
+                document.getElementById(
+                    'referral_source'
+                );
+
+            if (hiddenRef) {
+                hiddenRef.value =
+                    window.NOUSCARD_REF;
+            }
+
+            applyLanguage(
+                window.NOUSCARD_LANG,
+                false
+            );
+
+            document
+                .querySelectorAll(
+                    '[data-lang-switch]'
+                )
+                .forEach(
+                    function (btn) {
+                        btn.addEventListener(
+                            'click',
+                            function () {
+                                const lang =
+                                    btn.dataset.langSwitch;
+
+                                applyLanguage(
+                                    lang,
+                                    true
+                                );
+
+                                const url =
+                                    new URL(
+                                        window.location.href
+                                    );
+
+                                url.searchParams.set(
+                                    'lang',
+                                    lang
+                                );
+
+                                history.replaceState(
+                                    {},
+                                    '',
+                                    url.toString()
+                                );
+                            }
+                        );
+                    }
+                );
+        }
+    );
+})();
+
+
+// ============================================================
 //  GOOGLE ANALYTICS 4 • FUNIL COMERCIAL
 // ============================================================
 
 (function () {
     'use strict';
 
-    /**
-     * Envia eventos para o GA4 sem quebrar a experiência
-     * caso o Analytics esteja indisponível.
-     *
-     * IMPORTANTE:
-     * Não enviamos nome, e-mail, telefone ou empresa ao GA4.
-     */
-    window.ncTrackEvent = function (eventName, params = {}) {
+    window.ncTrackEvent = function (
+        eventName,
+        params = {}
+    ) {
         try {
-            if (typeof window.gtag !== 'function') {
+            if (
+                typeof window.gtag
+                !== 'function'
+            ) {
                 return;
             }
 
-            window.gtag('event', eventName, {
-                page_path: window.location.pathname,
-                page_location: window.location.href,
-                ...params
-            });
+            window.gtag(
+                'event',
+                eventName,
+                {
+                    page_path:
+                        window.location.pathname,
+
+                    page_location:
+                        window.location.href,
+
+                    landing_language:
+                        window.NOUSCARD_LANG
+                        || 'pt',
+
+                    referral_source:
+                        window.NOUSCARD_REF
+                        || 'direct',
+
+                    ...params
+                }
+            );
 
         } catch (error) {
             console.warn(
@@ -32,13 +585,11 @@
             );
         }
     };
-
 })();
 
 
 // ============================================================
-//  LOGIN • NousCard
-//  Landing pública + painel lateral de autenticação
+//  LOGIN • PAINEL LATERAL
 // ============================================================
 
 (function () {
@@ -54,52 +605,59 @@
         email: '#email',
         password: '#senha',
         passwordToggle: '#toggleSenha',
-        submit: '#btn-login',
-        globalError: '#login-error'
+        submit: '#btn-login'
     };
 
     let lastFocusedElement = null;
 
+    const qs =
+        selector =>
+            document.querySelector(
+                selector
+            );
 
-    // ========================================================
-    // HELPERS
-    // ========================================================
+    const qsa =
+        selector =>
+            Array.from(
+                document.querySelectorAll(
+                    selector
+                )
+            );
 
-    function qs(selector) {
-        return document.querySelector(selector);
-    }
+    const isValidEmail =
+        email =>
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                email
+            );
 
-
-    function qsa(selector) {
-        return Array.from(
-            document.querySelectorAll(selector)
-        );
-    }
-
-
-    function isValidEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    }
-
-
-    // ========================================================
-    // ABRIR PAINEL LOGIN
-    // ========================================================
 
     function openPanel() {
+        const panel =
+            qs(selectors.panel);
 
-        const panel = qs(selectors.panel);
-        const overlay = qs(selectors.overlay);
-        const openButton = qs(selectors.openButton);
+        const overlay =
+            qs(selectors.overlay);
 
-        if (!panel || !overlay) {
+        const openButton =
+            qs(selectors.openButton);
+
+        if (
+            !panel
+            || !overlay
+        ) {
             return;
         }
 
-        lastFocusedElement = document.activeElement;
+        lastFocusedElement =
+            document.activeElement;
 
-        panel.classList.add('open');
-        overlay.classList.add('open');
+        panel.classList.add(
+            'open'
+        );
+
+        overlay.classList.add(
+            'open'
+        );
 
         panel.setAttribute(
             'aria-hidden',
@@ -111,44 +669,49 @@
             'false'
         );
 
-        if (openButton) {
-            openButton.setAttribute(
-                'aria-expanded',
-                'true'
-            );
-        }
+        openButton?.setAttribute(
+            'aria-expanded',
+            'true'
+        );
 
         document.body.classList.add(
             'login-panel-open'
         );
 
-        const email = qs(selectors.email);
-
-        if (email) {
-            window.setTimeout(
-                () => email.focus(),
-                160
-            );
-        }
+        window.setTimeout(
+            () =>
+                qs(
+                    selectors.email
+                )?.focus(),
+            160
+        );
     }
 
 
-    // ========================================================
-    // FECHAR PAINEL LOGIN
-    // ========================================================
-
     function closePanel() {
+        const panel =
+            qs(selectors.panel);
 
-        const panel = qs(selectors.panel);
-        const overlay = qs(selectors.overlay);
-        const openButton = qs(selectors.openButton);
+        const overlay =
+            qs(selectors.overlay);
 
-        if (!panel || !overlay) {
+        const openButton =
+            qs(selectors.openButton);
+
+        if (
+            !panel
+            || !overlay
+        ) {
             return;
         }
 
-        panel.classList.remove('open');
-        overlay.classList.remove('open');
+        panel.classList.remove(
+            'open'
+        );
+
+        overlay.classList.remove(
+            'open'
+        );
 
         panel.setAttribute(
             'aria-hidden',
@@ -160,12 +723,10 @@
             'true'
         );
 
-        if (openButton) {
-            openButton.setAttribute(
-                'aria-expanded',
-                'false'
-            );
-        }
+        openButton?.setAttribute(
+            'aria-expanded',
+            'false'
+        );
 
         document.body.classList.remove(
             'login-panel-open'
@@ -173,19 +734,18 @@
 
         if (
             lastFocusedElement
-            && typeof lastFocusedElement.focus === 'function'
+            && typeof lastFocusedElement.focus
+            === 'function'
         ) {
             lastFocusedElement.focus();
         }
     }
 
 
-    // ========================================================
-    // ERROS DE CAMPO
-    // ========================================================
-
-    function showFieldError(input, message) {
-
+    function showFieldError(
+        input,
+        message
+    ) {
         if (!input) {
             return;
         }
@@ -195,19 +755,24 @@
             'true'
         );
 
-        const error = document.getElementById(
-            `${input.id}-error`
-        );
+        const error =
+            document.getElementById(
+                `${input.id}-error`
+            );
 
         if (error) {
-            error.textContent = message;
-            error.style.display = 'block';
+            error.textContent =
+                message;
+
+            error.style.display =
+                'block';
         }
     }
 
 
-    function clearFieldError(input) {
-
+    function clearFieldError(
+        input
+    ) {
         if (!input) {
             return;
         }
@@ -217,134 +782,131 @@
             'false'
         );
 
-        const error = document.getElementById(
-            `${input.id}-error`
-        );
+        const error =
+            document.getElementById(
+                `${input.id}-error`
+            );
 
         if (error) {
-            error.textContent = '';
-            error.style.display = 'none';
+            error.textContent =
+                '';
+
+            error.style.display =
+                'none';
         }
     }
 
 
-    // ========================================================
-    // LOADING LOGIN
-    // ========================================================
-
-    function setLoading(isLoading) {
-
-        const button = qs(selectors.submit);
+    function setLoading(
+        isLoading
+    ) {
+        const button =
+            qs(selectors.submit);
 
         if (!button) {
             return;
         }
 
-        const text = button.querySelector(
-            '.btn-text'
-        );
+        const text =
+            button.querySelector(
+                '.btn-text'
+            );
 
-        const loading = button.querySelector(
-            '.btn-loading'
-        );
+        const loading =
+            button.querySelector(
+                '.btn-loading'
+            );
 
-        button.disabled = isLoading;
+        button.disabled =
+            isLoading;
 
         button.setAttribute(
             'aria-busy',
-            isLoading ? 'true' : 'false'
+            isLoading
+                ? 'true'
+                : 'false'
         );
 
         if (text) {
             text.style.display =
-                isLoading ? 'none' : 'inline';
+                isLoading
+                    ? 'none'
+                    : 'inline';
         }
 
         if (loading) {
             loading.style.display =
-                isLoading ? 'inline-flex' : 'none';
+                isLoading
+                    ? 'inline-flex'
+                    : 'none';
         }
     }
 
 
-    // ========================================================
-    // EVENTOS PAINEL LOGIN
-    // ========================================================
-
     function setupPanel() {
+        const openButton =
+            qs(selectors.openButton);
 
-        const openButton = qs(
-            selectors.openButton
+        const closeButton =
+            qs(selectors.closeButton);
+
+        const overlay =
+            qs(selectors.overlay);
+
+        const panel =
+            qs(selectors.panel);
+
+
+        openButton?.addEventListener(
+            'click',
+            function () {
+                window.ncTrackEvent?.(
+                    'login_click',
+                    {
+                        source:
+                            'header'
+                    }
+                );
+
+                openPanel();
+            }
         );
-
-        const closeButton = qs(
-            selectors.closeButton
-        );
-
-        const overlay = qs(
-            selectors.overlay
-        );
-
-        const panel = qs(
-            selectors.panel
-        );
-
-
-        if (openButton) {
-
-            openButton.addEventListener(
-                'click',
-                function () {
-
-                    window.ncTrackEvent?.(
-                        'login_click',
-                        {
-                            source: 'header'
-                        }
-                    );
-
-                    openPanel();
-                }
-            );
-        }
 
 
         qsa(
             selectors.openLinks
-        ).forEach(button => {
-
-            button.addEventListener(
-                'click',
-                openPanel
-            );
-        });
-
-
-        if (closeButton) {
-
-            closeButton.addEventListener(
-                'click',
-                closePanel
-            );
-        }
+        ).forEach(
+            button =>
+                button.addEventListener(
+                    'click',
+                    openPanel
+                )
+        );
 
 
-        if (overlay) {
+        closeButton?.addEventListener(
+            'click',
+            closePanel
+        );
 
-            overlay.addEventListener(
-                'click',
-                closePanel
-            );
-        }
+
+        overlay?.addEventListener(
+            'click',
+            closePanel
+        );
 
 
         document.addEventListener(
             'keydown',
             event => {
-
                 if (
-                    event.key === 'Escape'
-                    && panel?.classList.contains('open')
+                    event.key
+                    === 'Escape'
+                    && panel
+                        ?.classList
+                        .contains(
+                            'open'
+                        )
                 ) {
                     closePanel();
                 }
@@ -353,66 +915,61 @@
 
 
         if (
-            panel?.classList.contains('open')
+            panel
+                ?.classList
+                .contains(
+                    'open'
+                )
         ) {
-
             document.body.classList.add(
                 'login-panel-open'
             );
 
-            const email = qs(
-                selectors.email
+            window.setTimeout(
+                () =>
+                    qs(
+                        selectors.email
+                    )?.focus(),
+                120
             );
-
-            if (email) {
-
-                window.setTimeout(
-                    () => email.focus(),
-                    120
-                );
-            }
         }
     }
 
 
-    // ========================================================
-    // MOSTRAR / OCULTAR SENHA
-    // ========================================================
-
     function setupPasswordToggle() {
+        const button =
+            qs(
+                selectors.passwordToggle
+            );
 
-        const button = qs(
-            selectors.passwordToggle
-        );
+        const password =
+            qs(
+                selectors.password
+            );
 
-        const password = qs(
-            selectors.password
-        );
-
-        if (!button || !password) {
+        if (
+            !button
+            || !password
+        ) {
             return;
         }
-
 
         button.addEventListener(
             'click',
             () => {
-
                 const show =
-                    password.type === 'password';
-
+                    password.type
+                    === 'password';
 
                 password.type =
                     show
                         ? 'text'
                         : 'password';
 
-
                 button.textContent =
                     show
                         ? '🙈'
                         : '👁️';
-
 
                 button.setAttribute(
                     'aria-label',
@@ -421,31 +978,21 @@
                         : 'Mostrar senha'
                 );
 
-
                 password.focus();
             }
         );
     }
 
 
-    // ========================================================
-    // VALIDAÇÃO LOGIN
-    // ========================================================
-
     function setupValidation() {
+        const form =
+            qs(selectors.form);
 
-        const form = qs(
-            selectors.form
-        );
+        const email =
+            qs(selectors.email);
 
-        const email = qs(
-            selectors.email
-        );
-
-        const password = qs(
-            selectors.password
-        );
-
+        const password =
+            qs(selectors.password);
 
         if (
             !form
@@ -458,32 +1005,41 @@
 
         email.addEventListener(
             'input',
-            () => clearFieldError(email)
+            () =>
+                clearFieldError(
+                    email
+                )
         );
 
 
         password.addEventListener(
             'input',
-            () => clearFieldError(password)
+            () =>
+                clearFieldError(
+                    password
+                )
         );
 
 
         email.addEventListener(
             'blur',
             () => {
-
                 const value =
                     email.value.trim();
 
-
                 if (
                     value
-                    && !isValidEmail(value)
+                    && !isValidEmail(
+                        value
+                    )
                 ) {
-
                     showFieldError(
                         email,
-                        'Digite um e-mail válido.'
+
+                        window.NOUSCARD_LANG
+                        === 'en'
+                            ? 'Enter a valid email address.'
+                            : 'Digite um e-mail válido.'
                     );
                 }
             }
@@ -493,97 +1049,101 @@
         form.addEventListener(
             'submit',
             event => {
-
-                let valid = true;
-
+                let valid =
+                    true;
 
                 const emailValue =
                     email.value.trim();
-
 
                 const passwordValue =
                     password.value;
 
 
-                clearFieldError(email);
-                clearFieldError(password);
+                clearFieldError(
+                    email
+                );
+
+                clearFieldError(
+                    password
+                );
 
 
                 if (!emailValue) {
-
                     showFieldError(
                         email,
-                        'E-mail é obrigatório.'
+
+                        window.NOUSCARD_LANG
+                        === 'en'
+                            ? 'Email is required.'
+                            : 'E-mail é obrigatório.'
                     );
 
-                    valid = false;
+                    valid =
+                        false;
 
                 } else if (
-                    !isValidEmail(emailValue)
+                    !isValidEmail(
+                        emailValue
+                    )
                 ) {
-
                     showFieldError(
                         email,
-                        'Digite um e-mail válido.'
+
+                        window.NOUSCARD_LANG
+                        === 'en'
+                            ? 'Enter a valid email address.'
+                            : 'Digite um e-mail válido.'
                     );
 
-                    valid = false;
+                    valid =
+                        false;
                 }
 
 
                 if (!passwordValue) {
-
                     showFieldError(
                         password,
-                        'Senha é obrigatória.'
+
+                        window.NOUSCARD_LANG
+                        === 'en'
+                            ? 'Password is required.'
+                            : 'Senha é obrigatória.'
                     );
 
-                    valid = false;
+                    valid =
+                        false;
                 }
 
 
                 if (!valid) {
-
                     event.preventDefault();
 
                     openPanel();
 
-
-                    if (
+                    (
                         !emailValue
-                        || !isValidEmail(emailValue)
-                    ) {
-
-                        email.focus();
-
-                    } else {
-
-                        password.focus();
-                    }
+                        || !isValidEmail(
+                            emailValue
+                        )
+                            ? email
+                            : password
+                    ).focus();
 
                     return;
                 }
 
 
-                /*
-                 * O login continua usando POST normal.
-                 * Não usamos fetch aqui.
-                 */
-
-                setLoading(true);
+                setLoading(
+                    true
+                );
             }
         );
     }
 
 
-    // ========================================================
-    // INICIALIZAÇÃO LOGIN
-    // ========================================================
-
     document.addEventListener(
         'DOMContentLoaded',
         () => {
-
             setupPanel();
 
             setupPasswordToggle();
@@ -591,7 +1151,6 @@
             setupValidation();
         }
     );
-
 })();
 
 
@@ -602,61 +1161,53 @@
 (function () {
     'use strict';
 
-
     document.addEventListener(
         'DOMContentLoaded',
         function () {
-
-
-            // ====================================================
-            // ELEMENTOS
-            // ====================================================
 
             const panel =
                 document.getElementById(
                     'interestPanel'
                 );
 
-
             const overlay =
                 document.getElementById(
                     'interestOverlay'
                 );
-
 
             const closeButton =
                 document.getElementById(
                     'closeInterestPanel'
                 );
 
-
             const form =
                 document.getElementById(
                     'interestForm'
                 );
-
 
             const success =
                 document.getElementById(
                     'interestSuccess'
                 );
 
-
             const errorBox =
                 document.getElementById(
                     'interestError'
                 );
-
 
             const submitButton =
                 document.getElementById(
                     'interestSubmit'
                 );
 
-
             const whatsappButton =
                 document.getElementById(
                     'interestWhatsapp'
+                );
+
+            const phoneInput =
+                document.getElementById(
+                    'interest_telefone'
                 );
 
 
@@ -669,24 +1220,26 @@
             }
 
 
-            let lastFocusedElement = null;
+            let lastFocusedElement =
+                null;
 
-            let leadFormStarted = false;
+            let leadFormStarted =
+                false;
 
 
             // ====================================================
-            // GA4 • INÍCIO DO FORMULÁRIO
+            // GA4 • PRIMEIRA INTERAÇÃO REAL NO FORM
             // ====================================================
 
             function trackLeadFormStart() {
-
-                if (leadFormStarted) {
+                if (
+                    leadFormStarted
+                ) {
                     return;
                 }
 
-
-                leadFormStarted = true;
-
+                leadFormStarted =
+                    true;
 
                 window.ncTrackEvent?.(
                     'lead_form_start',
@@ -698,15 +1251,9 @@
             }
 
 
-            /*
-             * O foco automático no campo Nome
-             * não conta como início do formulário.
-             */
-
             form.addEventListener(
                 'input',
                 function (event) {
-
                     if (
                         event.target?.name
                         !== 'website'
@@ -720,7 +1267,6 @@
             form.addEventListener(
                 'change',
                 function (event) {
-
                     if (
                         event.target?.name
                         !== 'website'
@@ -732,26 +1278,22 @@
 
 
             // ====================================================
-            // ABRIR PAINEL COMERCIAL
+            // ABRIR / FECHAR PAINEL
             // ====================================================
 
             function openInterestPanel() {
-
                 lastFocusedElement =
                     document.activeElement;
 
-
-                /*
-                 * Evitar painel de Login
-                 * e painel Comercial abertos juntos.
-                 */
 
                 document
                     .getElementById(
                         'loginPanel'
                     )
                     ?.classList
-                    .remove('open');
+                    .remove(
+                        'open'
+                    );
 
 
                 document
@@ -759,13 +1301,14 @@
                         'loginOverlay'
                     )
                     ?.classList
-                    .remove('open');
+                    .remove(
+                        'open'
+                    );
 
 
                 panel.classList.add(
                     'open'
                 );
-
 
                 overlay.classList.add(
                     'open'
@@ -776,7 +1319,6 @@
                     'aria-hidden',
                     'false'
                 );
-
 
                 overlay.setAttribute(
                     'aria-hidden',
@@ -790,30 +1332,21 @@
 
 
                 window.setTimeout(
-                    function () {
-
+                    () =>
                         document
                             .getElementById(
                                 'interest_nome'
                             )
-                            ?.focus();
-
-                    },
+                            ?.focus(),
                     140
                 );
             }
 
 
-            // ====================================================
-            // FECHAR PAINEL COMERCIAL
-            // ====================================================
-
             function closeInterestPanel() {
-
                 panel.classList.remove(
                     'open'
                 );
-
 
                 overlay.classList.remove(
                     'open'
@@ -824,7 +1357,6 @@
                     'aria-hidden',
                     'true'
                 );
-
 
                 overlay.setAttribute(
                     'aria-hidden',
@@ -842,14 +1374,13 @@
                     && typeof lastFocusedElement.focus
                     === 'function'
                 ) {
-
                     lastFocusedElement.focus();
                 }
             }
 
 
             // ====================================================
-            // CTAs • QUERO CONHECER
+            // CTAs
             // ====================================================
 
             document
@@ -888,17 +1419,12 @@
                 );
 
 
-            // ====================================================
-            // FECHAR PAINEL
-            // ====================================================
-
             document
                 .querySelectorAll(
                     '[data-close-interest]'
                 )
                 .forEach(
                     function (element) {
-
                         element.addEventListener(
                             'click',
                             closeInterestPanel
@@ -924,12 +1450,14 @@
                 function (event) {
 
                     if (
-                        event.key === 'Escape'
-                        && panel.classList.contains(
-                            'open'
-                        )
+                        event.key
+                        === 'Escape'
+                        && panel
+                            .classList
+                            .contains(
+                                'open'
+                            )
                     ) {
-
                         closeInterestPanel();
                     }
                 }
@@ -937,27 +1465,25 @@
 
 
             // ====================================================
-            // LOADING FORM COMERCIAL
+            // LOADING / ERROS
             // ====================================================
 
             function setInterestLoading(
                 isLoading
             ) {
-
-                if (!submitButton) {
+                if (
+                    !submitButton
+                ) {
                     return;
                 }
 
-
                 submitButton.disabled =
                     isLoading;
-
 
                 const text =
                     submitButton.querySelector(
                         '.btn-text'
                     );
-
 
                 const loading =
                     submitButton.querySelector(
@@ -966,16 +1492,13 @@
 
 
                 if (text) {
-
                     text.style.display =
                         isLoading
                             ? 'none'
                             : 'inline';
                 }
 
-
                 if (loading) {
-
                     loading.style.display =
                         isLoading
                             ? 'inline-flex'
@@ -984,22 +1507,17 @@
             }
 
 
-            // ====================================================
-            // ERRO FORM COMERCIAL
-            // ====================================================
-
             function showInterestError(
                 message
             ) {
-
-                if (!errorBox) {
+                if (
+                    !errorBox
+                ) {
                     return;
                 }
 
-
                 errorBox.textContent =
                     message;
-
 
                 errorBox.style.display =
                     'flex';
@@ -1007,15 +1525,14 @@
 
 
             function clearInterestError() {
-
-                if (!errorBox) {
+                if (
+                    !errorBox
+                ) {
                     return;
                 }
 
-
                 errorBox.textContent =
                     '';
-
 
                 errorBox.style.display =
                     'none';
@@ -1023,18 +1540,36 @@
 
 
             // ====================================================
-            // MÁSCARA WHATSAPP
+            // TELEFONE
+            // PT = máscara brasileira
+            // EN = formato internacional
             // ====================================================
-
-            const phoneInput =
-                document.getElementById(
-                    'interest_telefone'
-                );
-
 
             phoneInput?.addEventListener(
                 'input',
                 function () {
+
+                    if (
+                        (
+                            window.NOUSCARD_LANG
+                            || 'pt'
+                        )
+                        === 'en'
+                    ) {
+                        this.value =
+                            this.value
+                                .replace(
+                                    /[^\d+\s().-]/g,
+                                    ''
+                                )
+                                .slice(
+                                    0,
+                                    24
+                                );
+
+                        return;
+                    }
+
 
                     let value =
                         this.value
@@ -1051,7 +1586,6 @@
                     if (
                         value.length > 10
                     ) {
-
                         value =
                             value.replace(
                                 /^(\d{2})(\d{5})(\d{4})$/,
@@ -1061,7 +1595,6 @@
                     } else if (
                         value.length > 6
                     ) {
-
                         value =
                             value.replace(
                                 /^(\d{2})(\d{4})(\d{0,4})$/,
@@ -1071,7 +1604,6 @@
                     } else if (
                         value.length > 2
                     ) {
-
                         value =
                             value.replace(
                                 /^(\d{2})(\d+)$/,
@@ -1081,7 +1613,6 @@
                     } else if (
                         value.length
                     ) {
-
                         value =
                             value.replace(
                                 /^(\d{0,2})$/,
@@ -1102,18 +1633,14 @@
 
             form.addEventListener(
                 'submit',
-                async function (event) {
-
+                async function (
+                    event
+                ) {
 
                     event.preventDefault();
 
-
                     clearInterestError();
 
-
-                    // ============================================
-                    // DADOS
-                    // ============================================
 
                     const nome =
                         document
@@ -1175,7 +1702,7 @@
 
 
                     // ============================================
-                    // VALIDAÇÃO
+                    // VALIDAÇÕES
                     // ============================================
 
                     if (
@@ -1183,9 +1710,12 @@
                         || !empresa
                         || !telefone
                     ) {
-
                         showInterestError(
-                            'Preencha nome, empresa e WhatsApp.'
+                            window
+                                .ncI18n
+                                .t(
+                                    'validation_required'
+                                )
                         );
 
                         return;
@@ -1199,12 +1729,26 @@
                         );
 
 
-                    if (
-                        phoneDigits.length < 10
-                    ) {
+                    const minPhoneDigits =
+                        (
+                            window.NOUSCARD_LANG
+                            || 'pt'
+                        )
+                        === 'en'
+                            ? 8
+                            : 10;
 
+
+                    if (
+                        phoneDigits.length
+                        < minPhoneDigits
+                    ) {
                         showInterestError(
-                            'Informe um WhatsApp válido com DDD.'
+                            window
+                                .ncI18n
+                                .t(
+                                    'validation_phone'
+                                )
                         );
 
                         return;
@@ -1217,9 +1761,12 @@
                             email
                         )
                     ) {
-
                         showInterestError(
-                            'Informe um e-mail válido ou deixe o campo vazio.'
+                            window
+                                .ncI18n
+                                .t(
+                                    'validation_email'
+                                )
                         );
 
                         return;
@@ -1227,36 +1774,33 @@
 
 
                     // ============================================
-                    // CONTROLE ATUAL
+                    // DADOS COMERCIAIS
                     // ============================================
 
                     const controleAtual =
-                        form.querySelector(
-                            'input[name="controle_atual"]:checked'
-                        )
-                        ?.value
+                        form
+                            .querySelector(
+                                'input[name="controle_atual"]:checked'
+                            )
+                            ?.value
                         || '';
 
 
-                    // ============================================
-                    // INTERESSES
-                    // ============================================
-
                     const interesses =
                         Array.from(
-                            form.querySelectorAll(
-                                'input[name="interesses"]:checked'
-                            )
+                            form
+                                .querySelectorAll(
+                                    'input[name="interesses"]:checked'
+                                )
                         )
                         .map(
-                            function (input) {
-                                return input.value;
-                            }
+                            input =>
+                                input.value
                         );
 
 
                     // ============================================
-                    // GA4 • ENVIO DO FORM
+                    // GA4
                     // ============================================
 
                     window.ncTrackEvent?.(
@@ -1305,29 +1849,25 @@
 
                                     body:
                                         JSON.stringify({
-                                            nome:
-                                                nome,
-
-                                            empresa:
-                                                empresa,
-
-                                            telefone:
-                                                telefone,
-
-                                            email:
-                                                email,
+                                            nome,
+                                            empresa,
+                                            telefone,
+                                            email,
 
                                             controle_atual:
                                                 controleAtual,
 
-                                            interesses:
-                                                interesses,
+                                            interesses,
+                                            mensagem,
+                                            website,
 
-                                            mensagem:
-                                                mensagem,
+                                            landing_language:
+                                                window.NOUSCARD_LANG
+                                                || 'pt',
 
-                                            website:
-                                                website
+                                            referral_source:
+                                                window.NOUSCARD_REF
+                                                || 'direct'
                                         })
                                 }
                             );
@@ -1341,16 +1881,19 @@
                             !response.ok
                             || !data.ok
                         ) {
-
                             throw new Error(
                                 data.error
-                                || 'Não foi possível registrar seu interesse.'
+                                || window
+                                    .ncI18n
+                                    .t(
+                                        'generic_error'
+                                    )
                             );
                         }
 
 
                         // ========================================
-                        // GA4 • LEAD CONFIRMADO
+                        // LEAD CONFIRMADO
                         // ========================================
 
                         window.ncTrackEvent?.(
@@ -1372,16 +1915,11 @@
                         );
 
 
-                        // ========================================
-                        // SUCESSO VISUAL
-                        // ========================================
-
                         form.style.display =
                             'none';
 
 
                         if (success) {
-
                             success.style.display =
                                 'block';
                         }
@@ -1391,7 +1929,6 @@
                             whatsappButton
                             && data.whatsapp_url
                         ) {
-
                             whatsappButton.href =
                                 data.whatsapp_url;
                         }
@@ -1399,15 +1936,16 @@
 
                     } catch (error) {
 
-
                         showInterestError(
                             error.message
-                            || 'Erro ao enviar. Tente novamente.'
+                            || window
+                                .ncI18n
+                                .t(
+                                    'generic_error'
+                                )
                         );
 
-
                     } finally {
-
 
                         setInterestLoading(
                             false
@@ -1417,5 +1955,4 @@
             );
         }
     );
-
 })();
