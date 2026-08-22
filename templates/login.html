@@ -46,22 +46,33 @@
             </div>
         </div>
 
-        <button type="button"
-                class="nc-public-login-button"
-                id="openLoginPanel"
-                aria-controls="loginPanel"
-                aria-expanded="{% if error %}true{% else %}false{% endif %}">
-            🔐 Entrar
-        </button>
+        <div style="display:flex;align-items:center;gap:.75rem;">
+            <div class="nc-language-switch" aria-label="Idioma / Language"
+                 style="display:flex;align-items:center;gap:.35rem;padding:.25rem;border:1px solid rgba(255,255,255,.18);border-radius:999px;">
+                <button type="button" data-lang-switch="pt"
+                        style="border:0;background:transparent;color:inherit;padding:.35rem .55rem;border-radius:999px;cursor:pointer;font-weight:700;">PT</button>
+                <span style="opacity:.45;">|</span>
+                <button type="button" data-lang-switch="en"
+                        style="border:0;background:transparent;color:inherit;padding:.35rem .55rem;border-radius:999px;cursor:pointer;font-weight:700;">EN</button>
+            </div>
+
+            <button type="button"
+                    class="nc-public-login-button"
+                    id="openLoginPanel"
+                    aria-controls="loginPanel"
+                    aria-expanded="{% if error %}true{% else %}false{% endif %}">
+                🔐 <span data-i18n="login_button">Entrar</span>
+            </button>
+        </div>
     </header>
 
     <main class="nc-public-main">
 
         <section class="nc-hero">
             <div class="nc-hero-copy">
-                <div class="nc-eyebrow">GESTÃO PARA PEQUENAS EMPRESAS</div>
+                <div class="nc-eyebrow" data-i18n="hero_eyebrow">GESTÃO PARA PEQUENAS EMPRESAS</div>
 
-                <h1>Da proposta ao resultado.<br>Tudo em um só lugar.</h1>
+                <h1 data-i18n-html="hero_title">Da proposta ao resultado.<br>Tudo em um só lugar.</h1>
 
                 <p class="nc-hero-lead">
                     Clientes, orçamentos, ordens de serviço e financeiro integrados
@@ -73,19 +84,19 @@
                             class="nc-btn-public-primary"
                             data-open-interest
                             data-cta-position="hero"
-                            data-cta-label="quero_conhecer_nouscard">
+                            data-cta-label="quero_conhecer_nouscard" data-i18n="cta_know">
                         Quero conhecer o NousCard
                     </button>
                 </div>
 
                 <div class="nc-hero-flow" aria-label="Fluxo principal do NousCard">
-                    <span>👤 Cliente</span>
+                    <span data-i18n="flow_client">👤 Cliente</span>
                     <b>→</b>
-                    <span>🧾 Orçamento</span>
+                    <span data-i18n="flow_quote">🧾 Orçamento</span>
                     <b>→</b>
-                    <span>🛠️ OS</span>
+                    <span data-i18n="flow_os">🛠️ OS</span>
                     <b>→</b>
-                    <span>💰 Financeiro</span>
+                    <span data-i18n="flow_finance">💰 Financeiro</span>
                 </div>
             </div>
 
@@ -105,11 +116,11 @@
 
                     <div class="nc-mockup-kpis">
                         <div>
-                            <small>Clientes</small>
+                            <small data-i18n="feature_clients_title">Clientes</small>
                             <strong>28</strong>
                         </div>
                         <div>
-                            <small>Orçamentos</small>
+                            <small data-i18n="feature_quotes_title">Orçamentos</small>
                             <strong>7</strong>
                         </div>
                         <div>
@@ -152,23 +163,23 @@
 
         <section class="nc-trust-strip">
             <div>
-                <strong>Simples de usar</strong>
-                <span>Sem excesso de telas e processos.</span>
+                <strong data-i18n="trust_simple_title">Simples de usar</strong>
+                <span data-i18n="trust_simple_text">Sem excesso de telas e processos.</span>
             </div>
             <div>
-                <strong>Visão integrada</strong>
-                <span>Gestão e financeiro na mesma plataforma.</span>
+                <strong data-i18n="trust_integrated_title">Visão integrada</strong>
+                <span data-i18n="trust_integrated_text">Gestão e financeiro na mesma plataforma.</span>
             </div>
             <div>
-                <strong>Feito para crescer</strong>
-                <span>Do primeiro cliente ao controle da operação.</span>
+                <strong data-i18n="trust_grow_title">Feito para crescer</strong>
+                <span data-i18n="trust_grow_text">Do primeiro cliente ao controle da operação.</span>
             </div>
         </section>
 
         <section class="nc-public-section" id="recursos">
             <div class="nc-section-heading">
-                <span>RECURSOS</span>
-                <h2>O essencial para organizar a empresa</h2>
+                <span data-i18n="features_kicker">RECURSOS</span>
+                <h2 data-i18n="features_title">O essencial para organizar a empresa</h2>
                 <p>
                     O NousCard reúne o que pequenas empresas e prestadores de serviço
                     realmente precisam para acompanhar o dia a dia.
@@ -178,7 +189,7 @@
             <div class="nc-feature-grid">
                 <article class="nc-feature-card">
                     <div class="nc-feature-icon">👥</div>
-                    <h3>Clientes</h3>
+                    <h3 data-i18n="feature_clients_title">Clientes</h3>
                     <p>
                         Mantenha contatos, documentos e informações comerciais
                         organizados em uma base única.
@@ -187,7 +198,7 @@
 
                 <article class="nc-feature-card">
                     <div class="nc-feature-icon">🧾</div>
-                    <h3>Orçamentos</h3>
+                    <h3 data-i18n="feature_quotes_title">Orçamentos</h3>
                     <p>
                         Crie propostas profissionais, acompanhe status
                         e transforme aprovações em trabalho executável.
@@ -196,7 +207,7 @@
 
                 <article class="nc-feature-card">
                     <div class="nc-feature-icon">🛠️</div>
-                    <h3>Ordens de Serviço</h3>
+                    <h3 data-i18n="feature_os_title">Ordens de Serviço</h3>
                     <p>
                         Acompanhe material, agenda, execução, informações técnicas
                         e conclusão dos serviços.
@@ -205,7 +216,7 @@
 
                 <article class="nc-feature-card">
                     <div class="nc-feature-icon">💰</div>
-                    <h3>Financeiro</h3>
+                    <h3 data-i18n="feature_finance_title">Financeiro</h3>
                     <p>
                         Visualize entradas, saídas, fluxo de caixa,
                         conciliação e DRE em uma visão gerencial.
@@ -217,8 +228,8 @@
 
         <section class="nc-public-mid-cta">
             <div>
-                <span>COMECE PELO SEU CENÁRIO</span>
-                <h2>Sua empresa ainda depende de caderno, planilhas ou vários aplicativos?</h2>
+                <span data-i18n="mid_kicker">COMECE PELO SEU CENÁRIO</span>
+                <h2 data-i18n="mid_title">Sua empresa ainda depende de caderno, planilhas ou vários aplicativos?</h2>
                 <p>
                     Conte rapidamente como você trabalha hoje.
                     A Nous Tecnologia pode mostrar como o NousCard se encaixa na sua operação.
@@ -229,15 +240,15 @@
                     class="nc-btn-public-primary"
                     data-open-interest
                     data-cta-position="mid_page"
-                    data-cta-label="ver_como_funcionaria">
+                    data-cta-label="ver_como_funcionaria" data-i18n="mid_cta">
                 Quero ver como funcionaria na minha empresa
             </button>
         </section>
 
         <section class="nc-public-section nc-public-section-soft">
             <div class="nc-section-heading">
-                <span>FLUXO</span>
-                <h2>Do primeiro contato ao resultado</h2>
+                <span data-i18n="flow_kicker">FLUXO</span>
+                <h2 data-i18n="flow_section_title">Do primeiro contato ao resultado</h2>
                 <p>
                     A informação acompanha o processo. Você reduz retrabalho
                     e passa a enxergar comercial, operação e financeiro como partes da mesma empresa.
@@ -247,26 +258,26 @@
             <div class="nc-process-grid">
                 <div class="nc-process-step">
                     <strong>01</strong>
-                    <h3>Cadastre o cliente</h3>
-                    <p>Centralize os dados que serão utilizados nos próximos passos.</p>
+                    <h3 data-i18n="step1_title">Cadastre o cliente</h3>
+                    <p data-i18n="step1_text">Centralize os dados que serão utilizados nos próximos passos.</p>
                 </div>
 
                 <div class="nc-process-step">
                     <strong>02</strong>
-                    <h3>Monte o orçamento</h3>
-                    <p>Descrição clara, imagens, valores, condições e apresentação profissional.</p>
+                    <h3 data-i18n="step2_title">Monte o orçamento</h3>
+                    <p data-i18n="step2_text">Descrição clara, imagens, valores, condições e apresentação profissional.</p>
                 </div>
 
                 <div class="nc-process-step">
                     <strong>03</strong>
-                    <h3>Gere a OS</h3>
-                    <p>O orçamento aprovado vira execução sem redigitação desnecessária.</p>
+                    <h3 data-i18n="step3_title">Gere a OS</h3>
+                    <p data-i18n="step3_text">O orçamento aprovado vira execução sem redigitação desnecessária.</p>
                 </div>
 
                 <div class="nc-process-step">
                     <strong>04</strong>
-                    <h3>Acompanhe o resultado</h3>
-                    <p>Conecte a operação aos dados financeiros e à visão gerencial.</p>
+                    <h3 data-i18n="step4_title">Acompanhe o resultado</h3>
+                    <p data-i18n="step4_text">Conecte a operação aos dados financeiros e à visão gerencial.</p>
                 </div>
             </div>
         </section>
@@ -274,19 +285,19 @@
         <section class="nc-public-section">
             <div class="nc-segments-panel">
                 <div>
-                    <span class="nc-segments-kicker">PARA QUEM É</span>
-                    <h2>Pequenas empresas que precisam trabalhar, não administrar um sistema complicado.</h2>
+                    <span class="nc-segments-kicker" data-i18n="segments_kicker">PARA QUEM É</span>
+                    <h2 data-i18n="segments_title">Pequenas empresas que precisam trabalhar, não administrar um sistema complicado.</h2>
                 </div>
 
                 <div class="nc-segment-tags">
-                    <span>Vidraçarias</span>
-                    <span>Construção</span>
-                    <span>Manutenção</span>
-                    <span>Climatização</span>
-                    <span>Marcenaria</span>
-                    <span>Prestadores de serviço</span>
-                    <span>Pequeno comércio</span>
-                    <span>Profissionais autônomos</span>
+                    <span data-i18n="segment_glass">Vidraçarias</span>
+                    <span data-i18n="segment_construction">Construção</span>
+                    <span data-i18n="segment_maintenance">Manutenção</span>
+                    <span data-i18n="segment_hvac">Climatização</span>
+                    <span data-i18n="segment_carpentry">Marcenaria</span>
+                    <span data-i18n="segment_services">Prestadores de serviço</span>
+                    <span data-i18n="segment_retail">Pequeno comércio</span>
+                    <span data-i18n="segment_selfemployed">Profissionais autônomos</span>
                 </div>
             </div>
         </section>
@@ -294,7 +305,7 @@
         <section class="nc-public-cta">
             <div>
                 <span>NOUSCARD</span>
-                <h2>Gestão simples. Operação organizada. Financeiro sob controle.</h2>
+                <h2 data-i18n="final_title">Gestão simples. Operação organizada. Financeiro sob controle.</h2>
                 <p>
                     Uma solução da Nous Tecnologia pensada para transformar
                     informação do dia a dia em visão de negócio.
@@ -305,7 +316,7 @@
                     class="nc-btn-public-light"
                     data-open-interest
                     data-cta-position="final"
-                    data-cta-label="quero_conhecer_nouscard">
+                    data-cta-label="quero_conhecer_nouscard" data-i18n="cta_know">
                 Quero conhecer o NousCard
             </button>
         </section>
@@ -336,8 +347,8 @@
 
         <div class="nc-login-panel-header">
             <div>
-                <span class="nc-login-panel-kicker">ÁREA DO CLIENTE</span>
-                <h2 id="loginPanelTitle">Acesse sua conta</h2>
+                <span class="nc-login-panel-kicker" data-i18n="login_kicker">ÁREA DO CLIENTE</span>
+                <h2 id="loginPanelTitle" data-i18n="login_title">Acesse sua conta</h2>
             </div>
 
             <button type="button"
@@ -348,7 +359,7 @@
             </button>
         </div>
 
-        <p class="nc-login-panel-lead">
+        <p class="nc-login-panel-lead" data-i18n="login_lead">
             Entre com seu e-mail e senha para acessar o NousCard.
         </p>
 
@@ -393,11 +404,11 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
             <div class="nc-form-group">
-                <label for="email">E-mail</label>
+                <label for="email" data-i18n="email_label">E-mail</label>
                 <input type="email"
                        id="email"
                        name="email"
-                       placeholder="seuemail@empresa.com.br"
+                       placeholder="seuemail@empresa.com.br" data-i18n-placeholder="login_email_placeholder"
                        autocomplete="username"
                        required
                        aria-describedby="email-hint"
@@ -414,13 +425,13 @@
             </div>
 
             <div class="nc-form-group">
-                <label for="senha">Senha</label>
+                <label for="senha" data-i18n="password_label">Senha</label>
 
                 <div class="nc-password-wrapper">
                     <input type="password"
                            id="senha"
                            name="senha"
-                           placeholder="Sua senha"
+                           placeholder="Sua senha" data-i18n-placeholder="login_password_placeholder"
                            autocomplete="current-password"
                            required
                            aria-describedby="senha-hint">
@@ -446,10 +457,10 @@
             <div class="nc-login-options">
                 <label class="nc-remember">
                     <input type="checkbox" name="lembrar" value="1">
-                    <span>Lembrar de mim</span>
+                    <span data-i18n="remember_me">Lembrar de mim</span>
                 </label>
 
-                <a href="{{ url_for('auth.recuperar_senha') }}">
+                <a href="{{ url_for('auth.recuperar_senha') }}" data-i18n="forgot_password">
                     Esqueci minha senha
                 </a>
             </div>
@@ -457,7 +468,7 @@
             <button type="submit"
                     class="nc-btn-primary"
                     id="btn-login">
-                <span class="btn-text">Entrar no NousCard</span>
+                <span class="btn-text" data-i18n="login_submit">Entrar no NousCard</span>
 
                 <span class="btn-loading" style="display:none;">
                     <span class="spinner" aria-hidden="true"></span>
@@ -471,7 +482,7 @@
         </form>
 
         <div class="nc-login-help">
-            <strong>Ainda não possui acesso?</strong>
+            <strong data-i18n="no_access_title">Ainda não possui acesso?</strong>
             <p>
                 Fale com a Nous Tecnologia para conhecer o NousCard
                 e avaliar a melhor configuração para sua empresa.
@@ -500,8 +511,8 @@
 
         <div class="nc-login-panel-header">
             <div>
-                <span class="nc-login-panel-kicker">CONHEÇA O NOUSCARD</span>
-                <h2 id="interestPanelTitle">Vamos conhecer sua empresa</h2>
+                <span class="nc-login-panel-kicker" data-i18n="interest_kicker">CONHEÇA O NOUSCARD</span>
+                <h2 id="interestPanelTitle" data-i18n="interest_title">Vamos conhecer sua empresa</h2>
             </div>
 
             <button type="button"
@@ -512,7 +523,7 @@
             </button>
         </div>
 
-        <p class="nc-login-panel-lead">
+        <p class="nc-login-panel-lead" data-i18n="interest_lead">
             Leva menos de um minuto. Conte como você trabalha hoje e o que gostaria de organizar.
         </p>
 
@@ -521,7 +532,7 @@
              style="display:none;"
              aria-live="polite">
             <div class="nc-interest-success-icon">✅</div>
-            <h3>Recebemos seu interesse!</h3>
+            <h3 data-i18n="interest_success_title">Recebemos seu interesse!</h3>
             <p>
                 A Nous Tecnologia poderá entrar em contato para entender sua operação
                 e mostrar como o NousCard pode ajudar.
@@ -537,12 +548,14 @@
 
             <button type="button"
                     class="nc-interest-close-success"
-                    data-close-interest>
+                    data-close-interest data-i18n="interest_continue">
                 Continuar conhecendo o site
             </button>
         </div>
 
         <form id="interestForm" novalidate>
+            <input type="hidden" id="landing_language" name="landing_language" value="pt">
+            <input type="hidden" id="referral_source" name="referral_source" value="direct">
             <!-- Honeypot antispam -->
             <div class="nc-honeypot" aria-hidden="true">
                 <label for="interest_website">Website</label>
@@ -554,7 +567,7 @@
             </div>
 
             <div class="nc-form-group">
-                <label for="interest_nome">Seu nome *</label>
+                <label for="interest_nome" data-i18n="form_name_label">Seu nome *</label>
                 <input type="text"
                        id="interest_nome"
                        name="nome"
@@ -564,7 +577,7 @@
             </div>
 
             <div class="nc-form-group">
-                <label for="interest_empresa">Empresa *</label>
+                <label for="interest_empresa" data-i18n="form_company_label">Empresa *</label>
                 <input type="text"
                        id="interest_empresa"
                        name="empresa"
@@ -574,98 +587,98 @@
             </div>
 
             <div class="nc-form-group">
-                <label for="interest_telefone">WhatsApp *</label>
+                <label for="interest_telefone" data-i18n="form_whatsapp_label">WhatsApp *</label>
                 <input type="text"
                        id="interest_telefone"
                        name="telefone"
                        maxlength="30"
                        inputmode="tel"
                        autocomplete="tel"
-                       placeholder="(48) 99999-9999"
+                       placeholder="(48) 99999-9999" data-i18n-placeholder="phone_placeholder"
                        required>
             </div>
 
             <div class="nc-form-group">
-                <label for="interest_email">E-mail</label>
+                <label for="interest_email" data-i18n="email_label">E-mail</label>
                 <input type="email"
                        id="interest_email"
                        name="email"
                        maxlength="200"
                        autocomplete="email"
-                       placeholder="voce@empresa.com.br">
+                       placeholder="voce@empresa.com.br" data-i18n-placeholder="email_placeholder">
             </div>
 
             <fieldset class="nc-interest-fieldset">
-                <legend>Como você controla sua empresa hoje?</legend>
+                <legend data-i18n="form_control_legend">Como você controla sua empresa hoje?</legend>
 
                 <label>
                     <input type="radio"
                            name="controle_atual"
-                           value="caderno">
+                           value="caderno" data-i18n="control_notebook">
                     Caderno / papel
                 </label>
 
                 <label>
                     <input type="radio"
                            name="controle_atual"
-                           value="planilha">
+                           value="planilha" data-i18n="control_spreadsheets">
                     Planilhas
                 </label>
 
                 <label>
                     <input type="radio"
                            name="controle_atual"
-                           value="sistema">
+                           value="sistema" data-i18n="control_system">
                     Outro sistema
                 </label>
 
                 <label>
                     <input type="radio"
                            name="controle_atual"
-                           value="misto">
+                           value="misto" data-i18n="control_mixed">
                     Um pouco de cada
                 </label>
             </fieldset>
 
             <fieldset class="nc-interest-fieldset">
-                <legend>O que você gostaria de organizar?</legend>
+                <legend data-i18n="form_interest_legend">O que você gostaria de organizar?</legend>
 
                 <label>
                     <input type="checkbox"
                            name="interesses"
-                           value="clientes">
-                    Clientes
+                           value="clientes" data-i18n="feature_clients_title">
+                    <span data-i18n="feature_clients_title">Clientes</span>
                 </label>
 
                 <label>
                     <input type="checkbox"
                            name="interesses"
-                           value="orcamentos">
-                    Orçamentos
+                           value="orcamentos" data-i18n="feature_quotes_title">
+                    <span data-i18n="feature_quotes_title">Orçamentos</span>
                 </label>
 
                 <label>
                     <input type="checkbox"
                            name="interesses"
-                           value="os">
-                    Ordens de Serviço
+                           value="os" data-i18n="feature_os_title">
+                    <span data-i18n="feature_os_title">Ordens de Serviço</span>
                 </label>
 
                 <label>
                     <input type="checkbox"
                            name="interesses"
-                           value="financeiro">
-                    Financeiro
+                           value="financeiro" data-i18n="feature_finance_title">
+                    <span data-i18n="feature_finance_title">Financeiro</span>
                 </label>
             </fieldset>
 
             <div class="nc-form-group">
-                <label for="interest_mensagem">Quer nos contar algo?</label>
+                <label for="interest_mensagem" data-i18n="form_message_label">Quer nos contar algo?</label>
                 <textarea id="interest_mensagem"
                           name="mensagem"
                           rows="3"
                           maxlength="2000"
-                          placeholder="Opcional"></textarea>
+                          placeholder="Opcional" data-i18n-placeholder="optional_placeholder"></textarea>
             </div>
 
             <div id="interestError"
@@ -677,7 +690,7 @@
             <button type="submit"
                     class="nc-btn-primary"
                     id="interestSubmit">
-                <span class="btn-text">Quero conhecer o NousCard</span>
+                <span class="btn-text" data-i18n="cta_know">Quero conhecer o NousCard</span>
 
                 <span class="btn-loading"
                       style="display:none;">
