@@ -161,6 +161,88 @@
             </div>
         </section>
 
+
+        <!-- =========================================================
+             HISTÓRIA INTERATIVA — NOUSCARD
+             ========================================================= -->
+        <section class="nc-story" id="historia" aria-labelledby="ncStoryTitle">
+            <div class="nc-story-head nc-reveal">
+                <span class="nc-story-kicker" data-i18n="story_kicker">UMA HISTÓRIA REAL DE MUITAS EMPRESAS</span>
+                <h2 id="ncStoryTitle" data-i18n="story_title">Quando tudo vira urgente, organizar deixa de ser detalhe.</h2>
+                <p data-i18n="story_intro">A rotina começa simples. Um orçamento aqui, uma mensagem ali, uma planilha para ajudar. Quando a empresa cresce, a informação se espalha — e o tempo vai junto.</p>
+            </div>
+
+            <div class="nc-story-track" data-story-track>
+                <article class="nc-story-card nc-reveal" data-story-card="1">
+                    <div class="nc-story-media">
+                        <img src="{{ url_for('static', filename='img/story/historia-01.jpg') }}" alt="" loading="lazy">
+                        <span class="nc-story-number">01</span>
+                        <div class="nc-story-float nc-story-float-a">💬</div>
+                        <div class="nc-story-float nc-story-float-b">🧾</div>
+                        <div class="nc-story-float nc-story-float-c">📒</div>
+                    </div>
+                    <div class="nc-story-copy">
+                        <small data-i18n="story_1_eyebrow">ERA ASSIM TODOS OS DIAS...</small>
+                        <h3 data-i18n="story_1_title">A informação estava em todo lugar.</h3>
+                        <div class="nc-story-chips">
+                            <span data-i18n="story_1_chip_1">Orçamentos no caderno</span>
+                            <span data-i18n="story_1_chip_2">Pedidos pelo WhatsApp</span>
+                            <span data-i18n="story_1_chip_3">Contas em planilhas</span>
+                        </div>
+                        <p data-i18n="story_1_text">Informação espalhada, retrabalho e decisões sem segurança.</p>
+                    </div>
+                </article>
+
+                <article class="nc-story-card nc-reveal" data-story-card="2">
+                    <div class="nc-story-media">
+                        <img src="{{ url_for('static', filename='img/story/historia-02.jpg') }}" alt="" loading="lazy">
+                        <span class="nc-story-number">02</span>
+                        <div class="nc-story-question q1" data-i18n="story_q1">Qual pedido já foi entregue?</div>
+                        <div class="nc-story-question q2" data-i18n="story_q2">Quem ainda não pagou?</div>
+                        <div class="nc-story-question q3" data-i18n="story_q3">Onde estão meus resultados?</div>
+                    </div>
+                    <div class="nc-story-copy">
+                        <small data-i18n="story_2_eyebrow">A CONFUSÃO COMEÇOU A CUSTAR CARO...</small>
+                        <h3 data-i18n="story_2_title">Sem visão, tudo parece prioridade.</h3>
+                        <p data-i18n="story_2_text">Falta de controle vira atraso, estresse e dinheiro ficando para trás.</p>
+                    </div>
+                </article>
+
+                <article class="nc-story-card nc-reveal" data-story-card="3">
+                    <div class="nc-story-media">
+                        <img src="{{ url_for('static', filename='img/story/historia-03.jpg') }}" alt="" loading="lazy">
+                        <span class="nc-story-number">03</span>
+                        <div class="nc-story-spark s1">✦</div>
+                        <div class="nc-story-spark s2">✦</div>
+                        <div class="nc-story-spark s3">❤</div>
+                    </div>
+                    <div class="nc-story-copy">
+                        <small data-i18n="story_3_eyebrow">FOI QUANDO ENCONTRAMOS UM CAMINHO...</small>
+                        <h3 data-i18n="story_3_title">Tudo integrado, organizado e fácil de acompanhar.</h3>
+                        <p data-i18n="story_3_text">Assim nasceu o NousCard Gestão: para trazer clareza, controle e resultado para a rotina da empresa.</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="nc-story-dots" aria-hidden="true"><span class="is-active"></span><span></span><span></span></div>
+
+            <div class="nc-story-unified nc-reveal">
+                <div class="nc-story-unified-copy">
+                    <span data-i18n="story_all_kicker">TUDO EM UM SÓ LUGAR</span>
+                    <h3 data-i18n="story_all_title">Da primeira conversa ao resultado financeiro.</h3>
+                </div>
+                <div class="nc-story-flow">
+                    <div><b>👥</b><span data-i18n="feature_clients_title">Clientes</span></div><i>→</i>
+                    <div><b>🧾</b><span data-i18n="feature_quotes_title">Orçamentos</span></div><i>→</i>
+                    <div><b>🛠️</b><span data-i18n="feature_os_title">Ordens de Serviço</span></div><i>→</i>
+                    <div><b>💰</b><span data-i18n="feature_finance_title">Financeiro</span></div><i>→</i>
+                    <div><b>📊</b><span data-i18n="story_reports">Relatórios</span></div>
+                </div>
+                <div class="nc-story-quote"><span class="nc-story-quote-mark">“</span><p data-i18n="story_mission">Nossa missão é simples: ajudar empresas a organizarem sua operação e terem mais tempo para o que realmente importa.</p></div>
+                <button type="button" class="nc-btn-public-primary nc-story-cta" data-open-interest data-cta-position="story" data-cta-label="quero_conhecer_historia" data-i18n="story_cta">Quero organizar minha empresa</button>
+            </div>
+        </section>
+
         <section class="nc-trust-strip">
             <div>
                 <strong data-i18n="trust_simple_title">Simples de usar</strong>
