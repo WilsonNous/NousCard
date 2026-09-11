@@ -45,6 +45,30 @@
             flow_finance:
                 '💰 Financeiro',
 
+            story_kicker: 'UMA HISTÓRIA REAL DE MUITAS EMPRESAS',
+            story_title: 'Quando tudo vira urgente, organizar deixa de ser detalhe.',
+            story_intro: 'A rotina começa simples. Um orçamento aqui, uma mensagem ali, uma planilha para ajudar. Quando a empresa cresce, a informação se espalha — e o tempo vai junto.',
+            story_1_eyebrow: 'ERA ASSIM TODOS OS DIAS...',
+            story_1_title: 'A informação estava em todo lugar.',
+            story_1_chip_1: 'Orçamentos no caderno',
+            story_1_chip_2: 'Pedidos pelo WhatsApp',
+            story_1_chip_3: 'Contas em planilhas',
+            story_1_text: 'Informação espalhada, retrabalho e decisões sem segurança.',
+            story_2_eyebrow: 'A CONFUSÃO COMEÇOU A CUSTAR CARO...',
+            story_2_title: 'Sem visão, tudo parece prioridade.',
+            story_2_text: 'Falta de controle vira atraso, estresse e dinheiro ficando para trás.',
+            story_q1: 'Qual pedido já foi entregue?',
+            story_q2: 'Quem ainda não pagou?',
+            story_q3: 'Onde estão meus resultados?',
+            story_3_eyebrow: 'FOI QUANDO ENCONTRAMOS UM CAMINHO...',
+            story_3_title: 'Tudo integrado, organizado e fácil de acompanhar.',
+            story_3_text: 'Assim nasceu o NousCard Gestão: para trazer clareza, controle e resultado para a rotina da empresa.',
+            story_all_kicker: 'TUDO EM UM SÓ LUGAR',
+            story_all_title: 'Da primeira conversa ao resultado financeiro.',
+            story_reports: 'Relatórios',
+            story_mission: 'Nossa missão é simples: ajudar empresas a organizarem sua operação e terem mais tempo para o que realmente importa.',
+            story_cta: 'Quero organizar minha empresa',
+
             trust_simple_title:
                 'Simples de usar',
 
@@ -426,6 +450,30 @@
 
             flow_finance:
                 '💰 Finance',
+
+            story_kicker: 'A REAL STORY FOR MANY BUSINESSES',
+            story_title: 'When everything becomes urgent, organization stops being optional.',
+            story_intro: 'It starts simply: a quote here, a message there, a spreadsheet to help. As the business grows, information spreads — and time goes with it.',
+            story_1_eyebrow: 'IT LOOKED LIKE THIS EVERY DAY...',
+            story_1_title: 'Information was everywhere.',
+            story_1_chip_1: 'Quotes in a notebook',
+            story_1_chip_2: 'Orders on WhatsApp',
+            story_1_chip_3: 'Accounts in spreadsheets',
+            story_1_text: 'Scattered information, rework and uncertain decisions.',
+            story_2_eyebrow: 'THE CONFUSION STARTED TO COST...',
+            story_2_title: 'Without visibility, everything feels urgent.',
+            story_2_text: 'Lack of control turns into delays, stress and money left behind.',
+            story_q1: 'Which order was delivered?',
+            story_q2: 'Who still has not paid?',
+            story_q3: 'Where are my results?',
+            story_3_eyebrow: 'THEN WE FOUND A BETTER WAY...',
+            story_3_title: 'Everything integrated, organized and easy to follow.',
+            story_3_text: 'That is how NousCard Gestão was born: to bring clarity, control and results to everyday business.',
+            story_all_kicker: 'EVERYTHING IN ONE PLACE',
+            story_all_title: 'From the first conversation to the financial result.',
+            story_reports: 'Reports',
+            story_mission: 'Our mission is simple: help businesses organize their operations and gain more time for what really matters.',
+            story_cta: 'I want to organize my business',
 
             trust_simple_title:
                 'Simple to use',
@@ -3096,3 +3144,50 @@
     );
 
 })();
+
+
+    // ========================================================
+    // HISTÓRIA INTERATIVA
+    // ========================================================
+    function initInteractiveStory() {
+        const revealItems = document.querySelectorAll('.nc-reveal');
+        if ('IntersectionObserver' in window) {
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                });
+            }, { threshold: 0.16, rootMargin: '0px 0px -8% 0px' });
+            revealItems.forEach((item, index) => {
+                item.style.transitionDelay = `${Math.min(index * 70, 280)}ms`;
+                revealObserver.observe(item);
+            });
+        } else {
+            revealItems.forEach((item) => item.classList.add('is-visible'));
+        }
+
+        const track = document.querySelector('[data-story-track]');
+        const dots = Array.from(document.querySelectorAll('.nc-story-dots span'));
+        if (!track || dots.length === 0) return;
+        let rafId = null;
+        const updateDots = () => {
+            rafId = null;
+            const cards = Array.from(track.querySelectorAll('[data-story-card]'));
+            if (!cards.length) return;
+            const trackCenter = track.scrollLeft + (track.clientWidth / 2);
+            let activeIndex = 0, minDistance = Infinity;
+            cards.forEach((card, index) => {
+                const center = card.offsetLeft + (card.offsetWidth / 2);
+                const distance = Math.abs(center - trackCenter);
+                if (distance < minDistance) { minDistance = distance; activeIndex = index; }
+            });
+            dots.forEach((dot, index) => dot.classList.toggle('is-active', index === activeIndex));
+        };
+        track.addEventListener('scroll', () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(updateDots);
+        }, { passive: true });
+        updateDots();
+    }
+    document.addEventListener('DOMContentLoaded', initInteractiveStory);
