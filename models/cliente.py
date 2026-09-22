@@ -22,6 +22,9 @@ class Cliente(db.Model, BaseMixin):
     ordens_servico = db.relationship(
         "OrdemServico", back_populates="cliente", lazy="dynamic"
     )
+    veiculos = db.relationship(
+        "Veiculo", back_populates="cliente", lazy="dynamic", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         db.Index("idx_cliente_empresa_nome", "empresa_id", "nome"),

@@ -1,4 +1,5 @@
 from decimal import Decimal
+import secrets
 from models.base import db, BaseMixin, TimestampMixin, SoftDeleteMixin
 
 
@@ -13,6 +14,8 @@ class Orcamento(db.Model, BaseMixin):
         index=True,
     )
     numero = db.Column(db.Integer, nullable=False)
+    veiculo_id = db.Column(db.Integer, db.ForeignKey("veiculos.id", ondelete="SET NULL"), nullable=True, index=True)
+    public_token = db.Column(db.String(96), nullable=True, unique=True, index=True)
     data_emissao = db.Column(db.Date, nullable=False)
     validade_ate = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), nullable=False, default="RASCUNHO", index=True)
@@ -27,6 +30,7 @@ class Orcamento(db.Model, BaseMixin):
     observacoes_internas = db.Column(db.Text, nullable=True)
 
     cliente = db.relationship("Cliente", back_populates="orcamentos", lazy="joined")
+    veiculo = db.relationship("Veiculo", back_populates="orcamentos", lazy="joined")
     empresa = db.relationship("Empresa", lazy="select")
     itens = db.relationship(
         "OrcamentoItem",
@@ -41,6 +45,7 @@ class Orcamento(db.Model, BaseMixin):
         lazy="select",
         cascade="all, delete-orphan",
     )
+    interacoes = db.relationship("OrcamentoInteracao", back_populates="orcamento", lazy="select", cascade="all, delete-orphan", order_by="OrcamentoInteracao.criado_em.desc()")
     ordem_servico = db.relationship(
         "OrdemServico",
         back_populates="orcamento",
@@ -53,6 +58,12 @@ class Orcamento(db.Model, BaseMixin):
         db.Index("idx_orcamento_empresa_status", "empresa_id", "status"),
         db.Index("idx_orcamento_empresa_data", "empresa_id", "data_emissao"),
     )
+
+
+    def garantir_token_publico(self):
+        if not self.public_token:
+            self.public_token = secrets.token_urlsafe(32)
+        return self.public_token
 
     @property
     def numero_formatado(self):
