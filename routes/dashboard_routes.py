@@ -258,11 +258,54 @@ def dashboard():
 # ROTA DRE
 # ============================================================
 
+@dashboard_bp.route("/financeiro")
+@login_required
+@empresa_required
+def financeiro():
+    usuario = g.user
+    empresa = Empresa.query.filter_by(id=usuario.empresa_id, ativo=True).first_or_404()
+    return render_template(
+        "financeiro.html", usuario=usuario, empresa_id=usuario.empresa_id,
+        empresa_nome=empresa.nome, is_admin=getattr(usuario, "admin", False),
+        is_master=getattr(usuario, "master", False), current_year=datetime.now().year,
+        csrf_token=getattr(g, "csrf_token", "") or session.get("csrf_token", ""),
+    )
+
+
 @dashboard_bp.route("/dre")
 @login_required
 @empresa_required
 def dre_resumo():
-    return redirect(url_for("dashboard.dashboard"))
+    usuario = g.user
+    empresa_id = usuario.empresa_id
+    empresa = Empresa.query.filter_by(id=empresa_id, ativo=True).first_or_404()
+    periodo = request.args.get("periodo", "12meses")
+    data_inicio, data_fim = get_periodo_datas(periodo)
+
+    receitas = _agrupar_por_categoria(empresa_id, data_inicio, data_fim, tipo="receita")
+    despesas = _agrupar_por_categoria(empresa_id, data_inicio, data_fim, tipo="despesa")
+
+    total_receitas = sum(i["total"] for i in receitas)
+    total_despesas = sum(i["total"] for i in despesas)
+    resultado = total_receitas - total_despesas
+    margem = (resultado / total_receitas * 100) if total_receitas else 0
+
+    # DRE gerencial preliminar por regime de caixa. As categorias ainda devem
+    # evoluir para separar deduções, custos variáveis e despesas operacionais.
+    def linha(item):
+        return {**item, "nome": _nome_amigavel(item["categoria"]), "valor": _round(item["total"])}
+
+    contexto = {
+        "usuario": usuario, "empresa_id": empresa_id, "empresa_nome": empresa.nome,
+        "is_admin": getattr(usuario, "admin", False), "is_master": getattr(usuario, "master", False),
+        "current_year": datetime.now().year,
+        "csrf_token": getattr(g, "csrf_token", "") or session.get("csrf_token", ""),
+        "periodo": periodo, "data_inicio": data_inicio, "data_fim": data_fim,
+        "receitas_dre": [linha(i) for i in receitas], "despesas_dre": [linha(i) for i in despesas],
+        "total_receitas": _round(total_receitas), "total_despesas": _round(total_despesas),
+        "resultado": _round(resultado), "margem": round(margem, 1),
+    }
+    return render_template("dashboard/dre_resumo.html", **contexto)
 
 
 

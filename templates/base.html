@@ -209,6 +209,7 @@
                         endpoint == 'operacoes.importar_page'
                         or endpoint == 'operacoes.arquivos_importados_page'
                         or endpoint == 'operacoes.conciliar_page'
+                        or endpoint == 'dashboard.financeiro'
                         or endpoint == 'dashboard.dre_resumo'
                     %}
 
@@ -289,6 +290,13 @@
                                 ✔️ Conciliação
                             </a>
                             <small>Banco e adquirentes</small>
+
+                            <a href="{{ url_for('dashboard.financeiro') }}"
+                               class="{% if endpoint == 'dashboard.financeiro' %}active{% endif %}"
+                               role="menuitem">
+                                📊 Visão Financeira
+                            </a>
+                            <small>Fluxo, receitas e despesas</small>
 
                             <a href="{{ url_for('dashboard.dre_resumo') }}"
                                class="{% if endpoint == 'dashboard.dre_resumo' %}active{% endif %}"

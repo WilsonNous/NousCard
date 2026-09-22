@@ -1,14 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard de Gestão - NousCard{% endblock %}
+{% block title %}Visão Financeira - NousCard{% endblock %}
 
 {% block extra_head %}
 <style>
-/* Dashboard executivo: detalhes analíticos vivem em Visão Financeira */
-body.dashboard-executivo .finance-secondary,
-body.dashboard-executivo .finance-manager,
-body.dashboard-executivo .details-grid{display:none!important}
-body.dashboard-executivo .kpi-grid:not(.finance-primary):not(.finance-secondary){display:none!important}
+/* Visão Financeira: concentra análise financeira fora do Dashboard executivo */
+.gestao-section{display:none!important}
+.finance-page-title{margin:0 0 4px;font-size:1.75rem;color:#100F0D}
+.finance-page-subtitle{margin:0 0 18px;color:#66758c}
+.finance-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px}
+.finance-tabs a{padding:9px 14px;border:1px solid #dfe3e8;border-radius:999px;background:#fff;color:#100F0D;text-decoration:none;font-weight:700}
+.finance-tabs a.active{background:#1877F2;border-color:#1877F2;color:#fff}
+.monthly-chart-card{background:#fff;border:1px solid #e4e9f1;border-radius:16px;padding:18px;margin:0 0 20px}
+.monthly-bars{display:grid;grid-template-columns:repeat(12,minmax(38px,1fr));gap:8px;align-items:end;height:180px;margin-top:18px}
+.month-col{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px}
+.month-bars{height:135px;width:100%;display:flex;gap:3px;align-items:flex-end;justify-content:center}
+.month-bar{width:34%;min-height:2px;border-radius:5px 5px 2px 2px}
+.month-bar.in{background:#1877F2}.month-bar.out{background:#e53935}.month-label{font-size:.68rem;color:#66758c}
+@media(max-width:900px){.monthly-bars{overflow-x:auto;grid-template-columns:repeat(12,54px)}}
 </style>
 <style>
     /* ============================================================
@@ -617,7 +626,17 @@ body.dashboard-executivo .kpi-grid:not(.finance-primary):not(.finance-secondary)
 <section class="nc-section">
     
     <!-- Cabeçalho -->
-    <div class="dashboard-header">
+    <h1 class="finance-page-title">Visão Financeira</h1>
+<p class="finance-page-subtitle">Entenda o fluxo do dinheiro, receitas, despesas e tendências da empresa.</p>
+<div class="finance-tabs">
+  <a href="#resumo" class="active">Resumo</a><a href="#fluxo">Fluxo de Caixa</a><a href="#receitas">Receitas</a><a href="#despesas">Despesas</a><a href="#cartoes">Cartões</a>
+</div>
+<div id="fluxo" class="monthly-chart-card">
+ <strong>Fluxo de Caixa — últimos 12 meses</strong>
+ <div style="font-size:.8rem;color:#66758c;margin-top:4px">Azul: entradas · Vermelho: saídas</div>
+ <div id="monthly-bars" class="monthly-bars"><div style="grid-column:1/-1;color:#66758c">Carregando evolução mensal...</div></div>
+</div>
+<div class="dashboard-header">
         <div>
             <h2>Olá, {{ usuario.nome.split(' ')[0] }}! 👋</h2>
             <p style="margin: 0.25rem 0 0 0; color: var(--text-muted);">
@@ -712,8 +731,7 @@ body.dashboard-executivo .kpi-grid:not(.finance-primary):not(.finance-secondary)
     <!-- ============================================================
          FINANCEIRO
          ============================================================ -->
-    <div style="display:flex;justify-content:flex-end;margin:8px 0 12px"><a href="{{ url_for('dashboard.financeiro') }}" class="quick-action primary" style="text-decoration:none">Abrir Visão Financeira →</a></div>
-<div class="section-divider-title">
+    <div class="section-divider-title">
         <h3>💰 Visão Financeira</h3>
         <div class="period-selector">
             <span>📅 Período:</span>
@@ -1450,5 +1468,16 @@ document.addEventListener('DOMContentLoaded', () => {
     atualizarDashboard(periodoSelecionado);
 });
 </script>
-<script>document.addEventListener('DOMContentLoaded',()=>document.body.classList.add('dashboard-executivo'));</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const box=document.getElementById('monthly-bars'); if(!box) return;
+  try {
+    const r=await fetch('/api/v1/dashboard/resumo-mensal',{credentials:'same-origin'});
+    const d=await r.json(); if(!d.ok) throw new Error(d.error||'Falha ao carregar');
+    const max=Math.max(1,...d.meses.flatMap(m=>[Number(m.entradas)||0,Number(m.saidas)||0]));
+    box.innerHTML=d.meses.map(m=>`<div class="month-col" title="${m.mes} — Entradas: ${Number(m.entradas).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})} | Saídas: ${Number(m.saidas).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}"><div class="month-bars"><div class="month-bar in" style="height:${Math.max(2,(Number(m.entradas)||0)/max*100)}%"></div><div class="month-bar out" style="height:${Math.max(2,(Number(m.saidas)||0)/max*100)}%"></div></div><span class="month-label">${m.mes.slice(0,2)}</span></div>`).join('');
+  } catch(e){ box.innerHTML='<div style="grid-column:1/-1;color:#66758c">Não foi possível carregar a evolução mensal.</div>'; }
+});
+</script>
 {% endblock %}
