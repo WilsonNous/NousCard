@@ -32,7 +32,21 @@ def currency_br(value):
         return "0,00"
 
 
+def percent_br(value, decimals=1):
+    """Formata percentual no padrão brasileiro, sem adicionar o símbolo %."""
+    if value is None or value == '':
+        return "0,0"
+    try:
+        num = Decimal(str(value))
+        casas = max(0, int(decimals))
+        formatted = f"{num:,.{casas}f}"
+        return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+    except (InvalidOperation, ValueError, TypeError):
+        return "0,0"
+
+
 def date_br(value, format="%d/%m/%Y %H:%M"):
+
     """
     Formata datetime para padrão brasileiro.
     
@@ -95,6 +109,8 @@ def register_filters(app):
     """
     # ✅ Registrar todos os filters
     app.jinja_env.filters['currency_br'] = currency_br
+    app.jinja_env.filters['format_brl'] = currency_br
+    app.jinja_env.filters['percent_br'] = percent_br
     app.jinja_env.filters['date_br'] = date_br
     app.jinja_env.filters['date_br_short'] = date_br_short
     
