@@ -1,0 +1,144 @@
+/* ================================================================
+   NousCard UX 2026
+   Shell SaaS: menu vertical + barra contextual + dashboard executivo
+   Apenas apresentação. Não altera APIs, rotas, models ou regras.
+   ================================================================ */
+:root {
+  --nc-navy:#082a55;
+  --nc-navy-2:#061f40;
+  --nc-blue:#0b6ff4;
+  --nc-blue-soft:#eaf3ff;
+  --nc-surface:#ffffff;
+  --nc-canvas:#f5f7fb;
+  --nc-line:#e4e9f1;
+  --nc-muted:#66758c;
+  --nc-text:#14213d;
+  --nc-sidebar:252px;
+}
+
+body.nc-body{background:var(--nc-canvas)!important;color:var(--nc-text);min-height:100vh;}
+
+/* ---------- menu vertical ---------- */
+.nc-topbar{
+  position:fixed!important;inset:0 auto 0 0!important;width:var(--nc-sidebar)!important;height:100vh!important;
+  display:flex!important;flex-direction:column!important;align-items:stretch!important;
+  background:linear-gradient(180deg,var(--nc-navy-2),var(--nc-navy))!important;
+  border:0!important;box-shadow:8px 0 30px rgba(7,31,64,.10)!important;padding:20px 14px!important;z-index:1200!important;
+}
+.nc-topbar-left{padding:0 8px 18px!important;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:18px;}
+.nc-logo{font-size:1.28rem!important;font-weight:800!important;color:#fff!important;text-decoration:none!important;letter-spacing:-.02em;}
+.nc-topbar-nav{display:block!important;overflow-y:auto!important;overflow-x:hidden!important;flex:1!important;}
+.nc-nav-list{display:flex!important;flex-direction:column!important;gap:8px!important;margin:0!important;padding:0!important;list-style:none!important;}
+.nc-nav-group{width:100%!important;}
+.nc-nav-group-toggle,.nc-topbar-item{
+  width:100%!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;
+  padding:11px 12px!important;border-radius:10px!important;color:#dce9f8!important;text-decoration:none!important;font-weight:650!important;
+  background:transparent!important;border:0!important;box-sizing:border-box!important;
+}
+.nc-nav-group-toggle:hover,.nc-topbar-item:hover,.nc-topbar-item.active,.nc-nav-group-toggle.active{background:rgba(255,255,255,.10)!important;color:#fff!important;}
+.nc-nav-caret{margin-left:auto!important;}
+.nc-nav-dropdown{
+  position:static!important;display:block!important;min-width:0!important;width:auto!important;margin:4px 0 8px 14px!important;
+  padding:4px 0 4px 10px!important;background:transparent!important;border:0!important;border-left:1px solid rgba(255,255,255,.14)!important;
+  border-radius:0!important;box-shadow:none!important;color:#fff!important;
+}
+.nc-nav-dropdown a{color:#c8d8ec!important;padding:8px 10px!important;border-radius:8px!important;font-size:.88rem!important;}
+.nc-nav-dropdown a:hover,.nc-nav-dropdown a.active{background:rgba(255,255,255,.10)!important;color:#fff!important;}
+.nc-nav-dropdown small{display:none!important;}
+.nc-topbar-item.logout{margin-top:8px!important;color:#ffd6d6!important;}
+
+/* ---------- área de trabalho / barra horizontal ---------- */
+.nc-content{margin-left:var(--nc-sidebar)!important;width:calc(100% - var(--nc-sidebar))!important;max-width:none!important;padding:0 28px 36px!important;box-sizing:border-box!important;}
+.nc-user-status-bar{
+  position:sticky!important;top:0!important;z-index:900!important;margin:0 -28px 26px!important;padding:12px 28px!important;
+  min-height:68px!important;background:rgba(255,255,255,.96)!important;border-bottom:1px solid var(--nc-line)!important;
+  box-shadow:0 5px 20px rgba(16,42,77,.04)!important;backdrop-filter:blur(12px);
+}
+.nc-user-status-bar>div:first-child{width:44px!important;height:44px!important;border-radius:12px!important;}
+.nc-section{max-width:1440px!important;margin:0 auto!important;padding:0!important;}
+.nc-footer{margin-left:var(--nc-sidebar)!important;background:transparent!important;border-top:1px solid var(--nc-line)!important;color:var(--nc-muted)!important;}
+
+/* ---------- dashboard ---------- */
+.dashboard-header{margin:4px 0 22px!important;}
+.dashboard-header h2{font-size:1.75rem!important;letter-spacing:-.03em!important;color:var(--nc-text)!important;}
+.dashboard-header p{font-size:.95rem!important;}
+.gestao-section{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;}
+.gestao-title-row{margin-bottom:14px!important;}
+.gestao-title-row h3,.section-divider-title h3{font-size:1.05rem!important;color:var(--nc-text)!important;}
+.quick-action{border-radius:10px!important;padding:.72rem 1rem!important;background:#fff!important;border:1px solid var(--nc-line)!important;box-shadow:0 2px 8px rgba(12,42,77,.04)!important;}
+.quick-action.primary{background:var(--nc-blue)!important;color:#fff!important;border-color:var(--nc-blue)!important;}
+
+.gestao-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;}
+.gestao-kpi,.kpi-card,.gestao-card,.attention-card,.detail-card,.manager-card{
+  border:1px solid var(--nc-line)!important;border-radius:16px!important;background:#fff!important;
+  box-shadow:0 7px 22px rgba(17,42,78,.055)!important;
+}
+.gestao-kpi{padding:18px!important;min-height:116px;position:relative;overflow:hidden;}
+.gestao-kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--nc-blue);}
+.gestao-kpi-label{font-size:.72rem!important;letter-spacing:.045em!important;text-transform:uppercase!important;color:var(--nc-muted)!important;}
+.gestao-kpi-value{font-size:1.75rem!important;line-height:1.15!important;margin:.55rem 0 .3rem!important;color:var(--nc-text)!important;}
+.gestao-columns{gap:14px!important;margin-top:14px!important;}
+.gestao-card{padding:18px!important;}
+.gestao-card h4{font-size:.98rem!important;margin-bottom:12px!important;}
+.status-row{padding:.54rem 0!important;}
+.attention-card{margin-top:14px!important;padding:16px 18px!important;}
+.attention-list{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important;}
+.attention-item{background:#f8fafc!important;}
+
+.section-divider-title{margin:28px 0 14px!important;padding-top:22px!important;border-top:1px solid var(--nc-line)!important;}
+.period-selector{border:1px solid var(--nc-line)!important;border-radius:10px!important;box-shadow:none!important;padding:.45rem .7rem!important;}
+
+/* KPIs financeiros: 4 números que importam na primeira leitura */
+.kpi-grid.finance-primary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;}
+.finance-primary .kpi-card{width:auto!important;text-align:left!important;padding:18px!important;border-left:1px solid var(--nc-line)!important;min-height:118px!important;}
+.finance-primary .kpi-label{justify-content:flex-start!important;color:var(--nc-muted)!important;}
+.finance-primary .kpi-value{font-size:1.55rem!important;}
+.finance-primary .kpi-card.saldo{box-shadow:inset 4px 0 0 var(--nc-blue),0 7px 22px rgba(17,42,78,.055)!important;}
+.finance-primary .kpi-card.entradas{box-shadow:inset 4px 0 0 var(--success),0 7px 22px rgba(17,42,78,.055)!important;}
+.finance-primary .kpi-card.saidas{box-shadow:inset 4px 0 0 var(--error),0 7px 22px rgba(17,42,78,.055)!important;}
+.finance-primary .kpi-card.cartao{box-shadow:inset 4px 0 0 var(--warning),0 7px 22px rgba(17,42,78,.055)!important;}
+
+/* camada gerencial secundária mais discreta */
+.kpi-grid.finance-secondary{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;}
+.finance-secondary .kpi-card{width:auto!important;min-height:98px!important;padding:15px 16px!important;text-align:left!important;border-left:1px solid var(--nc-line)!important;box-shadow:none!important;}
+.finance-secondary .kpi-label{justify-content:flex-start!important;}
+.finance-secondary .kpi-value{font-size:1.12rem!important;}
+
+/* Insight primeiro, detalhes depois */
+.manager-grid.finance-manager{grid-template-columns:1.35fr .9fr!important;gap:14px!important;}
+.diagnostico-card{border-left:0!important;box-shadow:inset 4px 0 0 var(--warning),0 7px 22px rgba(17,42,78,.055)!important;}
+.diagnostico-card h3:after{content:"  •  Insight gerencial";font-size:.72rem;font-weight:500;color:var(--nc-muted);}
+.details-grid{gap:14px!important;}
+.detail-card,.manager-card{padding:18px!important;}
+
+/* cards de bandeira: menores e sem poluir */
+.kpi-grid:not(.finance-primary):not(.finance-secondary){gap:12px!important;}
+.kpi-grid:not(.finance-primary):not(.finance-secondary) .kpi-card{width:190px!important;padding:14px!important;box-shadow:none!important;}
+
+/* ---------- responsividade ---------- */
+@media(max-width:1100px){
+  :root{--nc-sidebar:218px;}
+  .gestao-kpi-grid,.kpi-grid.finance-primary,.kpi-grid.finance-secondary{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+  .manager-grid.finance-manager{grid-template-columns:1fr!important;}
+}
+@media(max-width:900px){
+  :root{--nc-sidebar:0px;}
+  .nc-topbar{position:sticky!important;top:0!important;width:100%!important;height:auto!important;min-height:62px!important;padding:10px 14px!important;flex-direction:row!important;align-items:center!important;}
+  .nc-topbar-left{border:0!important;margin:0!important;padding:0!important;}
+  .nc-topbar-nav{margin-left:auto!important;overflow:visible!important;}
+  .nc-nav-list{flex-direction:row!important;}
+  .nc-nav-group{width:auto!important;}
+  .nc-nav-group-toggle{width:auto!important;}
+  .nc-nav-dropdown{display:none!important;position:absolute!important;top:100%!important;right:0!important;left:auto!important;width:240px!important;margin:4px 0!important;padding:8px!important;background:var(--nc-navy)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:12px!important;}
+  .nc-nav-group.open .nc-nav-dropdown{display:block!important;}
+  .nc-content{margin-left:0!important;width:100%!important;padding:0 16px 28px!important;}
+  .nc-user-status-bar{margin:0 -16px 20px!important;padding:10px 16px!important;position:relative!important;}
+  .nc-footer{margin-left:0!important;}
+}
+@media(max-width:680px){
+  .gestao-kpi-grid,.kpi-grid.finance-primary,.kpi-grid.finance-secondary{grid-template-columns:1fr!important;}
+  .gestao-columns{grid-template-columns:1fr!important;}
+  .quick-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important;}
+  .dashboard-header h2{font-size:1.45rem!important;}
+  .nc-nav-list>li:not(.nc-nav-group):not(:last-child){display:none!important;}
+}

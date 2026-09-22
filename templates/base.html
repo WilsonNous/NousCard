@@ -33,6 +33,9 @@
           onload="this.onload=null;console.log('✅ CSS style.css carregado')"
           onerror="console.error('❌ Falha ao carregar style.css'); this.rel='stylesheet'; this.href=this.href.split('?')[0]">
 
+    <!-- UX 2026: shell SaaS com navegação vertical + barra contextual -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nouscard-ux.css') }}?v={{ current_year }}">
+
     {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 
