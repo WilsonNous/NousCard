@@ -13,7 +13,7 @@
     <div class="mgt-card">
       <h2 class="mgt-section-title">Dados comerciais</h2>
       <div class="mgt-grid">
-        <div class="mgt-field full"><label>Cliente *</label><select name="cliente_id" required><option value="">Selecione...</option>{% for c in clientes %}<option value="{{ c.id }}" {% if (orcamento and orcamento.cliente_id==c.id) or (not orcamento and cliente_pre==c.id) %}selected{% endif %}>{{ c.nome|e }}</option>{% endfor %}</select><small><a href="{{ url_for('clientes.novo', next='orcamento') }}">Cadastrar novo cliente</a></small></div>
+        <div class="mgt-field full"><label>Cliente *</label><select name="cliente_id" required><option value="">Selecione...</option>{% for c in clientes %}<option value="{{ c.id }}" {% if (orcamento and orcamento.cliente_id==c.id) or (not orcamento and cliente_pre==c.id) %}selected{% endif %}>{{ c.nome|e }}</option>{% endfor %}</select><small><a href="{{ url_for('clientes.novo', next='orcamento') }}">Cadastrar novo cliente</a></small></div><div class="mgt-field full"><label>Veículo <small>(opcional)</small></label><select name="veiculo_id" id="veiculoSelect"><option value="">Sem veículo / não se aplica</option>{% for v in veiculos or [] %}<option value="{{ v.id }}" data-cliente="{{ v.cliente_id }}" {% if orcamento and orcamento.veiculo_id==v.id %}selected{% endif %}>{{ v.descricao|e }} — {{ v.cliente.nome|e }}</option>{% endfor %}</select><small><a href="{{ url_for('veiculos.novo') }}">Cadastrar veículo</a></small></div>
         <div class="mgt-field"><label>Data de emissão</label><input type="date" name="data_emissao" value="{{ orcamento.data_emissao.isoformat() if orcamento else (hoje.isoformat() if hoje else '') }}"></div>
         <div class="mgt-field"><label>Validade</label><input type="date" name="validade_ate" value="{{ orcamento.validade_ate.isoformat() if orcamento and orcamento.validade_ate else (validade_padrao.isoformat() if not orcamento and validade_padrao else '') }}"></div>
         <div class="mgt-field full"><label>Condições de pagamento</label><textarea name="condicoes_pagamento" rows="2" placeholder="Ex.: 50% de sinal e saldo na entrega">{{ orcamento.condicoes_pagamento if orcamento and orcamento.condicoes_pagamento else '' }}</textarea></div>
@@ -78,6 +78,9 @@
 <script>
 (function(){
  const container=document.getElementById('itemsContainer'), tpl=document.getElementById('itemTemplate');
+ const clienteSel=document.querySelector('[name=cliente_id]'), veiculoSel=document.getElementById('veiculoSelect');
+ function filtrarVeiculos(){if(!veiculoSel||!clienteSel)return; const cid=clienteSel.value; [...veiculoSel.options].forEach((o,i)=>{if(i===0)return; o.hidden=!!cid && o.dataset.cliente!==cid}); if(veiculoSel.selectedOptions[0]?.hidden) veiculoSel.value='';}
+ clienteSel?.addEventListener('change',filtrarVeiculos); filtrarVeiculos();
  function num(v){let s=(v||'').toString().trim().replace(/R\$/g,'').replace(/\s/g,''); if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.'); const n=parseFloat(s); return isNaN(n)?0:n}
  function brl(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
  function renumber(){container.querySelectorAll('.item-card').forEach((el,i)=>el.querySelector('.item-number').textContent=i+1)}

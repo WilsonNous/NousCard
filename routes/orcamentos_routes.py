@@ -7,17 +7,18 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from models import db, Cliente, Orcamento, OrcamentoItem
+from models import db, Cliente, Veiculo, Orcamento, OrcamentoItem
 from utils.auth_middleware import empresa_required, validar_csrf_token
 
 logger = logging.getLogger(__name__)
 orcamentos_bp = Blueprint("orcamentos", __name__)
 
-STATUS_VALIDOS = {"RASCUNHO", "ENVIADO", "APROVADO", "RECUSADO", "CANCELADO"}
+STATUS_VALIDOS = {"RASCUNHO", "ENVIADO", "APROVADO", "ALTERACAO_SOLICITADA", "RECUSADO", "CANCELADO"}
 STATUS_LABELS = {
     "RASCUNHO": "Rascunho",
     "ENVIADO": "Enviado",
     "APROVADO": "Aprovado",
+    "ALTERACAO_SOLICITADA": "Alteração solicitada",
     "RECUSADO": "Recusado",
     "CANCELADO": "Cancelado",
 }
@@ -87,6 +88,10 @@ def _clientes_ativos():
     return Cliente.query.filter_by(
         empresa_id=g.user.empresa_id, ativo=True
     ).order_by(Cliente.nome.asc()).all()
+
+
+def _veiculos_ativos():
+    return Veiculo.query.filter_by(empresa_id=g.user.empresa_id, ativo=True).order_by(Veiculo.placa.asc()).all()
 
 
 def _salvar_itens(orcamento):
@@ -178,6 +183,7 @@ def listar():
 @empresa_required
 def novo():
     clientes = _clientes_ativos()
+    veiculos = _veiculos_ativos()
     if request.method == "GET":
         cliente_pre = request.args.get("cliente_id", type=int)
         return render_template(
@@ -187,6 +193,7 @@ def novo():
             cliente_pre=cliente_pre,
             hoje=date.today(),
             validade_padrao=date.today() + timedelta(days=7),
+            veiculos=veiculos,
         )
 
     if not validar_csrf_token(request.form.get("csrf_token")):
@@ -199,7 +206,7 @@ def novo():
     ).first()
     if not cliente:
         flash("Selecione um cliente válido.", "error")
-        return render_template("orcamento_form.html", orcamento=None, clientes=clientes)
+        return render_template("orcamento_form.html", orcamento=None, clientes=clientes, veiculos=veiculos)
 
     orcamento = Orcamento(
         empresa_id=g.user.empresa_id,
@@ -208,6 +215,7 @@ def novo():
         data_emissao=_data(request.form.get("data_emissao"), date.today()),
         validade_ate=_data(request.form.get("validade_ate")),
         status="RASCUNHO",
+        veiculo_id=request.form.get("veiculo_id", type=int) or None,
         condicoes_pagamento=(request.form.get("condicoes_pagamento") or "").strip() or None,
         prazo_estimado=(request.form.get("prazo_estimado") or "").strip() or None,
         observacoes_cliente=(request.form.get("observacoes_cliente") or "").strip() or None,
@@ -233,7 +241,7 @@ def novo():
         logger.exception("Erro ao criar orçamento")
         flash("Não foi possível salvar o orçamento.", "error")
 
-    return render_template("orcamento_form.html", orcamento=None, clientes=clientes)
+    return render_template("orcamento_form.html", orcamento=None, clientes=clientes, veiculos=veiculos)
 
 
 @orcamentos_bp.route("/<int:orcamento_id>/editar", methods=["GET", "POST"])
@@ -241,8 +249,9 @@ def novo():
 def editar(orcamento_id):
     orcamento = _orcamento_tenant_or_404(orcamento_id)
     clientes = _clientes_ativos()
+    veiculos = _veiculos_ativos()
     if request.method == "GET":
-        return render_template("orcamento_form.html", orcamento=orcamento, clientes=clientes)
+        return render_template("orcamento_form.html", orcamento=orcamento, clientes=clientes, veiculos=veiculos)
 
     if not validar_csrf_token(request.form.get("csrf_token")):
         flash("Erro de segurança. Recarregue a página e tente novamente.", "error")
@@ -254,9 +263,15 @@ def editar(orcamento_id):
     ).first()
     if not cliente:
         flash("Selecione um cliente válido.", "error")
-        return render_template("orcamento_form.html", orcamento=orcamento, clientes=clientes)
+        return render_template("orcamento_form.html", orcamento=orcamento, clientes=clientes, veiculos=veiculos)
 
     orcamento.cliente_id = cliente.id
+    veiculo_id = request.form.get("veiculo_id", type=int)
+    if veiculo_id:
+        veiculo = Veiculo.query.filter_by(id=veiculo_id, empresa_id=g.user.empresa_id, cliente_id=cliente.id, ativo=True).first()
+        orcamento.veiculo_id = veiculo.id if veiculo else None
+    else:
+        orcamento.veiculo_id = None
     orcamento.data_emissao = _data(request.form.get("data_emissao"), orcamento.data_emissao)
     orcamento.validade_ate = _data(request.form.get("validade_ate"))
     orcamento.condicoes_pagamento = (request.form.get("condicoes_pagamento") or "").strip() or None
@@ -276,7 +291,7 @@ def editar(orcamento_id):
         db.session.rollback()
         logger.exception("Erro ao atualizar orçamento")
         flash("Não foi possível atualizar o orçamento.", "error")
-    return render_template("orcamento_form.html", orcamento=orcamento, clientes=clientes)
+    return render_template("orcamento_form.html", orcamento=orcamento, clientes=clientes, veiculos=veiculos)
 
 
 @orcamentos_bp.route("/<int:orcamento_id>")
@@ -318,3 +333,24 @@ def alterar_status(orcamento_id):
     db.session.commit()
     flash(f"Orçamento marcado como {STATUS_LABELS[novo]}.", "success")
     return redirect(url_for("orcamentos.visualizar", orcamento_id=orcamento_id))
+
+
+@orcamentos_bp.route("/<int:orcamento_id>/compartilhar", methods=["POST"])
+@empresa_required
+def compartilhar(orcamento_id):
+    orcamento = _orcamento_tenant_or_404(orcamento_id)
+    if not validar_csrf_token(request.form.get("csrf_token")):
+        flash("Erro de segurança.", "error")
+        return redirect(url_for("orcamentos.visualizar", orcamento_id=orcamento_id))
+    orcamento.garantir_token_publico()
+    if orcamento.status == "RASCUNHO":
+        orcamento.status = "ENVIADO"
+    db.session.commit()
+    link = url_for("orcamento_publico.visualizar", token=orcamento.public_token, _external=True, _scheme="https")
+    telefone = "".join(ch for ch in (orcamento.cliente.telefone or "") if ch.isdigit())
+    if telefone and not telefone.startswith("55"):
+        telefone = "55" + telefone
+    mensagem = f"Olá, {orcamento.cliente.nome}! Seu orçamento #{orcamento.numero_formatado} no valor de R$ {orcamento.total} está pronto. Consulte e responda aqui: {link}"
+    from urllib.parse import quote
+    whatsapp = f"https://wa.me/{telefone}?text={quote(mensagem)}" if telefone else f"https://wa.me/?text={quote(mensagem)}"
+    return redirect(whatsapp)

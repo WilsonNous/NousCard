@@ -240,6 +240,13 @@
                             </a>
                             <small>Propostas e aprovações</small>
 
+                            <a href="{{ url_for('veiculos.listar') }}"
+                               class="{% if endpoint.startswith('veiculos.') %}active{% endif %}"
+                               role="menuitem">
+                                🚗 Veículos
+                            </a>
+                            <small>Frota e veículos de clientes</small>
+
                             <a href="{{ url_for('ordens_servico.listar') }}"
                                class="{% if endpoint.startswith('ordens_servico.') %}active{% endif %}"
                                role="menuitem">

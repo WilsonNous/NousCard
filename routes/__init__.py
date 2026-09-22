@@ -52,6 +52,8 @@ from .clientes_routes import clientes_bp
 from .orcamentos_routes import orcamentos_bp
 from .ordens_servico_routes import ordens_servico_bp
 from .public_leads_routes import public_leads_bp
+from .veiculos_routes import veiculos_bp
+from .orcamento_publico_routes import orcamento_publico_bp
 
 
 def register_blueprints(app: Flask):
@@ -126,6 +128,20 @@ def register_blueprints(app: Flask):
             'prefix': '/ordens-servico',
             'description': 'Ordens de Serviço',
             'access': 'authenticated',
+            'required': True
+        },
+        {
+            'blueprint': veiculos_bp,
+            'prefix': '/veiculos',
+            'description': 'Veículos',
+            'access': 'authenticated',
+            'required': True
+        },
+        {
+            'blueprint': orcamento_publico_bp,
+            'prefix': '/p/orcamento',
+            'description': 'Aprovação pública de orçamentos',
+            'access': 'public',
             'required': True
         },
         
