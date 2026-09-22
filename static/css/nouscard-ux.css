@@ -142,3 +142,20 @@ body.nc-body{background:var(--nc-canvas)!important;color:var(--nc-text);min-heig
   .dashboard-header h2{font-size:1.45rem!important;}
   .nc-nav-list>li:not(.nc-nav-group):not(:last-child){display:none!important;}
 }
+
+/* ================================================================
+   Identidade oficial NousCard — paleta padrão
+   ================================================================ */
+:root{
+  --nc-blue:#1877F2;
+  --nc-blue-action:#0866FF;
+  --nc-canvas:#F0F2F5;
+  --nc-surface:#FFFFFF;
+  --nc-text:#100F0D;
+  --primary:#1877F2;
+  --primary-dark:#0866FF;
+  --white:#FFFFFF;
+}
+.quick-action.primary{background:#1877F2!important;border-color:#1877F2!important}
+.gestao-kpi:before{background:#1877F2!important}
+.finance-primary .kpi-card.saldo{box-shadow:inset 4px 0 0 #1877F2,0 7px 22px rgba(17,42,78,.055)!important}
