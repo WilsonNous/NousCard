@@ -290,10 +290,36 @@ def dre_resumo():
     resultado = total_receitas - total_despesas
     margem = (resultado / total_receitas * 100) if total_receitas else 0
 
-    # DRE gerencial preliminar por regime de caixa. As categorias ainda devem
-    # evoluir para separar deduções, custos variáveis e despesas operacionais.
+    # DRE gerencial v2: organiza as classificações atuais em blocos de leitura.
+    # A origem continua sendo o regime de caixa/classificação já existente; não
+    # alteramos a semântica financeira dos movimentos nesta fase.
     def linha(item):
-        return {**item, "nome": _nome_amigavel(item["categoria"]), "valor": _round(item["total"])}
+        valor = _round(item["total"])
+        return {
+            **item,
+            "nome": _nome_amigavel(item["categoria"]),
+            "valor": valor,
+            "percentual_receita": round((valor / total_receitas * 100), 1) if total_receitas else 0,
+        }
+
+    receitas_linhas = [linha(i) for i in receitas]
+    despesas_linhas = [linha(i) for i in despesas]
+
+    categorias_deducao = {"impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"}
+    categorias_custo = {"fornecedores_servicos", "fornecedores_mercadoria"}
+
+    deducoes = [i for i in despesas_linhas if i["categoria"] in categorias_deducao]
+    custos = [i for i in despesas_linhas if i["categoria"] in categorias_custo]
+    despesas_operacionais = [
+        i for i in despesas_linhas
+        if i["categoria"] not in categorias_deducao and i["categoria"] not in categorias_custo
+    ]
+
+    total_deducoes = sum(i["valor"] for i in deducoes)
+    receita_liquida = total_receitas - total_deducoes
+    total_custos = sum(i["valor"] for i in custos)
+    lucro_bruto = receita_liquida - total_custos
+    total_despesas_operacionais = sum(i["valor"] for i in despesas_operacionais)
 
     contexto = {
         "usuario": usuario, "empresa_id": empresa_id, "empresa_nome": empresa.nome,
@@ -301,8 +327,12 @@ def dre_resumo():
         "current_year": datetime.now().year,
         "csrf_token": getattr(g, "csrf_token", "") or session.get("csrf_token", ""),
         "periodo": periodo, "data_inicio": data_inicio, "data_fim": data_fim,
-        "receitas_dre": [linha(i) for i in receitas], "despesas_dre": [linha(i) for i in despesas],
+        "receitas_dre": receitas_linhas, "despesas_dre": despesas_linhas,
+        "deducoes_dre": deducoes, "custos_dre": custos, "despesas_operacionais_dre": despesas_operacionais,
         "total_receitas": _round(total_receitas), "total_despesas": _round(total_despesas),
+        "total_deducoes": _round(total_deducoes), "receita_liquida": _round(receita_liquida),
+        "total_custos": _round(total_custos), "lucro_bruto": _round(lucro_bruto),
+        "total_despesas_operacionais": _round(total_despesas_operacionais),
         "resultado": _round(resultado), "margem": round(margem, 1),
     }
     return render_template("dashboard/dre_resumo.html", **contexto)
