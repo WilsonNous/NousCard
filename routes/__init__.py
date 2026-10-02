@@ -38,6 +38,7 @@ def _import_blueprint(module_path: str, blueprint_name: str):
 
 # ✅ IMPORTAÇÕES DIRETAS
 from .dashboard_routes import dashboard_bp, dashboard_api_bp
+from .resumo_routes import resumo_bp
 from .contrato_routes import contrato_bp
 from .assistant_routes import assistant_bp
 from .auth_routes import auth_bp
@@ -78,6 +79,13 @@ def register_blueprints(app: Flask):
         },
         
         # 2️⃣ INTERFACE PRINCIPAL
+        {
+            'blueprint': resumo_bp,
+            'prefix': None,
+            'description': 'Meu Resumo executivo',
+            'access': 'authenticated',
+            'required': True
+        },
         {
             'blueprint': dashboard_bp,
             'prefix': None,
