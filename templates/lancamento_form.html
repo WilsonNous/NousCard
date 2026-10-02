@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Novo lançamento - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+.lanc-page{max-width:920px;margin:0 auto}.lanc-head{margin-bottom:20px}.lanc-head h1{margin:0 0 6px;color:#100F0D}.lanc-head p{margin:0;color:#66758c}.lanc-card{background:#fff;border:1px solid #e4e9f1;border-radius:16px;padding:22px;box-shadow:0 2px 8px rgba(16,15,13,.05)}.tipo-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}.tipo-option input{position:absolute;opacity:0}.tipo-option label{display:block;border:2px solid #dfe3e8;border-radius:14px;padding:18px;cursor:pointer;text-align:center;font-weight:800;transition:.15s}.tipo-option input:checked+label{border-color:#1877F2;background:#eef5ff;color:#0866FF}.tipo-icon{display:block;font-size:1.7rem;margin-bottom:5px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.field.full{grid-column:1/-1}.field label{display:block;font-weight:700;margin-bottom:6px;color:#100F0D}.field input,.field select{width:100%;box-sizing:border-box;border:1px solid #dfe3e8;border-radius:10px;padding:12px 13px;font:inherit;background:#fff;color:#100F0D}.field input:focus,.field select:focus{outline:2px solid rgba(24,119,242,.18);border-color:#1877F2}.hint{font-size:.78rem;color:#66758c;margin-top:5px}.actions{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}.btn-save{border:0;border-radius:10px;padding:12px 18px;background:#1877F2;color:#fff;font-weight:800;cursor:pointer}.btn-back{border:1px solid #dfe3e8;border-radius:10px;padding:11px 16px;background:#fff;color:#100F0D;text-decoration:none;font-weight:700}.simple-note{margin-top:18px;padding:14px;border-radius:12px;background:#F0F2F5;color:#4d5d73;font-size:.9rem}@media(max-width:700px){.tipo-grid,.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.lanc-card{padding:16px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lanc-page">
+  <div class="lanc-head">
+    <h1>💰 Novo lançamento</h1>
+    <p>Registre o que entrou ou saiu. O NousCard cuida do restante.</p>
+  </div>
+
+  <form method="POST" class="lanc-card" id="lancamentoForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <div class="tipo-grid" aria-label="Tipo do lançamento">
+      <div class="tipo-option">
+        <input type="radio" id="tipoReceita" name="tipo" value="receita" checked>
+        <label for="tipoReceita"><span class="tipo-icon">⬆️</span>Recebi dinheiro</label>
+      </div>
+      <div class="tipo-option">
+        <input type="radio" id="tipoDespesa" name="tipo" value="despesa">
+        <label for="tipoDespesa"><span class="tipo-icon">⬇️</span>Gastei dinheiro</label>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="valor">Quanto?</label>
+        <input id="valor" name="valor" inputmode="decimal" placeholder="Ex.: 850,00" required autofocus>
+      </div>
+      <div class="field">
+        <label for="data_movimento">Quando?</label>
+        <input id="data_movimento" name="data_movimento" type="date" value="{{ hoje }}" required>
+      </div>
+      <div class="field full">
+        <label for="descricao">O que foi?</label>
+        <input id="descricao" name="descricao" maxlength="255" placeholder="Ex.: Serviço do cliente João ou compra de material" required>
+        <div class="hint">Escreva do jeito que você lembraria depois.</div>
+      </div>
+      <div class="field">
+        <label for="categoria">Categoria</label>
+        <select id="categoria" name="categoria" required></select>
+      </div>
+      <div class="field">
+        <label for="conta_bancaria_id">Onde movimentou?</label>
+        <select id="conta_bancaria_id" name="conta_bancaria_id">
+          <option value="">Não informar agora</option>
+          {% for conta in contas %}<option value="{{ conta.id }}">{{ conta.nome }}{% if conta.banco %} — {{ conta.banco }}{% endif %}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-save" type="submit">Salvar lançamento</button>
+      <a class="btn-back" href="{{ url_for('dashboard.financeiro') }}">Voltar ao financeiro</a>
+    </div>
+
+    <div class="simple-note">💡 Você não precisa importar arquivo para começar. Pode registrar receitas e despesas manualmente e complementar com extratos depois.</div>
+  </form>
+</div>
+
+<script>
+(function(){
+  const receitas={{ categorias_receita|tojson }};
+  const despesas={{ categorias_despesa|tojson }};
+  const select=document.getElementById('categoria');
+  function carregar(){
+    const tipo=document.querySelector('input[name="tipo"]:checked').value;
+    const itens=tipo==='receita'?receitas:despesas;
+    select.innerHTML='';
+    itens.forEach(([valor,nome])=>{const op=document.createElement('option');op.value=valor;op.textContent=nome;select.appendChild(op);});
+  }
+  document.querySelectorAll('input[name="tipo"]').forEach(el=>el.addEventListener('change',carregar));
+  carregar();
+})();
+</script>
+{% endblock %}

@@ -45,6 +45,7 @@ from .auth_routes import auth_bp
 from .empresas_routes import empresas_bp
 from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
+from .lancamentos_routes import lancamentos_bp
 # ❌ REMOVIDO: from .dashboard_api import dashboard_api  (conflito com dashboard_api_bp)
 from .conciliacao_api import bp_conc
 from .auditor_routes import auditor_bp  
@@ -113,6 +114,13 @@ def register_blueprints(app: Flask):
             'blueprint': operacoes_bp,
             'prefix': '/operacoes',
             'description': 'Operações (importar, conciliar, detalhar)',
+            'access': 'authenticated',
+            'required': True
+        },
+        {
+            'blueprint': lancamentos_bp,
+            'prefix': None,
+            'description': 'Lançamentos financeiros manuais',
             'access': 'authenticated',
             'required': True
         },
