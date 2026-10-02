@@ -1,27 +1,14 @@
 # routes/__init__.py - VERSÃO FINAL COMPLETA E ROBUSTA
 
-import os  
+import os
 import logging
 import time
 from flask import Flask
 
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# IMPORTAÇÃO DE BLUEPRINTS (COM FALLBACK SEGURO)
-# ============================================================
 
 def _import_blueprint(module_path: str, blueprint_name: str):
-    """
-    Importa blueprint com fallback seguro para testes/ambientes mínimos.
-    
-    Args:
-        module_path: Caminho do módulo (ex: '.dashboard_routes')
-        blueprint_name: Nome da variável do blueprint (ex: 'dashboard_bp')
-    
-    Returns:
-        Blueprint object ou None se falhar
-    """
     try:
         module = __import__(module_path, fromlist=[blueprint_name])
         return getattr(module, blueprint_name)
@@ -36,7 +23,6 @@ def _import_blueprint(module_path: str, blueprint_name: str):
         raise
 
 
-# ✅ IMPORTAÇÕES DIRETAS
 from .dashboard_routes import dashboard_bp, dashboard_api_bp
 from .resumo_routes import resumo_bp
 from .contrato_routes import contrato_bp
@@ -45,9 +31,9 @@ from .auth_routes import auth_bp
 from .empresas_routes import empresas_bp
 from .master_routes import master_bp
 from .operacoes_routes import operacoes_bp
-# ❌ REMOVIDO: from .dashboard_api import dashboard_api  (conflito com dashboard_api_bp)
+from .lancamentos_routes import lancamentos_bp
 from .conciliacao_api import bp_conc
-from .auditor_routes import auditor_bp  
+from .auditor_routes import auditor_bp
 from routes.debug_routes import debug_bp
 from .clientes_routes import clientes_bp
 from .orcamentos_routes import orcamentos_bp
@@ -58,166 +44,37 @@ from .orcamento_publico_routes import orcamento_publico_bp
 
 
 def register_blueprints(app: Flask):
-    """
-    Registra todos os blueprints da aplicação com validação e logging.
-    """
-    
     is_debug = app.debug or os.getenv('FLASK_ENV') == 'development'
-    
+
     if is_debug:
         logger.info("🔄 Iniciando registro de blueprints...")
         start_time = time.time()
-    
-    blueprints = [
-        # 1️⃣ AUTENTICAÇÃO
-        {
-            'blueprint': auth_bp,
-            'prefix': '/auth',
-            'description': 'Autenticação (login, registro, logout)',
-            'access': 'public',
-            'required': True
-        },
-        
-        # 2️⃣ INTERFACE PRINCIPAL
-        {
-            'blueprint': resumo_bp,
-            'prefix': None,
-            'description': 'Meu Resumo executivo',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': dashboard_bp,
-            'prefix': None,
-            'description': 'Interface principal (dashboard, landing)',
-            'access': 'authenticated',
-            'required': True
-        },
-        
-        # 3️⃣ MÓDULOS DE NEGÓCIO
-        {
-            'blueprint': empresas_bp,
-            'prefix': '/empresas',
-            'description': 'Gestão de empresas',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': contrato_bp,
-            'prefix': '/contratos',
-            'description': 'Gestão de contratos de taxas',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': operacoes_bp,
-            'prefix': '/operacoes',
-            'description': 'Operações (importar, conciliar, detalhar)',
-            'access': 'authenticated',
-            'required': True
-        },
-        
-        {
-            'blueprint': clientes_bp,
-            'prefix': '/clientes',
-            'description': 'Gestão de clientes',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': orcamentos_bp,
-            'prefix': '/orcamentos',
-            'description': 'Orçamentos comerciais',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': ordens_servico_bp,
-            'prefix': '/ordens-servico',
-            'description': 'Ordens de Serviço',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': veiculos_bp,
-            'prefix': '/veiculos',
-            'description': 'Veículos',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': orcamento_publico_bp,
-            'prefix': '/p/orcamento',
-            'description': 'Aprovação pública de orçamentos',
-            'access': 'public',
-            'required': True
-        },
-        
-        # 4️⃣ API PÚBLICA COMERCIAL
-        {
-            'blueprint': public_leads_bp,
-            'prefix': '/api/public',
-            'description': 'Captação pública de leads do NousCard',
-            'access': 'public',
-            'required': True
-        },
 
-        # 5️⃣ APIs (versionadas para frontend/mobile)
-        {
-            'blueprint': dashboard_api_bp,
-            'prefix': '/api/v1/dashboard',
-            'description': 'API de dashboard financeiro (KPIs, insights)',
-            'access': 'authenticated',
-            'required': True
-        },
-        # ❌ REMOVIDO: dashboard_api legado (conflito de nome)
-        {
-            'blueprint': bp_conc,
-            'prefix': '/api/v1/conciliacao',
-            'description': 'API de conciliação',
-            'access': 'authenticated',
-            'required': True
-        },
-        {
-            'blueprint': auditor_bp,
-            'prefix': '/api/v1/auditoria',
-            'description': 'API de auditoria de taxas',
-            'access': 'authenticated',
-            'required': False,
-            'feature_flag': 'FEATURE_AUDITORIA_ENABLED'
-        },
-        
-        # 6️⃣ ÁREA ADMINISTRATIVA
-        {
-            'blueprint': master_bp,
-            'prefix': '/master',
-            'description': 'Área administrativa (restrita a master)',
-            'access': 'master_only',
-            'required': True
-        },
-        {
-            'blueprint': assistant_bp,
-            'prefix': '/assistant',
-            'description': 'Assistente virtual e ajuda',
-            'access': 'authenticated',
-            'required': False,
-            'feature_flag': 'FEATURE_ASSISTANT_ENABLED'
-        },
-        
-        # 7️⃣ DEBUG
-        {
-            'blueprint': debug_bp,
-            'prefix': '/debug',
-            'description': 'Rotas de debug e diagnóstico',
-            'access': 'master_only',
-            'required': False,
-            'feature_flag': 'FEATURE_DEBUG_ENABLED'
-        },
+    blueprints = [
+        {'blueprint': auth_bp, 'prefix': '/auth', 'description': 'Autenticação (login, registro, logout)', 'access': 'public', 'required': True},
+        {'blueprint': resumo_bp, 'prefix': None, 'description': 'Meu Resumo executivo', 'access': 'authenticated', 'required': True},
+        {'blueprint': dashboard_bp, 'prefix': None, 'description': 'Interface principal (dashboard, landing)', 'access': 'authenticated', 'required': True},
+        {'blueprint': empresas_bp, 'prefix': '/empresas', 'description': 'Gestão de empresas', 'access': 'authenticated', 'required': True},
+        {'blueprint': contrato_bp, 'prefix': '/contratos', 'description': 'Gestão de contratos de taxas', 'access': 'authenticated', 'required': True},
+        {'blueprint': operacoes_bp, 'prefix': '/operacoes', 'description': 'Operações (importar, conciliar, detalhar)', 'access': 'authenticated', 'required': True},
+        {'blueprint': lancamentos_bp, 'prefix': None, 'description': 'Lançamentos financeiros manuais', 'access': 'authenticated', 'required': True},
+        {'blueprint': clientes_bp, 'prefix': '/clientes', 'description': 'Gestão de clientes', 'access': 'authenticated', 'required': True},
+        {'blueprint': orcamentos_bp, 'prefix': '/orcamentos', 'description': 'Orçamentos comerciais', 'access': 'authenticated', 'required': True},
+        {'blueprint': ordens_servico_bp, 'prefix': '/ordens-servico', 'description': 'Ordens de Serviço', 'access': 'authenticated', 'required': True},
+        {'blueprint': veiculos_bp, 'prefix': '/veiculos', 'description': 'Veículos', 'access': 'authenticated', 'required': True},
+        {'blueprint': orcamento_publico_bp, 'prefix': '/p/orcamento', 'description': 'Aprovação pública de orçamentos', 'access': 'public', 'required': True},
+        {'blueprint': public_leads_bp, 'prefix': '/api/public', 'description': 'Captação pública de leads do NousCard', 'access': 'public', 'required': True},
+        {'blueprint': dashboard_api_bp, 'prefix': '/api/v1/dashboard', 'description': 'API de dashboard financeiro (KPIs, insights)', 'access': 'authenticated', 'required': True},
+        {'blueprint': bp_conc, 'prefix': '/api/v1/conciliacao', 'description': 'API de conciliação', 'access': 'authenticated', 'required': True},
+        {'blueprint': auditor_bp, 'prefix': '/api/v1/auditoria', 'description': 'API de auditoria de taxas', 'access': 'authenticated', 'required': False, 'feature_flag': 'FEATURE_AUDITORIA_ENABLED'},
+        {'blueprint': master_bp, 'prefix': '/master', 'description': 'Área administrativa (restrita a master)', 'access': 'master_only', 'required': True},
+        {'blueprint': assistant_bp, 'prefix': '/assistant', 'description': 'Assistente virtual e ajuda', 'access': 'authenticated', 'required': False, 'feature_flag': 'FEATURE_ASSISTANT_ENABLED'},
+        {'blueprint': debug_bp, 'prefix': '/debug', 'description': 'Rotas de debug e diagnóstico', 'access': 'master_only', 'required': False, 'feature_flag': 'FEATURE_DEBUG_ENABLED'},
     ]
-    
+
     registered = 0
     skipped = 0
-    
+
     for bp_config in blueprints:
         blueprint = bp_config['blueprint']
         prefix = bp_config['prefix']
@@ -225,50 +82,45 @@ def register_blueprints(app: Flask):
         access_level = bp_config['access']
         required = bp_config.get('required', True)
         feature_flag = bp_config.get('feature_flag')
-        
+
         if feature_flag and not app.config.get(feature_flag, True):
             if is_debug:
                 logger.info(f"⏭️ Blueprint '{description}' pulado (feature flag: {feature_flag}=False)")
             skipped += 1
             continue
-        
+
         if blueprint is None:
             if required:
                 logger.error(f"❌ Blueprint obrigatório '{description}' não está disponível")
                 raise ValueError(f"Blueprint obrigatório '{description}' não está disponível")
-            else:
-                if is_debug:
-                    logger.warning(f"⏭️ Blueprint opcional '{description}' não está disponível")
-                skipped += 1
-                continue
-              
+            if is_debug:
+                logger.warning(f"⏭️ Blueprint opcional '{description}' não está disponível")
+            skipped += 1
+            continue
+
         try:
             bp_start = time.time()
             app.register_blueprint(blueprint, url_prefix=prefix)
             bp_duration = (time.time() - bp_start) * 1000
-            
             if is_debug:
                 logger.info(f"✅ Registrado: {description} ({prefix or '/'}) [{bp_duration:.1f}ms] [{access_level}]")
             registered += 1
-            
         except Exception as e:
             error_msg = f"❌ Falha ao registrar {description}: {str(e)}"
             if required:
                 logger.error(error_msg)
                 raise
-            else:
-                logger.warning(f"⚠️ {error_msg} (blueprint opcional, continuando)")
-                skipped += 1
-    
+            logger.warning(f"⚠️ {error_msg} (blueprint opcional, continuando)")
+            skipped += 1
+
     if is_debug:
         total_time = (time.time() - start_time) * 1000
         logger.info(f"🎯 Registro concluído: {registered} blueprints, {skipped} pulados [{total_time:.1f}ms total]")
-        
         if app.config.get('DEBUG_LIST_ROUTES', False):
             logger.info("📋 Rotas registradas:")
             for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
                 if rule.endpoint != 'static':
                     methods = ', '.join(sorted(m for m in rule.methods if m not in ['HEAD', 'OPTIONS']))
                     logger.info(f"  {rule.rule:40s} [{methods:10s}] → {rule.endpoint}")
-    
+
     app.config['_REGISTERED_BLUEPRINTS'] = [bp['blueprint'].name for bp in blueprints if bp['blueprint']]
