@@ -29,16 +29,20 @@ CATEGORIAS_DESPESA = [
     ("outras_despesas", "Outra despesa"),
 ]
 
-# Espelha os grupos exibidos em _montar_despesas_por_grupo no dashboard.
+# Grupos usados pelo detalhamento sob demanda. Os grupos de despesa espelham
+# o dashboard; os de receita espelham os resumos exibidos na Visão Financeira.
 GRUPOS_DETALHE = {
-    "alimentacao": {"nome": "Alimentação", "icone": "🍽️", "categorias": ["alimentacao_restaurante", "alimentacao_mercado", "supermercado"]},
-    "transporte": {"nome": "Transporte", "icone": "⛽", "categorias": ["transporte_combustivel", "transporte_pedagio", "transporte_estacionamento"]},
-    "impostos": {"nome": "Impostos e tributos", "icone": "🏛️", "categorias": ["impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"]},
-    "transferencias_enviadas": {"nome": "Transferências enviadas", "icone": "🔁", "categorias": ["transferencias_enviadas", "transferencia_enviada"]},
-    "servicos": {"nome": "Serviços essenciais", "icone": "📡", "categorias": ["internet", "telefonia", "energia", "agua", "energia_agua_telecom"]},
-    "financeiro": {"nome": "Financeiro", "icone": "🏦", "categorias": ["emprestimos", "tarifas_bancarias", "juros", "taxas"]},
-    "assinaturas": {"nome": "Assinaturas", "icone": "🎬", "categorias": ["streaming", "assinaturas", "software"]},
-    "outras_despesas": {"nome": "Outras despesas", "icone": "📦", "categorias": []},
+    "alimentacao": {"nome": "Alimentação", "icone": "🍽️", "tipo": "despesa", "categorias": ["alimentacao_restaurante", "alimentacao_mercado", "supermercado"]},
+    "transporte": {"nome": "Transporte", "icone": "⛽", "tipo": "despesa", "categorias": ["transporte_combustivel", "transporte_pedagio", "transporte_estacionamento"]},
+    "impostos": {"nome": "Impostos e tributos", "icone": "🏛️", "tipo": "despesa", "categorias": ["impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"]},
+    "transferencias_enviadas": {"nome": "Transferências enviadas", "icone": "🔁", "tipo": "despesa", "categorias": ["transferencias_enviadas", "transferencia_enviada"]},
+    "servicos": {"nome": "Serviços essenciais", "icone": "📡", "tipo": "despesa", "categorias": ["internet", "telefonia", "energia", "agua", "energia_agua_telecom"]},
+    "financeiro": {"nome": "Financeiro", "icone": "🏦", "tipo": "despesa", "categorias": ["emprestimos", "tarifas_bancarias", "juros", "taxas"]},
+    "assinaturas": {"nome": "Assinaturas", "icone": "🎬", "tipo": "despesa", "categorias": ["streaming", "assinaturas", "software"]},
+    "fornecedores": {"nome": "Fornecedores e operação", "icone": "🏪", "tipo": "despesa", "categorias": ["transferencias_enviadas", "transferencia_enviada", "fornecedores_servicos", "fornecedores_mercadoria", "transporte_combustivel", "transporte_pedagio", "transporte_estacionamento", "alimentacao_restaurante", "alimentacao_mercado", "supermercado"]},
+    "outras_despesas": {"nome": "Outras despesas", "icone": "📦", "tipo": "despesa", "categorias": []},
+    "pix_recebido": {"nome": "PIX recebido", "icone": "⚡", "tipo": "receita", "categorias": ["receitas_pix", "pix_recebido", "vendas_pix"]},
+    "transferencias_recebidas": {"nome": "Transferências recebidas", "icone": "🏦", "tipo": "receita", "categorias": ["transferencias_recebidas", "receitas_nao_classificadas", "credito_conta", "credito_em_conta", "crédito_em_conta"]},
 }
 
 
@@ -75,10 +79,10 @@ def _periodo_datas(periodo):
     return hoje - timedelta(days=365), hoje
 
 
-def _categorias_grupos_principais():
+def _categorias_grupos_despesa_principais():
     categorias = set()
     for slug, config in GRUPOS_DETALHE.items():
-        if slug != "outras_despesas":
+        if config.get("tipo") == "despesa" and slug not in {"outras_despesas", "fornecedores"}:
             categorias.update(config["categorias"])
     return categorias
 
@@ -87,27 +91,43 @@ def _categorias_grupos_principais():
 @login_required
 @empresa_required
 def detalhes_grupo():
-    """Drill-down sob demanda dos grupos de despesa da Visão Financeira."""
+    """Drill-down sob demanda por grupo ou categoria da Visão Financeira."""
     grupo_slug = (request.args.get("grupo") or "").strip().lower()
+    categoria = (request.args.get("categoria") or "").strip()
+    natureza = (request.args.get("natureza") or "").strip().lower()
     periodo = (request.args.get("periodo") or "12meses").strip().lower()
     limite = min(max(request.args.get("limite", 100, type=int), 1), 200)
-    grupo = GRUPOS_DETALHE.get(grupo_slug)
+    grupo = GRUPOS_DETALHE.get(grupo_slug) if grupo_slug else None
 
-    if not grupo:
-        return jsonify({"ok": False, "error": "Grupo financeiro inválido."}), 400
+    if not grupo and not categoria:
+        return jsonify({"ok": False, "error": "Informe um grupo ou categoria financeira válida."}), 400
+    if categoria and natureza not in {"receita", "despesa"}:
+        return jsonify({"ok": False, "error": "Natureza financeira inválida."}), 400
 
+    tipo = grupo.get("tipo") if grupo else natureza
     data_inicio, data_fim = _periodo_datas(periodo)
-    query = MovBanco.query.filter(
-        MovBanco.empresa_id == g.user.empresa_id,
-        MovBanco.valor < 0,
-    )
+    query = MovBanco.query.filter(MovBanco.empresa_id == g.user.empresa_id)
     if hasattr(MovBanco, "ativo"):
         query = query.filter(MovBanco.ativo == True)
 
-    if grupo_slug == "outras_despesas":
-        query = query.filter(~MovBanco.categoria.in_(_categorias_grupos_principais()))
+    # Mantém a mesma semântica do dashboard: despesas são movimentos negativos;
+    # receitas bancárias são positivas ou categorias explicitamente de receita.
+    if tipo == "despesa":
+        query = query.filter(MovBanco.valor < 0)
     else:
-        query = query.filter(MovBanco.categoria.in_(grupo["categorias"]))
+        query = query.filter(MovBanco.valor > 0)
+
+    if categoria:
+        query = query.filter(MovBanco.categoria == categoria)
+        nome = categoria.replace("_", " ").strip().title()
+        icone = "📈" if tipo == "receita" else "📉"
+    else:
+        nome = grupo["nome"]
+        icone = grupo["icone"]
+        if grupo_slug == "outras_despesas":
+            query = query.filter(~MovBanco.categoria.in_(_categorias_grupos_despesa_principais()))
+        else:
+            query = query.filter(MovBanco.categoria.in_(grupo["categorias"]))
 
     if data_inicio:
         query = query.filter(MovBanco.data_movimento >= data_inicio)
@@ -122,25 +142,25 @@ def detalhes_grupo():
     media = (total / quantidade) if quantidade else Decimal("0")
 
     movimentos = query.order_by(MovBanco.data_movimento.desc(), MovBanco.id.desc()).limit(limite).all()
-    itens = []
-    for mov in movimentos:
-        itens.append({
-            "id": mov.id,
-            "data": mov.data_movimento.isoformat() if mov.data_movimento else None,
-            "descricao": mov.historico or "Movimento sem descrição",
-            "categoria": mov.categoria,
-            "subcategoria": mov.subcategoria,
-            "origem": mov.origem,
-            "banco": mov.banco,
-            "valor": float(abs(Decimal(str(mov.valor or 0)))),
-            "conciliado": bool(mov.conciliado),
-        })
+    itens = [{
+        "id": mov.id,
+        "data": mov.data_movimento.isoformat() if mov.data_movimento else None,
+        "descricao": mov.historico or "Movimento sem descrição",
+        "categoria": mov.categoria,
+        "subcategoria": mov.subcategoria,
+        "origem": mov.origem,
+        "banco": mov.banco,
+        "valor": float(abs(Decimal(str(mov.valor or 0)))),
+        "conciliado": bool(mov.conciliado),
+    } for mov in movimentos]
 
     return jsonify({
         "ok": True,
-        "grupo": grupo_slug,
-        "nome": grupo["nome"],
-        "icone": grupo["icone"],
+        "grupo": grupo_slug or None,
+        "categoria": categoria or None,
+        "natureza": tipo,
+        "nome": nome,
+        "icone": icone,
         "periodo": periodo,
         "total": float(total),
         "quantidade": quantidade,
@@ -158,7 +178,7 @@ def carregar_drilldown_financeiro(response):
 
     html = response.get_data(as_text=True)
     if "</body>" in html and "financeiro-drilldown.js" not in html:
-        script = '<script src="/static/js/financeiro-drilldown.js?v=1" defer></script>'
+        script = '<script src="/static/js/financeiro-drilldown.js?v=2" defer></script>'
         response.set_data(html.replace("</body>", f"{script}\n</body>", 1))
         response.headers["Content-Length"] = len(response.get_data())
     return response
