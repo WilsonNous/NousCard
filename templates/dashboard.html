@@ -1,1 +1,92 @@
-{% extends "dashboard_inicio.html" %}
+{% extends "base.html" %}
+
+{% block title %}Início - NousCard{% endblock %}
+
+{% block extra_head %}
+<style>
+.home-wrap{max-width:1180px;margin:0 auto}.home-hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:22px}.home-hero h1{font-size:2rem;margin:0 0 6px;color:#100F0D}.home-hero p{margin:0;color:#65676B;font-size:1rem}.home-actions{display:flex;gap:10px;flex-wrap:wrap}.home-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 15px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid #DADDE1;background:#fff;color:#100F0D}.home-btn.primary{background:#1877F2;border-color:#1877F2;color:#fff}.home-btn:hover{transform:translateY(-1px)}.home-section{margin:0 0 24px}.home-section-title{font-size:1.15rem;margin:0 0 12px;color:#100F0D}.money-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.money-card,.simple-card{background:#fff;border:1px solid #DADDE1;border-radius:14px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.035)}.money-label{font-size:.82rem;color:#65676B;font-weight:700;margin-bottom:8px}.money-value{font-size:1.65rem;font-weight:800;color:#100F0D}.money-help{font-size:.82rem;color:#65676B;margin-top:5px}.money-card.result{border-left:4px solid #1877F2}.attention-box{background:#fff;border:1px solid #DADDE1;border-radius:14px;padding:16px}.attention-item{padding:11px 12px;border-radius:9px;background:#F0F2F5;margin-top:8px;font-size:.92rem}.attention-item:first-child{margin-top:0}.attention-item.warning{border-left:4px solid #F7B928}.attention-item.danger{border-left:4px solid #FA383E}.attention-item.info{border-left:4px solid #1877F2}.attention-item.success{border-left:4px solid #31A24C}.business-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.business-number{font-size:1.5rem;font-weight:800;margin:4px 0}.business-label{font-size:.82rem;color:#65676B}.home-more{display:flex;justify-content:flex-end;margin-top:12px}.home-more a{color:#1877F2;text-decoration:none;font-weight:700;font-size:.9rem}.loading{color:#65676B}.result-positive{color:#31A24C}.result-negative{color:#FA383E}@media(max-width:900px){.home-hero{flex-direction:column}.money-grid{grid-template-columns:1fr}.business-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.business-grid{grid-template-columns:1fr}.home-actions{width:100%}.home-btn{flex:1;min-width:140px}.home-hero h1{font-size:1.65rem}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="home-wrap">
+  <div class="home-hero">
+    <div>
+      <h1>Como está meu negócio?</h1>
+      <p>Olá, {{ usuario.nome.split(' ')[0] }}. Aqui está o que você precisa saber agora sobre a <strong>{{ empresa_nome }}</strong>.</p>
+    </div>
+    <div class="home-actions">
+      <a class="home-btn primary" href="{{ url_for('lancamentos.novo', tipo='receita') }}">＋ Recebi dinheiro</a>
+      <a class="home-btn" href="{{ url_for('lancamentos.novo', tipo='despesa') }}">− Gastei dinheiro</a>
+    </div>
+  </div>
+
+  <section class="home-section">
+    <h2 class="home-section-title">💰 Meu dinheiro</h2>
+    <div class="money-grid">
+      <div class="money-card"><div class="money-label">Entrou</div><div class="money-value loading" id="home-entradas">Carregando...</div><div class="money-help">Dinheiro que entrou no período</div></div>
+      <div class="money-card"><div class="money-label">Saiu</div><div class="money-value loading" id="home-saidas">Carregando...</div><div class="money-help">Pagamentos e despesas</div></div>
+      <div class="money-card result"><div class="money-label">Resultado</div><div class="money-value loading" id="home-resultado">Carregando...</div><div class="money-help" id="home-resultado-texto">O que ficou depois das saídas</div></div>
+    </div>
+    <div class="home-more"><a href="{{ url_for('dashboard.financeiro') }}">Entender melhor meu dinheiro →</a></div>
+  </section>
+
+  <section class="home-section">
+    <h2 class="home-section-title">⚠️ O que precisa da minha atenção?</h2>
+    <div class="attention-box" id="home-atencao"><div class="attention-item info">Verificando seu negócio...</div></div>
+  </section>
+
+  <section class="home-section">
+    <h2 class="home-section-title">🧰 Vendas e serviços</h2>
+    <div class="business-grid">
+      <div class="simple-card"><div class="business-label">Clientes</div><div class="business-number" id="home-clientes">—</div><div class="business-label">cadastrados</div></div>
+      <div class="simple-card"><div class="business-label">Orçamentos em aberto</div><div class="business-number" id="home-orcamentos">—</div><div class="business-label" id="home-orcamentos-valor">aguardando decisão</div></div>
+      <div class="simple-card"><div class="business-label">Orçamentos aprovados</div><div class="business-number" id="home-aprovados">—</div><div class="business-label">negócios conquistados</div></div>
+      <div class="simple-card"><div class="business-label">Serviços em andamento</div><div class="business-number" id="home-servicos">—</div><div class="business-label" id="home-servicos-status">em execução</div></div>
+    </div>
+    <div class="home-actions" style="margin-top:12px">
+      <a class="home-btn" href="{{ url_for('clientes.novo') }}">＋ Novo cliente</a>
+      <a class="home-btn primary" href="{{ url_for('orcamentos.novo') }}">＋ Novo orçamento</a>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const brl = value => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0));
+const text = (id,value) => { const el=document.getElementById(id); if(el) el.textContent=value; };
+
+async function carregarDinheiro(){
+  try{
+    const r=await fetch('/api/v1/dashboard/kpis?periodo=12meses',{headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error('Falha ao consultar financeiro');
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.error||'Falha ao consultar financeiro');
+    text('home-entradas',brl(d.entradas)); text('home-saidas',brl(d.saidas)); text('home-resultado',brl(d.saldo));
+    const resultado=document.getElementById('home-resultado');
+    if(resultado){resultado.classList.remove('loading');resultado.classList.add(Number(d.saldo||0)>=0?'result-positive':'result-negative');}
+    ['home-entradas','home-saidas'].forEach(id=>document.getElementById(id)?.classList.remove('loading'));
+    text('home-resultado-texto',Number(d.saldo||0)>=0?'Seu período está positivo.':'Suas saídas estão maiores que as entradas.');
+  }catch(e){ text('home-entradas','—');text('home-saidas','—');text('home-resultado','—');text('home-resultado-texto','Não foi possível carregar agora.'); }
+}
+
+async function carregarNegocio(){
+  const box=document.getElementById('home-atencao');
+  try{
+    const r=await fetch('/api/v1/dashboard/gestao',{headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error('Falha ao consultar gestão');
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.error||'Falha ao consultar gestão');
+    const c=d.clientes||{}, o=d.orcamentos||{}, s=d.ordens_servico||{};
+    text('home-clientes',c.total??0);text('home-orcamentos',o.abertos??0);text('home-aprovados',o.aprovado??0);text('home-servicos',s.em_andamento??0);
+    text('home-orcamentos-valor',`${brl(o.valor_aberto||0)} em propostas`);
+    text('home-servicos-status',(s.atrasadas||0)>0?`${s.atrasadas} atrasado(s)`:'sem atraso informado');
+    const itens=d.atencao||[];
+    box.innerHTML=itens.length?itens.map(i=>`<div class="attention-item ${i.nivel||'info'}">${i.mensagem||''}</div>`).join(''):'<div class="attention-item success">✅ Nada urgente por aqui. Seu negócio não tem pendências operacionais críticas agora.</div>';
+  }catch(e){box.innerHTML='<div class="attention-item warning">Não consegui verificar as pendências agora. Tente novamente em instantes.</div>';}
+}
+
+document.addEventListener('DOMContentLoaded',()=>{carregarDinheiro();carregarNegocio();});
+</script>
+{% endblock %}
