@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
+from sqlalchemy import func
 
 from models import ContaBancaria, MovBanco, db
 from utils.auth_middleware import empresa_required, login_required, validar_csrf_token
@@ -28,6 +29,18 @@ CATEGORIAS_DESPESA = [
     ("outras_despesas", "Outra despesa"),
 ]
 
+# Espelha os grupos exibidos em _montar_despesas_por_grupo no dashboard.
+GRUPOS_DETALHE = {
+    "alimentacao": {"nome": "Alimentação", "icone": "🍽️", "categorias": ["alimentacao_restaurante", "alimentacao_mercado", "supermercado"]},
+    "transporte": {"nome": "Transporte", "icone": "⛽", "categorias": ["transporte_combustivel", "transporte_pedagio", "transporte_estacionamento"]},
+    "impostos": {"nome": "Impostos e tributos", "icone": "🏛️", "categorias": ["impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"]},
+    "transferencias_enviadas": {"nome": "Transferências enviadas", "icone": "🔁", "categorias": ["transferencias_enviadas", "transferencia_enviada"]},
+    "servicos": {"nome": "Serviços essenciais", "icone": "📡", "categorias": ["internet", "telefonia", "energia", "agua", "energia_agua_telecom"]},
+    "financeiro": {"nome": "Financeiro", "icone": "🏦", "categorias": ["emprestimos", "tarifas_bancarias", "juros", "taxas"]},
+    "assinaturas": {"nome": "Assinaturas", "icone": "🎬", "categorias": ["streaming", "assinaturas", "software"]},
+    "outras_despesas": {"nome": "Outras despesas", "icone": "📦", "categorias": []},
+}
+
 
 def _parse_valor_br(valor_texto):
     texto = (valor_texto or "").strip().replace("R$", "").replace(" ", "")
@@ -39,6 +52,116 @@ def _parse_valor_br(valor_texto):
     if valor <= 0:
         raise InvalidOperation
     return valor
+
+
+def _periodo_datas(periodo):
+    hoje = datetime.now().date()
+    if periodo in {"geral", "todos"}:
+        return None, hoje
+    if periodo in {"atual", "mes"}:
+        return hoje.replace(day=1), hoje
+    if periodo == "anterior":
+        fim_anterior = hoje.replace(day=1) - timedelta(days=1)
+        return fim_anterior.replace(day=1), fim_anterior
+    if periodo == "3meses":
+        return hoje - timedelta(days=90), hoje
+    if periodo == "6meses":
+        return hoje - timedelta(days=180), hoje
+    if periodo == "ano":
+        return hoje.replace(month=1, day=1), hoje
+    if periodo == "anoanterior":
+        ano = hoje.year - 1
+        return hoje.replace(year=ano, month=1, day=1), hoje.replace(year=ano, month=12, day=31)
+    return hoje - timedelta(days=365), hoje
+
+
+def _categorias_grupos_principais():
+    categorias = set()
+    for slug, config in GRUPOS_DETALHE.items():
+        if slug != "outras_despesas":
+            categorias.update(config["categorias"])
+    return categorias
+
+
+@lancamentos_bp.route("/detalhes", methods=["GET"])
+@login_required
+@empresa_required
+def detalhes_grupo():
+    """Drill-down sob demanda dos grupos de despesa da Visão Financeira."""
+    grupo_slug = (request.args.get("grupo") or "").strip().lower()
+    periodo = (request.args.get("periodo") or "12meses").strip().lower()
+    limite = min(max(request.args.get("limite", 100, type=int), 1), 200)
+    grupo = GRUPOS_DETALHE.get(grupo_slug)
+
+    if not grupo:
+        return jsonify({"ok": False, "error": "Grupo financeiro inválido."}), 400
+
+    data_inicio, data_fim = _periodo_datas(periodo)
+    query = MovBanco.query.filter(
+        MovBanco.empresa_id == g.user.empresa_id,
+        MovBanco.valor < 0,
+    )
+    if hasattr(MovBanco, "ativo"):
+        query = query.filter(MovBanco.ativo == True)
+
+    if grupo_slug == "outras_despesas":
+        query = query.filter(~MovBanco.categoria.in_(_categorias_grupos_principais()))
+    else:
+        query = query.filter(MovBanco.categoria.in_(grupo["categorias"]))
+
+    if data_inicio:
+        query = query.filter(MovBanco.data_movimento >= data_inicio)
+    query = query.filter(MovBanco.data_movimento <= data_fim)
+
+    quantidade, total = query.with_entities(
+        func.count(MovBanco.id),
+        func.coalesce(func.sum(func.abs(MovBanco.valor)), 0),
+    ).one()
+    quantidade = int(quantidade or 0)
+    total = Decimal(str(total or 0))
+    media = (total / quantidade) if quantidade else Decimal("0")
+
+    movimentos = query.order_by(MovBanco.data_movimento.desc(), MovBanco.id.desc()).limit(limite).all()
+    itens = []
+    for mov in movimentos:
+        itens.append({
+            "id": mov.id,
+            "data": mov.data_movimento.isoformat() if mov.data_movimento else None,
+            "descricao": mov.historico or "Movimento sem descrição",
+            "categoria": mov.categoria,
+            "subcategoria": mov.subcategoria,
+            "origem": mov.origem,
+            "banco": mov.banco,
+            "valor": float(abs(Decimal(str(mov.valor or 0)))),
+            "conciliado": bool(mov.conciliado),
+        })
+
+    return jsonify({
+        "ok": True,
+        "grupo": grupo_slug,
+        "nome": grupo["nome"],
+        "icone": grupo["icone"],
+        "periodo": periodo,
+        "total": float(total),
+        "quantidade": quantidade,
+        "media": float(media),
+        "limitado": quantidade > limite,
+        "itens": itens,
+    })
+
+
+@lancamentos_bp.after_app_request
+def carregar_drilldown_financeiro(response):
+    """Carrega o JS apenas na Visão Financeira; as demais telas não pagam esse custo."""
+    if request.endpoint != "dashboard.financeiro" or not response.content_type.startswith("text/html"):
+        return response
+
+    html = response.get_data(as_text=True)
+    if "</body>" in html and "financeiro-drilldown.js" not in html:
+        script = '<script src="/static/js/financeiro-drilldown.js?v=1" defer></script>'
+        response.set_data(html.replace("</body>", f"{script}\n</body>", 1))
+        response.headers["Content-Length"] = len(response.get_data())
+    return response
 
 
 @lancamentos_bp.route("/novo", methods=["GET", "POST"])
