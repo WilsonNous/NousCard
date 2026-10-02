@@ -52,7 +52,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_scripts %}
 <script>
 const brl = value => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value||0));
 const text = (id,value) => { const el=document.getElementById(id); if(el) el.textContent=value; };
