@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
 
 from models import ContaBancaria, MovBanco, db
 from utils.auth_middleware import empresa_required, login_required, validar_csrf_token
@@ -28,6 +28,56 @@ CATEGORIAS_DESPESA = [
     ("outras_despesas", "Outra despesa"),
 ]
 
+# Um único mapa atende todos os pontos de drill-down da Visão Financeira.
+# O frontend envia somente o slug do grupo; a empresa vem sempre da sessão.
+GRUPOS_DETALHE = {
+    "alimentacao": {
+        "nome": "Alimentação",
+        "icone": "🍽️",
+        "categorias": ["alimentacao_restaurante", "alimentacao_mercado", "supermercado"],
+    },
+    "transporte": {
+        "nome": "Transporte e combustível",
+        "icone": "🚗",
+        "categorias": ["transporte_combustivel", "transporte_pedagio", "transporte_estacionamento"],
+    },
+    "fornecedores": {
+        "nome": "Fornecedores",
+        "icone": "🏪",
+        "categorias": ["fornecedores_servicos", "fornecedores_mercadoria"],
+    },
+    "impostos": {
+        "nome": "Impostos e tributos",
+        "icone": "🏛️",
+        "categorias": ["impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"],
+    },
+    "transferencias_enviadas": {
+        "nome": "Transferências enviadas",
+        "icone": "↗️",
+        "categorias": ["transferencias_enviadas", "transferencia_enviada"],
+    },
+    "outras_despesas": {
+        "nome": "Outras despesas",
+        "icone": "📦",
+        "categorias": ["outras_despesas", "emprestimos", "tarifas_bancarias", "internet", "telefonia", "streaming"],
+    },
+    "pix_recebido": {
+        "nome": "PIX recebido",
+        "icone": "⚡",
+        "categorias": ["pix_recebido"],
+    },
+    "transferencias_recebidas": {
+        "nome": "Transferências recebidas",
+        "icone": "🏦",
+        "categorias": ["transferencias_recebidas", "transferencia_recebida", "credito_conta", "credito_em_conta", "crédito_em_conta"],
+    },
+    "outras_receitas": {
+        "nome": "Outras receitas",
+        "icone": "💰",
+        "categorias": ["outras_receitas", "vendas", "receita", "receitas"],
+    },
+}
+
 
 def _parse_valor_br(valor_texto):
     texto = (valor_texto or "").strip().replace("R$", "").replace(" ", "")
@@ -39,6 +89,79 @@ def _parse_valor_br(valor_texto):
     if valor <= 0:
         raise InvalidOperation
     return valor
+
+
+def _periodo_datas(periodo):
+    hoje = datetime.now().date()
+    if periodo in {"geral", "todos"}:
+        return None, hoje
+    if periodo in {"atual", "mes"}:
+        return hoje.replace(day=1), hoje
+    if periodo == "3meses":
+        return hoje - timedelta(days=90), hoje
+    if periodo == "6meses":
+        return hoje - timedelta(days=180), hoje
+    if periodo == "ano":
+        return hoje.replace(month=1, day=1), hoje
+    return hoje - timedelta(days=365), hoje
+
+
+@lancamentos_bp.route("/detalhes", methods=["GET"])
+@login_required
+@empresa_required
+def detalhes_grupo():
+    """Drill-down sob demanda: explica quais movimentos formam um grupo financeiro."""
+    grupo_slug = (request.args.get("grupo") or "").strip().lower()
+    periodo = (request.args.get("periodo") or "12meses").strip().lower()
+    limite = min(max(request.args.get("limite", 100, type=int), 1), 200)
+    grupo = GRUPOS_DETALHE.get(grupo_slug)
+
+    if not grupo:
+        return jsonify({"ok": False, "error": "Grupo financeiro inválido."}), 400
+
+    data_inicio, data_fim = _periodo_datas(periodo)
+    query = MovBanco.query.filter(
+        MovBanco.empresa_id == g.user.empresa_id,
+        MovBanco.categoria.in_(grupo["categorias"]),
+    )
+    if data_inicio:
+        query = query.filter(MovBanco.data_movimento >= data_inicio)
+    query = query.filter(MovBanco.data_movimento <= data_fim)
+
+    movimentos = query.order_by(MovBanco.data_movimento.desc(), MovBanco.id.desc()).limit(limite).all()
+
+    itens = []
+    total = Decimal("0")
+    for mov in movimentos:
+        valor = abs(Decimal(str(mov.valor or 0)))
+        total += valor
+        itens.append({
+            "id": mov.id,
+            "data": mov.data_movimento.isoformat() if mov.data_movimento else None,
+            "descricao": mov.historico or "Movimento sem descrição",
+            "categoria": mov.categoria,
+            "subcategoria": mov.subcategoria,
+            "origem": mov.origem,
+            "banco": mov.banco,
+            "valor": float(valor),
+            "conciliado": bool(mov.conciliado),
+        })
+
+    quantidade = len(itens)
+    media = (total / quantidade) if quantidade else Decimal("0")
+
+    return jsonify({
+        "ok": True,
+        "grupo": grupo_slug,
+        "nome": grupo["nome"],
+        "icone": grupo["icone"],
+        "periodo": periodo,
+        "total": float(total),
+        "quantidade": quantidade,
+        "media": float(media),
+        "limitado": quantidade >= limite,
+        "itens": itens,
+    })
 
 
 @lancamentos_bp.route("/novo", methods=["GET", "POST"])
