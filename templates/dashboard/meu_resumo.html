@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Meu Resumo - NousCard{% endblock %}
+{% block title %}Início - NousCard{% endblock %}
 
 {% block extra_head %}
 <style>
-.resumo-shell{max-width:1180px;margin:0 auto;padding:1rem 0 2rem}.resumo-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin:1rem 0 1.5rem}.resumo-hero h1{margin:0;color:var(--text);font-size:1.8rem}.resumo-hero p{margin:.35rem 0 0;color:var(--text-muted)}.resumo-periodo{font-size:.82rem;color:var(--text-muted);background:var(--white);border:1px solid var(--gray-border);padding:.55rem .8rem;border-radius:999px}.resumo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem}.resumo-card{background:var(--white);border:1px solid var(--gray-border);border-radius:16px;padding:1.2rem;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}.resumo-card::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--primary)}.resumo-card.entrada::before{background:var(--success)}.resumo-card.saida::before{background:var(--error)}.resumo-card.saldo.atencao::before{background:var(--error)}.resumo-label{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}.resumo-value{font-size:1.75rem;font-weight:800;color:var(--text);margin:.4rem 0}.resumo-help{font-size:.82rem;color:var(--text-muted);line-height:1.4}.resumo-insights{background:linear-gradient(135deg,var(--primary-light),var(--white));border:1px solid rgba(24,119,242,.25);border-radius:16px;padding:1.3rem;margin-bottom:1.25rem}.resumo-insights h2{font-size:1.05rem;margin:0 0 .8rem;color:var(--text)}.resumo-insights ul{margin:0;padding:0;list-style:none;display:grid;gap:.65rem}.resumo-insights li{display:flex;gap:.6rem;line-height:1.45;color:var(--text)}.resumo-insights li::before{content:"•";color:var(--primary);font-weight:900}.resumo-pendente{background:var(--white);border:1px dashed var(--gray-border);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1.25rem;color:var(--text-muted);font-size:.88rem}.resumo-actions{display:flex;gap:.75rem;flex-wrap:wrap}.resumo-action{display:inline-flex;align-items:center;gap:.45rem;text-decoration:none;border-radius:10px;padding:.7rem .95rem;font-weight:700;font-size:.88rem;background:var(--primary);color:#fff}.resumo-action.secondary{background:var(--white);color:var(--primary);border:1px solid var(--primary)}@media(max-width:800px){.resumo-hero{align-items:flex-start;flex-direction:column}.resumo-grid{grid-template-columns:1fr}.resumo-card{padding:1rem}.resumo-value{font-size:1.5rem}}
+.resumo-shell{max-width:1180px;margin:0 auto;padding:1rem 0 2rem}.resumo-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin:1rem 0 1.5rem}.resumo-hero h1{margin:0;color:var(--text);font-size:1.8rem}.resumo-hero p{margin:.35rem 0 0;color:var(--text-muted)}.resumo-periodo{font-size:.82rem;color:var(--text-muted);background:var(--white);border:1px solid var(--gray-border);padding:.55rem .8rem;border-radius:999px}.resumo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem}.resumo-card{background:var(--white);border:1px solid var(--gray-border);border-radius:16px;padding:1.2rem;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}.resumo-card::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--primary)}.resumo-card.entrada::before{background:var(--success)}.resumo-card.saida::before{background:var(--error)}.resumo-card.saldo.atencao::before{background:var(--error)}.resumo-label{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}.resumo-value{font-size:1.75rem;font-weight:800;color:var(--text);margin:.4rem 0}.resumo-help{font-size:.82rem;color:var(--text-muted);line-height:1.4}.resumo-insights{background:linear-gradient(135deg,var(--primary-light),var(--white));border:1px solid rgba(24,119,242,.25);border-radius:16px;padding:1.3rem;margin-bottom:1.25rem}.resumo-insights h2{font-size:1.05rem;margin:0 0 .8rem;color:var(--text)}.resumo-insights ul{margin:0;padding:0;list-style:none;display:grid;gap:.65rem}.resumo-insights li{display:flex;gap:.6rem;line-height:1.45;color:var(--text)}.resumo-insights li::before{content:"•";color:var(--primary);font-weight:900}.resumo-pendente{background:var(--white);border:1px dashed var(--gray-border);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1.25rem;color:var(--text-muted);font-size:.88rem}.resumo-actions{display:flex;gap:.75rem;flex-wrap:wrap}.resumo-action{display:inline-flex;align-items:center;gap:.45rem;text-decoration:none;border-radius:10px;padding:.7rem .95rem;font-weight:700;font-size:.88rem;background:var(--primary);color:#fff}.resumo-action.secondary{background:var(--white);color:var(--primary);border:1px solid var(--primary)}.resumo-action.tertiary{background:transparent;color:var(--text-muted);border:1px solid var(--gray-border)}@media(max-width:800px){.resumo-hero{align-items:flex-start;flex-direction:column}.resumo-grid{grid-template-columns:1fr}.resumo-card{padding:1rem}.resumo-value{font-size:1.5rem}.resumo-actions{display:grid}.resumo-action{justify-content:center}}
 </style>
 {% endblock %}
 
@@ -12,32 +12,32 @@
 <section class="resumo-shell" aria-labelledby="resumo-title">
     <div class="resumo-hero">
         <div>
-            <h1 id="resumo-title">O que você precisa saber agora</h1>
-            <p>Uma leitura simples do mês, sem esconder os detalhes quando você precisar deles.</p>
+            <h1 id="resumo-title">Como está meu negócio?</h1>
+            <p>Primeiro o que importa. Os detalhes continuam disponíveis quando você precisar.</p>
         </div>
         <div class="resumo-periodo">{{ resumo.periodo.inicio.strftime('%d/%m/%Y') }} a {{ resumo.periodo.fim.strftime('%d/%m/%Y') }}</div>
     </div>
 
     <div class="resumo-grid">
         <article class="resumo-card entrada">
-            <div class="resumo-label">Quanto entrou</div>
+            <div class="resumo-label">Entrou</div>
             <div class="resumo-value">{{ resumo.formatado.entradas }}</div>
-            <div class="resumo-help">Entradas bancárias registradas neste mês.</div>
+            <div class="resumo-help">Dinheiro que entrou neste mês.</div>
         </article>
         <article class="resumo-card saida">
-            <div class="resumo-label">Quanto saiu</div>
+            <div class="resumo-label">Saiu</div>
             <div class="resumo-value">{{ resumo.formatado.saidas }}</div>
-            <div class="resumo-help">Saídas bancárias registradas neste mês.</div>
+            <div class="resumo-help">Dinheiro que saiu neste mês.</div>
         </article>
         <article class="resumo-card saldo {{ resumo.situacao }}">
-            <div class="resumo-label">Resultado do mês</div>
+            <div class="resumo-label">Resultado</div>
             <div class="resumo-value">{{ resumo.formatado.saldo_periodo }}</div>
-            <div class="resumo-help">Entradas menos saídas já registradas.</div>
+            <div class="resumo-help">O que entrou menos o que saiu.</div>
         </article>
     </div>
 
     <section class="resumo-insights" aria-labelledby="insights-title">
-        <h2 id="insights-title">💡 O NousCard percebeu</h2>
+        <h2 id="insights-title">💡 O que você precisa saber agora</h2>
         <ul>
             {% for insight in resumo.insights %}<li>{{ insight }}</li>{% endfor %}
         </ul>
@@ -45,14 +45,15 @@
 
     {% if not resumo.tem_previsao_compromissos %}
     <div class="resumo-pendente">
-        <strong>Saldo realmente livre:</strong> ainda não calculado. O NousCard só mostrará esse valor quando houver uma fonte confiável de contas e compromissos futuros. Assim, não confundimos saldo realizado com dinheiro disponível para gastar.
+        <strong>Quanto posso gastar sem comprometer o mês?</strong> Ainda não mostramos esse número porque o NousCard não possui uma fonte completa das contas futuras. É melhor não mostrar um valor do que dar uma falsa sensação de dinheiro livre.
     </div>
     {% endif %}
 
-    <div class="resumo-actions">
-        <a class="resumo-action" href="{{ url_for('dashboard.dashboard') }}">📊 Abrir Dashboard</a>
-        <a class="resumo-action secondary" href="{{ url_for('dashboard.financeiro') }}">💰 Ver Financeiro</a>
-        <a class="resumo-action secondary" href="{{ url_for('dashboard.dre_resumo') }}">📈 Ver DRE</a>
+    <div class="resumo-actions" aria-label="Ações rápidas">
+        <a class="resumo-action" href="{{ url_for('lancamentos.novo') }}">＋ Registrar entrada ou saída</a>
+        <a class="resumo-action secondary" href="{{ url_for('dashboard.dashboard') }}">Ver meu negócio em detalhes</a>
+        <a class="resumo-action secondary" href="{{ url_for('dashboard.financeiro') }}">Ver financeiro</a>
+        <a class="resumo-action tertiary" href="{{ url_for('dashboard.dre_resumo') }}">DRE e análise avançada</a>
     </div>
 </section>
 {% endblock %}
