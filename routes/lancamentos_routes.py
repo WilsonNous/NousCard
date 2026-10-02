@@ -28,42 +28,24 @@ CATEGORIAS_DESPESA = [
     ("outras_despesas", "Outra despesa"),
 ]
 
+# Os grupos abaixo espelham os agrupamentos usados pela Visão Financeira.
+# Assim, o total exibido no drawer explica o mesmo número que o usuário clicou.
 GRUPOS_DETALHE = {
-    "alimentacao": {
-        "nome": "Alimentação", "icone": "🍽️",
-        "categorias": ["alimentacao_restaurante", "alimentacao_mercado", "supermercado"],
-    },
-    "transporte": {
-        "nome": "Transporte e combustível", "icone": "🚗",
-        "categorias": ["transporte_combustivel", "transporte_pedagio", "transporte_estacionamento"],
-    },
+    "alimentacao": {"nome": "Alimentação", "icone": "🍽️", "categorias": ["alimentacao_restaurante", "alimentacao_mercado", "supermercado"]},
+    "transporte": {"nome": "Transporte", "icone": "⛽", "categorias": ["transporte_combustivel", "transporte_pedagio", "transporte_estacionamento"]},
+    "impostos": {"nome": "Impostos e tributos", "icone": "🏛️", "categorias": ["impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"]},
+    "transferencias_enviadas": {"nome": "Transferências enviadas", "icone": "🔁", "categorias": ["transferencias_enviadas", "transferencia_enviada"]},
+    "servicos": {"nome": "Serviços essenciais", "icone": "📡", "categorias": ["internet", "telefonia", "energia", "agua", "energia_agua_telecom"]},
+    "financeiro": {"nome": "Financeiro", "icone": "🏦", "categorias": ["emprestimos", "tarifas_bancarias", "juros", "taxas"]},
+    "assinaturas": {"nome": "Assinaturas", "icone": "🎬", "categorias": ["streaming", "assinaturas", "software"]},
     "fornecedores": {
         "nome": "Fornecedores", "icone": "🏪",
-        "categorias": ["fornecedores_servicos", "fornecedores_mercadoria"],
+        "categorias": ["transferencias_enviadas", "fornecedores_servicos", "fornecedores_mercadoria", "transporte_combustivel", "transporte_pedagio", "transporte_estacionamento", "alimentacao_restaurante", "alimentacao_mercado", "supermercado"],
     },
-    "impostos": {
-        "nome": "Impostos e tributos", "icone": "🏛️",
-        "categorias": ["impostos_federais", "impostos_municipais", "impostos_tributos", "tributos"],
-    },
-    "transferencias_enviadas": {
-        "nome": "Transferências enviadas", "icone": "↗️",
-        "categorias": ["transferencias_enviadas", "transferencia_enviada"],
-    },
-    "outras_despesas": {
-        "nome": "Outras despesas", "icone": "📦",
-        "categorias": ["outras_despesas", "emprestimos", "tarifas_bancarias", "internet", "telefonia", "streaming"],
-    },
-    "pix_recebido": {
-        "nome": "PIX recebido", "icone": "⚡", "categorias": ["pix_recebido"],
-    },
-    "transferencias_recebidas": {
-        "nome": "Transferências recebidas", "icone": "🏦",
-        "categorias": ["transferencias_recebidas", "transferencia_recebida", "credito_conta", "credito_em_conta", "crédito_em_conta"],
-    },
-    "outras_receitas": {
-        "nome": "Outras receitas", "icone": "💰",
-        "categorias": ["outras_receitas", "vendas", "receita", "receitas"],
-    },
+    "outras_despesas": {"nome": "Outras despesas", "icone": "📦", "categorias": ["outras_despesas"]},
+    "pix_recebido": {"nome": "PIX recebido", "icone": "⚡", "categorias": ["receitas_pix", "pix_recebido", "vendas_pix"]},
+    "transferencias_recebidas": {"nome": "Transferências recebidas", "icone": "🏦", "categorias": ["transferencias_recebidas", "receitas_nao_classificadas", "credito_conta", "credito_em_conta", "crédito_em_conta"]},
+    "outras_receitas": {"nome": "Outras receitas", "icone": "💰", "categorias": ["outras_receitas", "receita", "receitas"]},
 }
 
 
@@ -110,20 +92,21 @@ def detalhes_grupo():
     periodo = (request.args.get("periodo") or "12meses").strip().lower()
     limite = min(max(request.args.get("limite", 100, type=int), 1), 200)
     grupo = GRUPOS_DETALHE.get(grupo_slug)
-
     if not grupo:
         return jsonify({"ok": False, "error": "Grupo financeiro inválido."}), 400
 
     data_inicio, data_fim = _periodo_datas(periodo)
-    query = MovBanco.query.filter(
-        MovBanco.empresa_id == g.user.empresa_id,
-        MovBanco.categoria.in_(grupo["categorias"]),
-    )
+    query = MovBanco.query.filter(MovBanco.empresa_id == g.user.empresa_id, MovBanco.categoria.in_(grupo["categorias"]))
+    if hasattr(MovBanco, "ativo"):
+        query = query.filter(MovBanco.ativo == True)
     if data_inicio:
         query = query.filter(MovBanco.data_movimento >= data_inicio)
     query = query.filter(MovBanco.data_movimento <= data_fim)
 
-    movimentos = query.order_by(MovBanco.data_movimento.desc(), MovBanco.id.desc()).limit(limite).all()
+    # Busca limite + 1 apenas para saber se há mais registros, sem pesar a abertura da tela.
+    movimentos = query.order_by(MovBanco.data_movimento.desc(), MovBanco.id.desc()).limit(limite + 1).all()
+    limitado = len(movimentos) > limite
+    movimentos = movimentos[:limite]
     itens = []
     total = Decimal("0")
     for mov in movimentos:
@@ -144,22 +127,20 @@ def detalhes_grupo():
     quantidade = len(itens)
     media = (total / quantidade) if quantidade else Decimal("0")
     return jsonify({
-        "ok": True, "grupo": grupo_slug, "nome": grupo["nome"], "icone": grupo["icone"],
-        "periodo": periodo, "total": float(total), "quantidade": quantidade,
-        "media": float(media), "limitado": quantidade >= limite, "itens": itens,
+        "ok": True, "grupo": grupo_slug, "nome": grupo["nome"], "icone": grupo["icone"], "periodo": periodo,
+        "total": float(total), "quantidade": quantidade, "media": float(media), "limitado": limitado, "itens": itens,
     })
 
 
 @lancamentos_bp.after_app_request
 def carregar_drilldown_financeiro(response):
-    """Carrega o recurso apenas na Visão Financeira, sem aumentar o custo das demais telas."""
+    """Carrega o JS somente na Visão Financeira; as demais telas não pagam esse custo."""
     if request.endpoint != "dashboard.financeiro" or not response.content_type.startswith("text/html"):
         return response
     html = response.get_data(as_text=True)
-    marcador = "</body>"
-    if marcador in html and "financeiro-drilldown.js" not in html:
+    if "</body>" in html and "financeiro-drilldown.js" not in html:
         script = '<script src="/static/js/financeiro-drilldown.js?v=1" defer></script>'
-        response.set_data(html.replace(marcador, f"{script}\n{marcador}", 1))
+        response.set_data(html.replace("</body>", f"{script}\n</body>", 1))
         response.headers["Content-Length"] = len(response.get_data())
     return response
 
@@ -181,7 +162,6 @@ def novo():
         descricao = (request.form.get("descricao") or "").strip()
         categoria = (request.form.get("categoria") or "").strip()
         conta_id = request.form.get("conta_bancaria_id", type=int)
-
         if tipo not in {"receita", "despesa"}:
             flash("Escolha se o lançamento é uma receita ou despesa.", "error")
             return redirect(url_for("lancamentos.novo"))
@@ -208,25 +188,14 @@ def novo():
                 return redirect(url_for("lancamentos.novo"))
 
         movimento = MovBanco(
-            empresa_id=empresa_id,
-            conta_bancaria_id=conta.id if conta else None,
-            data_movimento=data_movimento,
-            banco=conta.banco if conta else None,
-            historico=descricao[:255],
-            origem="manual",
-            valor=valor if tipo == "receita" else -valor,
-            valor_conciliado=Decimal("0"),
-            conciliado=False,
-            tipo_pagamento="manual",
-            categoria=categoria,
+            empresa_id=empresa_id, conta_bancaria_id=conta.id if conta else None,
+            data_movimento=data_movimento, banco=conta.banco if conta else None,
+            historico=descricao[:255], origem="manual", valor=valor if tipo == "receita" else -valor,
+            valor_conciliado=Decimal("0"), conciliado=False, tipo_pagamento="manual", categoria=categoria,
             categoria_principal="Receitas" if tipo == "receita" else "Despesas",
-            subcategoria=categorias_validas.get(categoria),
-            score_classificacao=100,
-            classificacao_automatica=False,
-            classificacao_manual=True,
-            origem_classificacao="manual",
-            regra_utilizada="lancamento_manual",
-            observacoes="Lançamento digitado manualmente no NousCard.",
+            subcategoria=categorias_validas.get(categoria), score_classificacao=100,
+            classificacao_automatica=False, classificacao_manual=True, origem_classificacao="manual",
+            regra_utilizada="lancamento_manual", observacoes="Lançamento digitado manualmente no NousCard.",
         )
 
         try:
@@ -241,12 +210,8 @@ def novo():
         return redirect(url_for("lancamentos.novo"))
 
     return render_template(
-        "lancamento_form.html",
-        usuario=usuario,
-        empresa_nome=getattr(getattr(usuario, "empresa", None), "nome", ""),
-        contas=contas,
-        categorias_receita=CATEGORIAS_RECEITA,
-        categorias_despesa=CATEGORIAS_DESPESA,
-        hoje=datetime.now().date().isoformat(),
-        csrf_token=session.get("csrf_token", ""),
+        "lancamento_form.html", usuario=usuario,
+        empresa_nome=getattr(getattr(usuario, "empresa", None), "nome", ""), contas=contas,
+        categorias_receita=CATEGORIAS_RECEITA, categorias_despesa=CATEGORIAS_DESPESA,
+        hoje=datetime.now().date().isoformat(), csrf_token=session.get("csrf_token", ""),
     )
